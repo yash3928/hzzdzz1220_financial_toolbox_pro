@@ -1,27 +1,289 @@
-<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Financial Toolbox Pro</title><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>
-:root{--bg:#f4f7fb;--card:#fff;--text:#172033;--muted:#667085;--brand:#1d4ed8;--brand2:#0f766e;--danger:#dc2626;--good:#16a34a;--border:#e5e7eb;--shadow:0 10px 30px rgba(15,23,42,.08)}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",Arial,sans-serif}header{background:linear-gradient(135deg,#1d4ed8,#0f766e);color:#fff;padding:28px 18px 36px}.wrap,main{max-width:1160px;margin:0 auto}h1{margin:0;font-size:28px}.sub{margin-top:8px;opacity:.92}main{margin-top:-22px;padding:0 14px 40px}.card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:18px;margin-bottom:16px}label{display:block;font-weight:800;margin:10px 0 7px}input,select,button{font:inherit}input,select{width:100%;padding:12px;border:1px solid #cfd6e4;border-radius:12px;background:#fff}button{border:0;border-radius:12px;padding:12px 16px;font-weight:900;cursor:pointer}.primary{background:var(--brand);color:#fff}.ghost{background:#eef2ff;color:#1e40af}.row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;align-items:end}.hint{color:var(--muted);font-size:13px;line-height:1.5}.status{padding:12px;border-radius:12px;margin-top:12px;background:#f8fafc;border:1px dashed #cbd5e1;white-space:pre-line}.err{color:var(--danger)}.ok{color:var(--good)}.hidden{display:none!important}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.kpi{background:#f8fafc;border:1px solid var(--border);border-radius:16px;padding:15px}.kpi .t{font-size:13px;color:var(--muted);font-weight:800}.kpi .v{font-size:23px;font-weight:950;margin-top:7px}.pos{color:var(--good)}.neg{color:var(--danger)}.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}.chartbox{height:330px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.toolbar>*{width:auto}.mapGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}table{width:100%;border-collapse:collapse;background:white;border-radius:14px;overflow:hidden}th,td{padding:11px;border-bottom:1px solid var(--border);text-align:left;font-size:14px}th{background:#f1f5f9}.right{text-align:right}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:12px;font-weight:800}@media(max-width:860px){.row,.charts,.mapGrid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.toolbar>*{width:100%}}
-</style></head><body><header><div class="wrap"><h1>💰 Financial Toolbox Pro</h1><div class="sub">구글시트 가계부/예산표를 불러와 월별 수입·지출·저축·카테고리를 요약합니다.</div></div></header><main>
-<section class="card"><div class="row"><div><label>구글시트 URL</label><input id="sheetUrl" value="https://docs.google.com/spreadsheets/d/10Sh1km1Ts4uyHLvjTSjydkLCOy3rLEJkdQOmw2s_i1I/edit?usp=drivesdk"></div><div><label>시트 이름</label><input id="sheetName" value="예산" placeholder="예산 또는 가계부"></div><div><label>GID</label><input id="gid" value="0"></div><div><label>기준 월</label><input id="month" type="month"></div><button class="primary" onclick="loadSheet()">불러오기</button></div><p class="hint">현재 공유 시트는 기본 탭이 <b>예산</b> 형태라 날짜/금액 열 방식이 아닙니다. 이번 버전은 <b>월이 가로로 있는 예산표</b>도 자동 분석합니다. 실제 지출내역 탭을 보려면 시트 이름을 <b>가계부</b>로 바꿔 불러오세요.</p><div id="status" class="status">대기 중입니다.</div></section>
-<section id="mappingCard" class="card hidden"><h3>열 이름 매칭 확인</h3><p class="hint">거래내역형 시트일 때 사용합니다. 예산표형은 자동 분석됩니다.</p><div class="mapGrid" id="mappingGrid"></div><div style="margin-top:12px"><button class="primary" onclick="applyMappingAndRender()">이 설정으로 분석</button></div></section>
-<section id="dashboard" class="hidden"><div class="card toolbar"><select id="monthSelect" onchange="renderDashboard()"></select><button class="ghost" onclick="loadSheet()">새로고침</button><span class="hint" id="rowInfo"></span></div><div class="card kpis"><div class="kpi"><div class="t">총 수입</div><div class="v pos" id="income">0원</div></div><div class="kpi"><div class="t">총 지출</div><div class="v neg" id="expense">0원</div></div><div class="kpi"><div class="t">잔액/잉여</div><div class="v" id="balance">0원</div></div><div class="kpi"><div class="t">저축률</div><div class="v" id="saveRate">-</div></div></div><div class="charts"><div class="card"><h3>분류별 금액</h3><div class="chartbox"><canvas id="catChart"></canvas></div></div><div class="card"><h3>월별 흐름</h3><div class="chartbox"><canvas id="monthlyChart"></canvas></div></div></div><div class="card"><h3>상세 항목</h3><table id="txTable"></table></div></section></main>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Financial Toolbox Pro</title>
+  <style>
+    :root{
+      --bg:#f4f7fb;--card:#fff;--text:#172033;--muted:#667085;--line:#e6eaf0;
+      --primary:#1346d8;--primary2:#0f766e;--danger:#b42318;--warn:#b54708;--good:#067647;
+      --invest:#6f42c1;--shadow:0 10px 30px rgba(16,24,40,.08);--radius:22px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(135deg,#083a8c,#0f766e 38%,#f4f7fb 38%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",Arial,sans-serif;color:var(--text)}
+    header{padding:26px 22px 64px;color:#fff}
+    header h1{margin:0 0 8px;font-size:30px;letter-spacing:-.04em}
+    header p{margin:0;color:rgba(255,255,255,.85)}
+    main{max-width:1240px;margin:-48px auto 50px;padding:0 18px}
+    .card{background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.65);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-bottom:20px;backdrop-filter:blur(10px)}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-5{grid-column:span 5}.col-6{grid-column:span 6}.col-7{grid-column:span 7}.col-8{grid-column:span 8}.col-12{grid-column:span 12}
+    label{display:block;font-weight:800;margin:0 0 8px}
+    input,select,button{width:100%;height:48px;border:1px solid #d0d5dd;border-radius:14px;padding:0 14px;font-size:15px;background:#fff}
+    button{border:0;background:var(--primary);color:#fff;font-weight:900;cursor:pointer;box-shadow:0 8px 18px rgba(19,70,216,.22)}
+    button.secondary{background:#eef4ff;color:#1849d6;box-shadow:none}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .hint{font-size:13px;color:var(--muted);line-height:1.6;margin-top:10px}
+    .status{padding:14px 16px;border-radius:14px;border:1px solid var(--line);font-weight:800;color:#344054;background:#f8fafc}
+    .status.err{background:#fff1f3;color:#b42318;border-color:#fecdd6}
+    .status.ok{background:#ecfdf3;color:#067647;border-color:#abefc6}
+    .kpi{border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff;min-height:116px}
+    .kpi .name{font-size:13px;color:var(--muted);font-weight:800}.kpi .val{font-size:25px;font-weight:950;margin-top:10px;letter-spacing:-.04em}.kpi .sub{font-size:13px;color:var(--muted);margin-top:8px}
+    .kpi.invest{border-color:#e9d7fe;background:#faf5ff}.kpi.invest .val{color:var(--invest)}
+    .kpi.good .val{color:var(--good)}.kpi.bad .val{color:var(--danger)}
+    h2{font-size:20px;margin:0 0 14px;letter-spacing:-.03em}.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:14px;border:1px solid var(--line);background:#fff}
+    th,td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:14px;text-align:left;vertical-align:middle}
+    th{background:#f8fafc;color:#475467;font-weight:900}tr:last-child td{border-bottom:0}.num{text-align:right;font-variant-numeric:tabular-nums}.muted{color:var(--muted)}
+    .barrow{display:grid;grid-template-columns:110px 1fr 110px;gap:10px;align-items:center;margin:11px 0}
+    .bar{height:12px;background:#edf2f7;border-radius:99px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,var(--primary),#0f766e);border-radius:99px}.fill.invest{background:linear-gradient(90deg,#7a5af8,#b692f6)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}.tab{width:auto;height:40px;padding:0 14px;background:#fff;color:#344054;border:1px solid var(--line);box-shadow:none}.tab.active{background:#123fd3;color:#fff;border-color:#123fd3}
+    .pill{display:inline-flex;align-items:center;border-radius:999px;background:#f2f4f7;color:#344054;padding:6px 10px;font-size:12px;font-weight:900}
+    .invest-box{border:1px solid #e9d7fe;background:#faf5ff;border-radius:18px;padding:16px}
+    .footer{font-size:12px;color:#667085;text-align:center;margin-top:24px}
+    @media (max-width:900px){.col-3,.col-4,.col-5,.col-6,.col-7,.col-8{grid-column:span 12}header h1{font-size:25px}.kpi .val{font-size:22px}.barrow{grid-template-columns:82px 1fr 92px}main{padding:0 12px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>💰 Financial Toolbox Pro</h1>
+  <p>예산 · 가계부 · 가계부잔액 시트를 함께 읽어 월별 가계 현황을 요약합니다. 투자 항목은 별도 분리됩니다.</p>
+</header>
+<main>
+  <section class="card">
+    <div class="grid">
+      <div class="col-7">
+        <label>구글시트 URL</label>
+        <input id="sheetUrl" value="https://docs.google.com/spreadsheets/d/10Sh1km1Ts4uyHLvjTSjydkLCOy3rLEJkdQOmw2s_i1I/edit?usp=drivesdk">
+      </div>
+      <div class="col-3">
+        <label>기준 월</label>
+        <select id="monthSelect"></select>
+      </div>
+      <div class="col-2" style="display:flex;align-items:end">
+        <button id="loadBtn">불러오기</button>
+      </div>
+      <div class="col-12">
+        <div id="status" class="status">구글시트 공유 권한이 “링크가 있는 모든 사용자 - 보기 가능”이면 바로 불러올 수 있습니다.</div>
+        <div class="hint">사용 시트명: <b>예산</b>, <b>가계부</b>, <b>가계부잔액</b>. 현재 파일 구조에 맞춰 월별 블록형 가계부를 자동 분석합니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="dashboard" style="display:none">
+    <div class="section-title">
+      <h2 id="dashTitle">월간 요약</h2>
+      <span class="pill" id="recordCount">-</span>
+    </div>
+    <div class="grid" id="kpis"></div>
+  </section>
+
+  <section class="grid" id="analysis" style="display:none">
+    <div class="card col-7">
+      <div class="section-title"><h2>카테고리별 지출</h2><span class="pill">투자 제외</span></div>
+      <div id="categoryBars"></div>
+    </div>
+    <div class="card col-5">
+      <h2>결제자별 지출</h2>
+      <div id="payerBars"></div>
+    </div>
+    <div class="card col-7">
+      <h2>월별 지출 추이</h2>
+      <div id="monthlyBars"></div>
+    </div>
+    <div class="card col-5">
+      <div class="invest-box">
+        <h2>📈 투자 파트</h2>
+        <div id="investSummary"></div>
+      </div>
+    </div>
+    <div class="card col-6">
+      <h2>가계부잔액 요약</h2>
+      <div id="balanceTable"></div>
+    </div>
+    <div class="card col-6">
+      <h2>이번 달 지출 TOP 10</h2>
+      <div id="topTable"></div>
+    </div>
+  </section>
+  <div class="footer">Financial Toolbox Pro · Google Sheet 기반 개인 가계부 대시보드</div>
+</main>
+
 <script>
-const $=id=>document.getElementById(id);let rawRows=[],headers=[],rows=[],charts=[],mapping={},mode='';
-const aliases={date:['날짜','일자','거래일','사용일','Date'],amount:['금액','사용금액','지출금액','수입금액','금액원','Amount'],type:['구분','수입지출','유형','Type'],category:['카테고리','분류','항목'],memo:['내용','메모','내역','비고'],payment:['결제수단','카드','계좌','Payment']};
-function setStatus(msg,cls=''){$('status').className='status '+cls;$('status').textContent=msg}function extractId(url){let m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);return m?m[1]:url.trim()}function extractGid(url){let m=url.match(/[?&#]gid=(\d+)/);return m?m[1]:$('gid').value||'0'}
-function csvUrl(){const id=extractId($('sheetUrl').value.trim()), name=$('sheetName').value.trim(), gid=extractGid($('sheetUrl').value);$('gid').value=gid; if(name) return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`; return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;}
-function parseCSV(text){const out=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){let c=text[i],n=text[i+1];if(c==='"'){if(q&&n==='"'){cell+='"';i++}else q=!q}else if(c===','&&!q){row.push(cell);cell=''}else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell);if(row.some(x=>String(x).trim()!==''))out.push(row);row=[];cell=''}else cell+=c}row.push(cell);if(row.some(x=>String(x).trim()!==''))out.push(row);return out}
-function norm(s){return String(s||'').toLowerCase().replace(/[\s_\-()（）\[\]{}]/g,'').trim()}function parseAmount(v){let s=String(v||'').trim();if(!s)return 0;let neg=/^-|\(|△|▲|−/.test(s)||/-$/.test(s);s=s.replace(/,/g,'').replace(/[^0-9.\-]/g,'');let n=parseFloat(s);if(isNaN(n))return 0;return neg?-Math.abs(n):n}function won(n){return Math.round(n).toLocaleString('ko-KR')+'원'}function ym(d){return d.toISOString().slice(0,7)}
-function parseDate(v){let s=String(v||'').trim();if(!s)return null;s=s.replace(/[.]/g,'-').replace(/년|월/g,'-').replace(/일/g,'').replace(/\s+/g,' ');let d=new Date(s);if(!isNaN(d))return d;let m=s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);return null}
-async function loadSheet(){try{setStatus('구글시트를 불러오는 중입니다...');const res=await fetch(csvUrl());if(!res.ok)throw new Error('CSV 다운로드 실패');const text=await res.text();rawRows=parseCSV(text);if(rawRows.length<2)throw new Error('데이터가 거의 없습니다. 시트 이름/GID/공유권한을 확인하세요.');headers=rawRows[0].map((h,i)=>String(h).trim()||`빈열${i+1}`);rawRows=rawRows.slice(1);localStorage.setItem('ftp3',JSON.stringify({url:$('sheetUrl').value,name:$('sheetName').value,gid:$('gid').value})); if(detectMatrix()){mode='matrix';analyzeMatrix();setStatus(`예산표형으로 분석했습니다. 월 열 ${matrixMonthCols().length}개를 인식했습니다.`,'ok')}else{mode='ledger';makeMapping();setStatus(`거래내역형으로 불러왔습니다. 열 매칭을 확인하세요.`,'ok');if(mapping.date&&mapping.amount)applyMappingAndRender()}}catch(e){setStatus('오류: '+e.message+'\n\n시트 공유 권한을 「링크가 있는 모든 사용자 - 보기 가능」으로 하고, 시트 이름을 예산/가계부 중 실제 탭 이름으로 입력하세요.','err')}}
-function detectMatrix(){return matrixMonthCols().length>=2}function matrixMonthCols(){let arr=[];headers.forEach((h,i)=>{let s=String(h).trim();let m=s.match(/^(\d{1,2})\s*월$/); if(m)arr.push({idx:i,month:+m[1],label:s})});return arr}
-function rowLabel(r){for(let i=0;i<Math.min(4,r.length);i++){let v=String(r[i]||'').trim();if(v&&!/^\d{1,2}월$/.test(v)&&!/^\d+$/.test(v))return v}return '미분류'}
-function classify(label){let s=String(label);if(/월급|급여|상여|연말정산|수입|환급/.test(s))return '수입';if(/잉여|잔액|총액|합계|예적금총액/.test(s))return '제외';return '지출'}function catOf(label,type){let s=String(label);if(type==='수입')return '수입';if(/보험/.test(s))return '보험료';if(/고정|이자|신용카드/.test(s))return '고정비';if(/투자|청약|적금|저축|예수금|주식|ETF|코인|부모님저축/.test(s))return '저축/투자';if(/경조사/.test(s))return '경조사';if(/쇼핑/.test(s))return '쇼핑';if(/생필품/.test(s))return '생필품';if(/가족/.test(s))return '가족';return label||'기타'}
-function analyzeMatrix(){rows=[];let cols=matrixMonthCols(), year=($('month').value||'2026-01').slice(0,4); rawRows.forEach(r=>{let label=rowLabel(r), type=classify(label); if(type==='제외')return; cols.forEach(c=>{let a=Math.abs(parseAmount(r[c.idx])); if(!a)return; rows.push({date:new Date(+year,c.month-1,1),amount:a,signed:type==='수입'?a:-a,type,category:catOf(label,type),memo:label,payment:'예산표'})})}); finishRender()}
-function makeMapping(){mapping=autoMap();$('mappingGrid').innerHTML='';const labels={date:'날짜(필수)',amount:'금액(필수)',type:'수입/지출 구분',category:'카테고리',memo:'내용/메모',payment:'결제수단'};Object.keys(labels).forEach(k=>{const div=document.createElement('div');div.innerHTML=`<label>${labels[k]}</label><select id="map_${k}"><option value="">선택 안 함</option>${headers.map(h=>`<option ${mapping[k]===h?'selected':''}>${h}</option>`).join('')}</select>`;$('mappingGrid').appendChild(div)});$('mappingCard').classList.remove('hidden')}function autoMap(){let m={};const nh=headers.map(norm);for(const key in aliases){let hit=-1;for(const a of aliases[key]){hit=nh.findIndex(h=>h&& (h.includes(norm(a))||norm(a).includes(h)));if(hit>=0)break}m[key]=hit>=0?headers[hit]:''}return m}
-function applyMappingAndRender(){mapping={};['date','amount','type','category','memo','payment'].forEach(k=>mapping[k]=$('map_'+k).value);if(!mapping.date||!mapping.amount){setStatus('날짜와 금액 열은 필수입니다.','err');return}const idx=h=>headers.indexOf(h);rows=rawRows.map(r=>{let d=parseDate(r[idx(mapping.date)]),amt=parseAmount(r[idx(mapping.amount)]);let type=mapping.type?r[idx(mapping.type)]:'';let isIncome=/수입|입금|급여|월급|income/i.test(type);let isExpense=/지출|출금|사용|expense/i.test(type);if(!isIncome&&!isExpense)isExpense=amt<0;if(!isIncome&&!isExpense)isExpense=true;return{date:d,amount:Math.abs(amt),signed:isIncome?Math.abs(amt):-Math.abs(amt),type:isIncome?'수입':'지출',category:mapping.category?(r[idx(mapping.category)]||'미분류'):'미분류',memo:mapping.memo?(r[idx(mapping.memo)]||''):'',payment:mapping.payment?(r[idx(mapping.payment)]||'미지정'):'미지정'}}).filter(x=>x.date&&x.amount);finishRender()}
-function finishRender(){if(!rows.length){setStatus('분석 가능한 금액 데이터가 없습니다. 시트 이름을 예산 또는 가계부로 바꿔 다시 불러오세요.','err');return}$('mappingCard').classList.toggle('hidden',mode==='matrix');let months=[...new Set(rows.map(r=>ym(r.date)))].sort();$('monthSelect').innerHTML=months.map(m=>`<option>${m}</option>`).join('');let target=$('month').value||months[0];if(months.includes(target))$('monthSelect').value=target;else $('monthSelect').value=months[0];$('dashboard').classList.remove('hidden');renderDashboard()}
-function group(list,key){return list.reduce((a,r)=>{let k=typeof key==='function'?key(r):r[key];a[k]=(a[k]||0)+r.amount;return a},{})}function renderDashboard(){charts.forEach(c=>c.destroy());charts=[];const m=$('monthSelect').value;const list=rows.filter(r=>ym(r.date)===m);const inc=list.filter(r=>r.type==='수입').reduce((a,r)=>a+r.amount,0),exp=list.filter(r=>r.type==='지출').reduce((a,r)=>a+r.amount,0);$('income').textContent=won(inc);$('expense').textContent=won(exp);$('balance').textContent=won(inc-exp);$('balance').className='v '+(inc-exp>=0?'pos':'neg');$('saveRate').textContent=inc?Math.round((inc-exp)/inc*100)+'%':'-';$('rowInfo').textContent=`${mode==='matrix'?'예산표형':'거래내역형'} · ${m} 기준 ${list.length}건`;
-let cats=Object.entries(group(list.filter(r=>r.type==='지출'),'category')).sort((a,b)=>b[1]-a[1]);charts.push(new Chart($('catChart'),{type:'doughnut',data:{labels:cats.map(x=>x[0]),datasets:[{data:cats.map(x=>x[1])}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}}));let ms=[...new Set(rows.map(r=>ym(r.date)))].sort();let incs=ms.map(mm=>rows.filter(r=>ym(r.date)===mm&&r.type==='수입').reduce((a,r)=>a+r.amount,0));let exps=ms.map(mm=>rows.filter(r=>ym(r.date)===mm&&r.type==='지출').reduce((a,r)=>a+r.amount,0));charts.push(new Chart($('monthlyChart'),{type:'bar',data:{labels:ms,datasets:[{label:'수입',data:incs},{label:'지출',data:exps}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}}));fillTable('txTable',['구분','분류','항목','금액'],list.sort((a,b)=>b.amount-a.amount).map(r=>[`<span class="pill">${r.type}</span>`,r.category,r.memo,won(r.amount)]))}
-function fillTable(id,heads,data){$(id).innerHTML='<thead><tr>'+heads.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>'+data.map(r=>'<tr>'+r.map((c,i)=>`<td class="${i===r.length-1?'right':''}">${c}</td>`).join('')+'</tr>').join('')+'</tbody>'}
-(()=>{const saved=localStorage.getItem('ftp3');if(saved){try{let s=JSON.parse(saved);$('sheetUrl').value=s.url||$('sheetUrl').value;$('sheetName').value=s.name||'예산';$('gid').value=s.gid||'0'}catch(e){}}const now=new Date();$('month').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`})();
-</script></body></html>
+const SHEETS = {budget:'예산', ledger:'가계부', balance:'가계부잔액'};
+const months = Array.from({length:12},(_,i)=>`${i+1}월`);
+const INVEST_KEYWORDS = ['투자','주식','ETF','코인','청약','CMA','예수금','배당','미래에셋','하나머니','토스'];
+let DATA = null;
+
+function init(){
+  const sel = document.getElementById('monthSelect');
+  sel.innerHTML = months.map((m,i)=>`<option value="${m}" ${i===new Date().getMonth()?'selected':''}>2026년 ${m}</option>`).join('');
+  document.getElementById('loadBtn').addEventListener('click', loadAll);
+  sel.addEventListener('change', ()=> DATA && render());
+  const saved = localStorage.getItem('financialToolboxUrl');
+  if(saved) document.getElementById('sheetUrl').value = saved;
+}
+function setStatus(msg,type=''){const el=document.getElementById('status'); el.className='status '+type; el.textContent=msg;}
+function extractId(url){const m=String(url).match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/); return m?m[1]:String(url).trim();}
+function won(n){n=Number(n||0); return n.toLocaleString('ko-KR',{maximumFractionDigits:0})+'원';}
+function pct(n){return (isFinite(n)?n:0).toFixed(1)+'%';}
+function num(v){ if(v===null||v===undefined||v==='') return 0; if(typeof v==='number') return v; const s=String(v).replace(/[^\d.-]/g,''); return s?Number(s):0; }
+function cellText(v){return v===null||v===undefined?'':String(v).trim();}
+function isMonth(v){return /^\d{1,2}월$/.test(cellText(v));}
+function isInvest(text){return INVEST_KEYWORDS.some(k=>cellText(text).toUpperCase().includes(k.toUpperCase()));}
+async function fetchSheet(id, sheetName){
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`${sheetName} 시트를 불러오지 못했습니다.`);
+  const text = await res.text();
+  const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}')+1);
+  const json = JSON.parse(jsonText);
+  if(json.status === 'error') throw new Error(`${sheetName}: ${json.errors?.[0]?.detailed_message || '시트 접근 오류'}`);
+  const cols = json.table.cols.length;
+  return json.table.rows.map(r => Array.from({length:cols}, (_,i)=>{
+    const c = r.c[i]; return c ? (c.v ?? c.f ?? '') : '';
+  }));
+}
+async function loadAll(){
+  const btn=document.getElementById('loadBtn'); btn.disabled=true; btn.textContent='불러오는 중';
+  try{
+    const url = document.getElementById('sheetUrl').value.trim(); localStorage.setItem('financialToolboxUrl',url);
+    const id = extractId(url);
+    setStatus('예산, 가계부, 가계부잔액 시트를 불러오는 중입니다...');
+    const [budget, ledger, balance] = await Promise.all([fetchSheet(id,SHEETS.budget),fetchSheet(id,SHEETS.ledger),fetchSheet(id,SHEETS.balance)]);
+    DATA = {budget:parseBudget(budget), ledger:parseLedger(ledger), balance:parseBalance(balance), raw:{budget,ledger,balance}};
+    setStatus('불러오기 완료. 기준 월을 변경하면 자동으로 다시 요약됩니다.','ok');
+    render();
+  }catch(e){
+    console.error(e);
+    setStatus('불러오기 실패: '+e.message+' / 구글시트 공유 권한과 시트명을 확인하세요.','err');
+  }finally{btn.disabled=false; btn.textContent='불러오기';}
+}
+function parseBudget(rows){
+  const monthCols = [];
+  (rows[0]||[]).forEach((v,c)=>{if(isMonth(v)) monthCols.push({month:cellText(v), col:c});});
+  const byMonth = {};
+  monthCols.forEach(({month,col})=>{
+    const item = {income:0,fixed:0,investment:0,surplus:0,rows:[]};
+    rows.forEach((r,ri)=>{
+      const label = cellText(r[0]); if(!label) return;
+      const value = num(r[col]) + num(r[col+1]);
+      if(!value) return;
+      item.rows.push({label,value,row:ri+1});
+      if(['월급','상여','26년 비상금','연말정산','경조사'].includes(label)) item.income += value;
+      if(label === '투자') item.investment += value;
+      if(label === '잉여') item.surplus += value;
+      if(['고정','보험료','고정현금','부모님저축','이자','신용카드대금'].includes(label)) item.fixed += value;
+    });
+    const fixedTotalRow = item.rows.find(x=>x.label==='고정비');
+    if(fixedTotalRow) item.fixedTotalWithInvestment = fixedTotalRow.value;
+    byMonth[month]=item;
+  });
+  const investAssets = [];
+  rows.forEach((r,idx)=>{
+    for(let c=0;c<Math.min(r.length,8);c++){
+      const label=cellText(r[c]); const value=num(r[c+1]);
+      if(label && value && (idx>20) && isInvest(label)) investAssets.push({label,value});
+    }
+  });
+  return {byMonth, investAssets};
+}
+function parseLedger(rows){
+  const blocks=[];
+  (rows[0]||[]).forEach((v,c)=>{
+    if(isMonth(v) && cellText(rows[1]?.[c])==='분류') blocks.push({month:cellText(v), col:c});
+  });
+  const records=[];
+  blocks.forEach(({month,col})=>{
+    for(let r=2;r<rows.length;r++){
+      const cat=cellText(rows[r]?.[col]); const detail=cellText(rows[r]?.[col+1]); const amount=num(rows[r]?.[col+2]); const payer=cellText(rows[r]?.[col+3]);
+      if((cat||detail||payer) && amount){records.push({month,cat,detail,amount,payer, invest:isInvest(cat)||isInvest(detail)});}
+    }
+  });
+  return {records, blocks};
+}
+function parseBalance(rows){
+  const top=[];
+  let currentCat='';
+  for(let c=1;c<(rows[0]||[]).length;c++){
+    if(cellText(rows[0][c])) currentCat=cellText(rows[0][c]);
+    const payer=cellText(rows[1]?.[c]);
+    if(currentCat && payer) top.push({col:c,cat:currentCat,payer});
+  }
+  const entries=[];
+  for(let r=2;r<14 && r<rows.length;r++){
+    const month=cellText(rows[r]?.[0]); if(!isMonth(month)) continue;
+    top.forEach(t=>{entries.push({month,cat:t.cat,payer:t.payer,amount:num(rows[r]?.[t.col])});});
+  }
+  return {entries};
+}
+function sumBy(records, keyFn, filter=()=>true){
+  const m={}; records.filter(filter).forEach(r=>{const k=keyFn(r)||'기타'; m[k]=(m[k]||0)+r.amount;});
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+}
+function renderBars(elId, data, cls=''){
+  const max = Math.max(1,...data.map(x=>x[1]));
+  document.getElementById(elId).innerHTML = data.length ? data.map(([k,v])=>`
+    <div class="barrow"><b>${escapeHtml(k)}</b><div class="bar"><div class="fill ${cls}" style="width:${Math.max(3,v/max*100)}%"></div></div><div class="num">${won(v)}</div></div>`).join('') : '<p class="muted">데이터 없음</p>';
+}
+function renderTable(elId, headers, rows){
+  document.getElementById(elId).innerHTML = `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.length ? rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${i===r.length-1?'num':''}">${c}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}" class="muted">데이터 없음</td></tr>`
+  }</tbody></table>`;
+}
+function render(){
+  const month = document.getElementById('monthSelect').value;
+  const budget = DATA.budget.byMonth[month] || {income:0,fixed:0,investment:0,surplus:0,rows:[]};
+  const recs = DATA.ledger.records.filter(r=>r.month===month);
+  const normal = recs.filter(r=>!r.invest);
+  const investActual = recs.filter(r=>r.invest).reduce((s,r)=>s+r.amount,0);
+  const variable = normal.reduce((s,r)=>s+r.amount,0);
+  const fixed = budget.fixed || Math.max(0,(budget.fixedTotalWithInvestment||0)-(budget.investment||0));
+  const income = budget.income;
+  const investment = (budget.investment||0)+investActual;
+  const totalOut = fixed + variable + investment;
+  const remain = income - totalOut;
+  document.getElementById('dashboard').style.display='';
+  document.getElementById('analysis').style.display='';
+  document.getElementById('dashTitle').textContent = `2026년 ${month} 요약`;
+  document.getElementById('recordCount').textContent = `가계부 ${recs.length}건`;
+  document.getElementById('kpis').innerHTML = [
+    kpi('예산 수입', income, '월급/상여/비상금 등'),
+    kpi('고정 지출', fixed, '보험·고정현금·이자 등'),
+    kpi('변동 지출', variable, '가계부 입력분, 투자 제외'),
+    kpi('투자', investment, '예산 투자 + 투자성 지출', 'invest'),
+    kpi('총 지출', totalOut, '고정+변동+투자'),
+    kpi('예상 잔액', remain, `수입 - 총 지출`, remain>=0?'good':'bad'),
+    kpi('저축/투자율', income?investment/income*100:0, '투자 ÷ 수입', 'invest', true),
+    kpi('변동비 사용률', income?variable/income*100:0, '변동 지출 ÷ 수입', '', true),
+  ].join('');
+  renderBars('categoryBars', sumBy(normal, r=>r.cat).slice(0,12));
+  renderBars('payerBars', sumBy(normal, r=>r.payer).slice(0,8));
+  const monthly = months.map(m=>[m, DATA.ledger.records.filter(r=>r.month===m && !r.invest).reduce((s,r)=>s+r.amount,0)]);
+  renderBars('monthlyBars', monthly);
+  const bal = DATA.balance.entries.filter(x=>x.month===month);
+  renderTable('balanceTable',['구분','결제자','잔액/배정액'], bal.map(x=>[escapeHtml(x.cat),escapeHtml(x.payer),won(x.amount)]));
+  const tops = normal.slice().sort((a,b)=>b.amount-a.amount).slice(0,10).map(r=>[escapeHtml(r.cat),escapeHtml(r.detail),escapeHtml(r.payer),won(r.amount)]);
+  renderTable('topTable',['분류','내역','결제자','금액'],tops);
+  const investRows = [
+    ['이번 달 투자 계획', won(budget.investment||0)],
+    ['가계부 투자성 지출', won(investActual)],
+    ['투자 합계', won(investment)],
+    ['수입 대비 투자율', pct(income?investment/income*100:0)]
+  ];
+  const assets = DATA.budget.investAssets.slice(0,8).map(x=>[escapeHtml(x.label),won(x.value)]);
+  document.getElementById('investSummary').innerHTML = `
+    ${investRows.map(r=>`<div class="barrow"><b>${r[0]}</b><div class="bar"><div class="fill invest" style="width:${r[0]==='투자 합계'?100:55}%"></div></div><div class="num">${r[1]}</div></div>`).join('')}
+    <h2 style="font-size:16px;margin-top:18px">투자/자산 참고</h2>
+    ${assets.length?`<table><tbody>${assets.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">투자 자산 데이터 없음</p>'}
+  `;
+}
+function kpi(name, value, sub, cls='', isPercent=false){
+  return `<div class="kpi col-3 ${cls}"><div class="name">${name}</div><div class="val">${isPercent?pct(value):won(value)}</div><div class="sub">${sub}</div></div>`;
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+init();
+</script>
+</body>
+</html>
