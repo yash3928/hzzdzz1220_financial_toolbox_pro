@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>가계부 요약 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #2563eb;
+      --danger: #dc2626;
+      --good: #059669;
+      --warn: #d97706;
+      --shadow: 0 10px 25px rgba(17, 24, 39, .08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 22px 18px 14px;
+      background: linear-gradient(135deg, #1d4ed8, #60a5fa);
+      color: white;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    .sub { opacity: .9; font-size: 14px; }
+    main { padding: 18px; }
+    .setup, .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(229, 231, 235, .8);
+    }
+    .setup { padding: 18px; margin-bottom: 16px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 6px; }
+    input, select, button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 13px;
+      font-size: 15px;
+      background: white;
+    }
+    button {
+      cursor: pointer;
+      border: 0;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      margin-top: 12px;
+    }
+    button.secondary { background: #111827; }
+    .grid { display: grid; gap: 14px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .card { padding: 16px; }
+    .kpi-title { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+    .kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
+    .income { color: var(--good); }
+    .expense { color: var(--danger); }
+    .balance { color: var(--primary); }
+    .saving { color: var(--warn); }
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin: 4px 0 12px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 11px 8px; border-bottom: 1px solid var(--line); font-size: 14px; text-align: left; }
+    th { color: var(--muted); font-size: 12px; }
+    .right { text-align: right; }
+    .muted { color: var(--muted); }
+    .notice {
+      padding: 12px;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-top: 12px;
+    }
+    .error {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+    .hidden { display: none; }
+    canvas { max-height: 320px; }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    @media (max-width: 820px) {
+      .grid-4, .grid-2, .toolbar { grid-template-columns: 1fr; }
+      h1 { font-size: 22px; }
+      .kpi-value { font-size: 23px; }
+      main, header { padding-left: 14px; padding-right: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>가계부 요약 대시보드</h1>
+      <div class="sub">Google Sheet 데이터를 불러와 월별 수입·지출·카테고리를 간편하게 요약합니다.</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="setup" id="setupBox">
+      <div class="section-title">시트 연결</div>
+      <label>구글시트 공유 링크</label>
+      <input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit" />
+      <label>시트 이름</label>
+      <input id="sheetName" placeholder="예: 가계부, Sheet1, 2026" value="Sheet1" />
+      <button onclick="loadSheet()">불러오기</button>
+      <button class="secondary" onclick="loadSample()">샘플 데이터로 보기</button>
+      <div class="notice">
+        구글시트는 <b>링크가 있는 모든 사용자 - 보기 가능</b>으로 공유되어야 합니다.<br>
+        권장 열 이름: 날짜, 구분, 카테고리, 내용, 금액, 결제수단, 비고<br>
+        ※ 열 이름이 조금 달라도 자동으로 최대한 인식합니다.
+      </div>
+    </section>
+
+    <section class="toolbar hidden" id="toolbar">
+      <select id="yearSelect" onchange="renderDashboard()"></select>
+      <select id="monthSelect" onchange="renderDashboard()"></select>
+      <select id="typeFilter" onchange="renderDashboard()">
+        <option value="all">전체</option>
+        <option value="income">수입만</option>
+        <option value="expense">지출만</option>
+      </select>
+    </section>
+
+    <section class="grid grid-4 hidden" id="kpis">
+      <div class="card"><div class="kpi-title">총 수입</div><div class="kpi-value income" id="incomeKpi">0원</div></div>
+      <div class="card"><div class="kpi-title">총 지출</div><div class="kpi-value expense" id="expenseKpi">0원</div></div>
+      <div class="card"><div class="kpi-title">잔액</div><div class="kpi-value balance" id="balanceKpi">0원</div></div>
+      <div class="card"><div class="kpi-title">저축률</div><div class="kpi-value saving" id="savingKpi">0%</div></div>
+    </section>
+
+    <section class="grid grid-2 hidden" id="charts" style="margin-top:14px;">
+      <div class="card">
+        <div class="section-title">카테고리별 지출</div>
+        <canvas id="categoryChart"></canvas>
+      </div>
+      <div class="card">
+        <div class="section-title">일자별 지출 추이</div>
+        <canvas id="dailyChart"></canvas>
+      </div>
+    </section>
+
+    <section class="grid grid-2 hidden" id="tables" style="margin-top:14px;">
+      <div class="card">
+        <div class="section-title">결제수단별 지출</div>
+        <table id="paymentTable"></table>
+      </div>
+      <div class="card">
+        <div class="section-title">지출 TOP 10</div>
+        <table id="topTable"></table>
+      </div>
+    </section>
+
+    <section class="card hidden" id="aiBox" style="margin-top:14px;">
+      <div class="section-title">자동 분석</div>
+      <div id="insights" class="small"></div>
+    </section>
+
+    <section id="message"></section>
+  </main>
+
+<script>
+let rawRows = [];
+let normalizedRows = [];
+let categoryChart, dailyChart;
+
+const aliases = {
+  date: ['날짜','일자','사용일','거래일','date'],
+  type: ['구분','수입지출','분류','type'],
+  category: ['카테고리','항목','분류명','category'],
+  memo: ['내용','내역','상세','메모','적요','memo'],
+  amount: ['금액','금액(원)','사용금액','수입','지출','amount'],
+  payment: ['결제수단','카드','계좌','수단','payment'],
+  note: ['비고','메모2','note']
+};
+
+function money(n) {
+  return Math.round(n || 0).toLocaleString('ko-KR') + '원';
+}
+
+function parseMoney(v) {
+  if (typeof v === 'number') return v;
+  const s = String(v || '').replace(/,/g, '').replace(/원/g, '').trim();
+  const n = Number(s);
+  return isNaN(n) ? 0 : n;
+}
+
+function parseDate(v) {
+  if (v instanceof Date) return v;
+  const s = String(v || '').trim();
+  if (!s) return null;
+  const normalized = s.replace(/\./g, '-').replace(/\//g, '-').replace(/년|월/g, '-').replace(/일/g, '');
+  const d = new Date(normalized);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function findColumn(headers, key) {
+  const list = aliases[key];
+  return headers.findIndex(h => list.some(a => String(h).trim().toLowerCase() === a.toLowerCase()));
+}
+
+function getSheetId(url) {
+  const match = String(url).match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : String(url).trim();
+}
+
+function showMessage(text, isError=false) {
+  document.getElementById('message').innerHTML = `<div class="notice ${isError ? 'error' : ''}">${text}</div>`;
+}
+
+async function loadSheet() {
+  const url = document.getElementById('sheetUrl').value.trim();
+  const sheetName = document.getElementById('sheetName').value.trim() || 'Sheet1';
+  if (!url) return showMessage('구글시트 공유 링크를 입력해주세요.', true);
+
+  const id = getSheetId(url);
+  const queryUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  showMessage('시트 데이터를 불러오는 중입니다...');
+
+  try {
+    const res = await fetch(queryUrl);
+    const text = await res.text();
+    const json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+    const cols = json.table.cols.map(c => c.label || c.id);
+    const rows = json.table.rows.map(r => r.c.map(c => c ? (c.f || c.v) : ''));
+    rawRows = [cols, ...rows];
+    processRows();
+  } catch (e) {
+    showMessage('불러오기에 실패했습니다. 구글시트 공유 권한이 “링크가 있는 모든 사용자 - 보기 가능”인지, 시트 이름이 정확한지 확인해주세요.', true);
+  }
+}
+
+function loadSample() {
+  rawRows = [
+    ['날짜','구분','카테고리','내용','금액','결제수단','비고'],
+    ['2026-07-01','수입','월급','급여','3200000','계좌',''],
+    ['2026-07-01','지출','식비','점심','12000','신한카드',''],
+    ['2026-07-02','지출','교통','주유','65000','현대카드',''],
+    ['2026-07-03','지출','생활','마트','93000','신한카드',''],
+    ['2026-07-04','지출','카페','커피','9500','현금',''],
+    ['2026-07-05','지출','고정비','관리비','240000','계좌',''],
+    ['2026-07-06','지출','쇼핑','의류','85000','현대카드',''],
+    ['2026-06-01','수입','월급','급여','3200000','계좌',''],
+    ['2026-06-03','지출','식비','외식','53000','신한카드','']
+  ];
+  processRows();
+}
+
+function processRows() {
+  const headers = rawRows[0].map(h => String(h).trim());
+  const idx = {
+    date: findColumn(headers, 'date'),
+    type: findColumn(headers, 'type'),
+    category: findColumn(headers, 'category'),
+    memo: findColumn(headers, 'memo'),
+    amount: findColumn(headers, 'amount'),
+    payment: findColumn(headers, 'payment'),
+    note: findColumn(headers, 'note')
+  };
+
+  if (idx.date < 0 || idx.amount < 0) {
+    showMessage('필수 열인 날짜와 금액을 찾지 못했습니다. 첫 행에 날짜, 금액 열이 있어야 합니다.', true);
+    return;
+  }
+
+  normalizedRows = rawRows.slice(1).map(row => {
+    const d = parseDate(row[idx.date]);
+    const typeText = String(idx.type >= 0 ? row[idx.type] : '').trim();
+    let amount = parseMoney(row[idx.amount]);
+    let type = /수입|입금|income/i.test(typeText) ? 'income' : 'expense';
+    if (/지출|출금|expense/i.test(typeText)) type = 'expense';
+    if (!typeText && amount < 0) { type = 'expense'; amount = Math.abs(amount); }
+    return {
+      date: d,
+      year: d ? d.getFullYear() : null,
+      month: d ? d.getMonth() + 1 : null,
+      day: d ? d.getDate() : null,
+      type,
+      category: String(idx.category >= 0 ? row[idx.category] : '미분류').trim() || '미분류',
+      memo: String(idx.memo >= 0 ? row[idx.memo] : '').trim(),
+      amount: Math.abs(amount),
+      payment: String(idx.payment >= 0 ? row[idx.payment] : '미입력').trim() || '미입력',
+      note: String(idx.note >= 0 ? row[idx.note] : '').trim()
+    };
+  }).filter(r => r.date && r.amount > 0);
+
+  if (!normalizedRows.length) {
+    showMessage('분석 가능한 데이터가 없습니다. 날짜와 금액 형식을 확인해주세요.', true);
+    return;
+  }
+
+  populateFilters();
+  document.getElementById('toolbar').classList.remove('hidden');
+  document.getElementById('kpis').classList.remove('hidden');
+  document.getElementById('charts').classList.remove('hidden');
+  document.getElementById('tables').classList.remove('hidden');
+  document.getElementById('aiBox').classList.remove('hidden');
+  showMessage('데이터를 불러왔습니다.');
+  renderDashboard();
+}
+
+function populateFilters() {
+  const years = [...new Set(normalizedRows.map(r => r.year))].sort((a,b)=>b-a);
+  const months = [...new Set(normalizedRows.map(r => r.month))].sort((a,b)=>a-b);
+  const now = new Date();
+  document.getElementById('yearSelect').innerHTML = years.map(y => `<option value="${y}">${y}년</option>`).join('');
+  document.getElementById('monthSelect').innerHTML = months.map(m => `<option value="${m}">${m}월</option>`).join('');
+  if (years.includes(now.getFullYear())) document.getElementById('yearSelect').value = now.getFullYear();
+  if (months.includes(now.getMonth()+1)) document.getElementById('monthSelect').value = now.getMonth()+1;
+}
+
+function renderDashboard() {
+  const year = Number(document.getElementById('yearSelect').value);
+  const month = Number(document.getElementById('monthSelect').value);
+  const filter = document.getElementById('typeFilter').value;
+  let rows = normalizedRows.filter(r => r.year === year && r.month === month);
+  if (filter !== 'all') rows = rows.filter(r => r.type === filter);
+
+  const income = rows.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
+  const expense = rows.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
+  const balance = income - expense;
+  const savingRate = income > 0 ? Math.round((balance / income) * 100) : 0;
+
+  document.getElementById('incomeKpi').textContent = money(income);
+  document.getElementById('expenseKpi').textContent = money(expense);
+  document.getElementById('balanceKpi').textContent = money(balance);
+  document.getElementById('savingKpi').textContent = savingRate + '%';
+
+  renderCategoryChart(rows);
+  renderDailyChart(rows, year, month);
+  renderTables(rows);
+  renderInsights(rows, income, expense, balance, savingRate, year, month);
+}
+
+function groupSum(rows, key) {
+  const map = {};
+  rows.forEach(r => map[r[key]] = (map[r[key]] || 0) + r.amount);
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]);
+}
+
+function renderCategoryChart(rows) {
+  const data = groupSum(rows.filter(r=>r.type==='expense'), 'category').slice(0, 8);
+  const ctx = document.getElementById('categoryChart');
+  if (categoryChart) categoryChart.destroy();
+  categoryChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: data.map(d=>d[0]), datasets: [{ data: data.map(d=>d[1]) }] },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+function renderDailyChart(rows, year, month) {
+  const lastDay = new Date(year, month, 0).getDate();
+  const days = Array.from({length:lastDay}, (_,i)=>i+1);
+  const sums = days.map(day => rows.filter(r=>r.type==='expense' && r.day===day).reduce((s,r)=>s+r.amount,0));
+  const ctx = document.getElementById('dailyChart');
+  if (dailyChart) dailyChart.destroy();
+  dailyChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: days.map(d=>d+'일'), datasets: [{ label: '지출', data: sums, tension: .25 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => Number(v).toLocaleString('ko-KR') } } } }
+  });
+}
+
+function renderTables(rows) {
+  const payments = groupSum(rows.filter(r=>r.type==='expense'), 'payment');
+  document.getElementById('paymentTable').innerHTML = '<tr><th>결제수단</th><th class="right">금액</th></tr>' +
+    payments.map(([k,v]) => `<tr><td>${k}</td><td class="right">${money(v)}</td></tr>`).join('');
+
+  const top = rows.filter(r=>r.type==='expense').sort((a,b)=>b.amount-a.amount).slice(0,10);
+  document.getElementById('topTable').innerHTML = '<tr><th>날짜</th><th>내용</th><th class="right">금액</th></tr>' +
+    top.map(r => `<tr><td>${r.month}/${r.day}</td><td>${r.category} ${r.memo ? '- ' + r.memo : ''}</td><td class="right">${money(r.amount)}</td></tr>`).join('');
+}
+
+function renderInsights(rows, income, expense, balance, savingRate, year, month) {
+  const expenses = rows.filter(r=>r.type==='expense');
+  const cat = groupSum(expenses, 'category')[0];
+  const pay = groupSum(expenses, 'payment')[0];
+  const avg = expenses.length ? Math.round(expense / expenses.length) : 0;
+  const messages = [];
+  messages.push(`${year}년 ${month}월 총 지출은 ${money(expense)}입니다.`);
+  if (cat) messages.push(`가장 많이 사용한 카테고리는 ${cat[0]}이며, ${money(cat[1])} 사용했습니다.`);
+  if (pay) messages.push(`가장 많이 사용한 결제수단은 ${pay[0]}입니다.`);
+  if (income > 0) messages.push(`현재 저축률은 ${savingRate}%입니다.`);
+  if (balance < 0) messages.push('수입보다 지출이 많아 예산 초과 상태입니다.');
+  if (avg > 0) messages.push(`지출 1건당 평균 금액은 ${money(avg)}입니다.`);
+  document.getElementById('insights').innerHTML = messages.map(m => `• ${m}`).join('<br>');
+}
+</script>
+</body>
+</html>
