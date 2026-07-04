@@ -1,364 +1,199 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Financial Toolbox Pro</title>
-<style>
-  :root{
-    --bg:#f6f7fb;--card:#fff;--ink:#151923;--muted:#697386;--line:#e6e8ef;
-    --blue:#2563eb;--green:#059669;--red:#dc2626;--amber:#d97706;--purple:#7c3aed;
-    --shadow:0 10px 28px rgba(15,23,42,.08);--r:18px;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",Arial,sans-serif}
-  .wrap{max-width:1180px;margin:0 auto;padding:18px}
-  header{display:flex;gap:14px;align-items:center;justify-content:space-between;margin:10px 0 18px}
-  .brand h1{margin:0;font-size:25px;letter-spacing:-.4px}
-  .brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
-  .badge{display:inline-flex;align-items:center;gap:6px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:8px 10px;border-radius:999px;font-size:12px;font-weight:700}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
-  .controls{display:grid;grid-template-columns:1.8fr .7fr .7fr auto;gap:10px;align-items:end}
-  label{font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px}
-  input,select,button{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 12px;font-size:14px;background:#fff;color:var(--ink)}
-  button{background:var(--blue);color:white;font-weight:800;border:0;cursor:pointer;white-space:nowrap}
-  button.secondary{background:#111827}
-  .status{margin-top:10px;font-size:13px;color:var(--muted);line-height:1.45}
-  .status.err{color:var(--red);font-weight:700}
-  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px}
-  .tab{width:auto;padding:10px 13px;border-radius:999px;background:#fff;color:#334155;border:1px solid var(--line);font-weight:800}
-  .tab.active{background:#111827;color:#fff}
-  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
-  .kpi .t{color:var(--muted);font-weight:800;font-size:12px;margin-bottom:8px}
-  .kpi .v{font-size:24px;font-weight:900;letter-spacing:-.5px}
-  .kpi .s{font-size:12px;color:var(--muted);margin-top:7px}
-  .v.green{color:var(--green)} .v.red{color:var(--red)} .v.purple{color:var(--purple)}
-  h2{font-size:18px;margin:0 0 12px;letter-spacing:-.3px}
-  .split{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;vertical-align:middle}
-  th{font-size:12px;color:var(--muted);background:#fafafa;position:sticky;top:0}
-  td.num{text-align:right;font-variant-numeric:tabular-nums}
-  .barrow{display:grid;grid-template-columns:96px 1fr 92px;gap:10px;align-items:center;margin:10px 0}
-  .barname{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bartrack{height:12px;background:#eef2f7;border-radius:999px;overflow:hidden}
-  .barfill{height:100%;background:linear-gradient(90deg,var(--blue),#60a5fa);border-radius:999px}
-  .barfill.inv{background:linear-gradient(90deg,var(--purple),#a78bfa)}
-  .barfill.red{background:linear-gradient(90deg,var(--red),#fca5a5)}
-  .barval{text-align:right;font-size:12px;color:var(--muted);font-weight:800}
-  .pill{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;background:#f1f5f9;color:#334155}
-  .pill.inv{background:#f3e8ff;color:#6d28d9}
-  .pill.good{background:#dcfce7;color:#166534}.pill.bad{background:#fee2e2;color:#991b1b}
-  .recent{max-height:520px;overflow:auto}
-  .note{font-size:12px;color:var(--muted);line-height:1.45}
-  details{font-size:12px;color:var(--muted)}
-  summary{cursor:pointer;font-weight:800}
-  @media(max-width:850px){
-    .controls,.grid4,.grid3,.split{grid-template-columns:1fr}
-    header{display:block}.badge{margin-top:10px}
-    .kpi .v{font-size:22px}.wrap{padding:12px}.barrow{grid-template-columns:80px 1fr 80px}
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Financial Toolbox Pro</title>
+  <style>
+    :root{--bg:#f4f7fb;--card:#fff;--ink:#172033;--muted:#697386;--blue:#1648c7;--green:#0f7b52;--purple:#6d28d9;--red:#b42318;--line:#e6eaf2}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(135deg,#052e2b,#0f2f6b 40%,#f4f7fb 40%);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+    header{color:white;padding:28px 20px 18px;max-width:1180px;margin:auto} h1{margin:0;font-size:30px} header p{margin:8px 0 0;color:#d8e8ff}
+    main{max-width:1180px;margin:0 auto 60px;padding:0 18px}
+    .panel,.card{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:24px;box-shadow:0 14px 40px rgba(15,23,42,.10)}
+    .panel{padding:20px;margin-bottom:18px}
+    .controls{display:grid;grid-template-columns:1fr 170px 140px;gap:12px;align-items:end}
+    label{display:block;font-weight:800;margin:0 0 8px}.input,select,button{width:100%;border:1px solid #d8deea;border-radius:14px;padding:14px 14px;font-size:16px;background:white}
+    button{background:var(--blue);color:white;font-weight:900;border:0;cursor:pointer}.hint{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.45}
+    .status{margin-top:12px;padding:12px 14px;border-radius:14px;background:#eef4ff;color:#153e91}.status.err{background:#fff0f0;color:#9b1c1c}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0}.card{padding:20px;min-height:130px}.card h3{margin:0 0 14px;font-size:15px;color:#334155}.value{font-size:30px;font-weight:950;letter-spacing:-1px}.sub{color:var(--muted);font-size:13px;margin-top:8px}.green{color:var(--green)}.purple{color:var(--purple)}.red{color:var(--red)}
+    .section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.wide{grid-column:1/-1}.list{display:flex;flex-direction:column;gap:10px}.row{display:grid;grid-template-columns:110px 1fr 110px;gap:12px;align-items:center;font-size:15px}.bar{height:12px;border-radius:999px;background:#e9eef7;overflow:hidden}.bar>i{display:block;height:100%;background:linear-gradient(90deg,#1d4ed8,#7c3aed);border-radius:999px}.table{width:100%;border-collapse:collapse;font-size:14px}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left}.table th{color:#475569;background:#f8fafc}.right{text-align:right!important}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.tab{width:auto;padding:10px 14px;border-radius:999px;background:white;color:#1e293b;border:1px solid var(--line)}.tab.active{background:#0f2f6b;color:white}
+    .hidden{display:none}.footer{color:#64748b;font-size:12px;text-align:center;margin-top:20px}
+    @media(max-width:860px){.controls,.grid,.section{grid-template-columns:1fr}.row{grid-template-columns:85px 1fr 90px}body{background:linear-gradient(135deg,#052e2b,#0f2f6b 22%,#f4f7fb 22%)}}
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="brand">
-      <h1>💰 Financial Toolbox Pro</h1>
-      <p>예산 · 가계부 · 가계부잔액 시트를 실제 구조대로 읽어 월별 요약합니다. 투자 파트는 별도 분리됩니다.</p>
-    </div>
-    <div class="badge">v5 · 26년 예산 전용 구조</div>
-  </header>
-
+<header>
+  <h1>💰 Financial Toolbox Pro</h1>
+  <p>예산 · 가계부 · 가계부잔액 시트를 자동 집계하고, 투자 파트는 별도로 분류합니다.</p>
+</header>
+<main>
   <section class="panel">
     <div class="controls">
       <div>
-        <label>구글시트 URL</label>
-        <input id="sheetUrl" value="https://docs.google.com/spreadsheets/d/10Sh1km1Ts4uyHLvjTSjydkLCOy3rLEJkdQOmw2s_i1I/edit?usp=drivesdk">
+        <label>Apps Script 웹앱 URL</label>
+        <input id="apiUrl" class="input" placeholder="https://script.google.com/macros/s/.../exec">
       </div>
       <div>
         <label>기준 월</label>
-        <select id="monthSelect"></select>
+        <select id="month"></select>
       </div>
-      <div>
-        <label>투자 분리 기준</label>
-        <select id="investMode">
-          <option value="strict">투자/주식/ETF/코인 등만</option>
-          <option value="wide">청약/적금/CMA까지 포함</option>
-        </select>
-      </div>
-      <button id="loadBtn">불러오기</button>
+      <button onclick="loadData()">불러오기</button>
     </div>
-    <div id="status" class="status">시트 공유 권한은 “링크가 있는 모든 사용자 - 보기 가능”이어야 합니다.</div>
+    <div class="hint">처음 1회는 Apps Script 배포 URL을 붙여넣고 불러오세요. URL은 브라우저에 저장됩니다.</div>
+    <div id="status" class="status">Apps Script 웹앱 URL을 입력한 뒤 불러오기를 누르세요.</div>
+    <div class="tabs">
+      <button class="tab active" data-view="dashboard" onclick="setView('dashboard')">대시보드</button>
+      <button class="tab" data-view="investment" onclick="setView('investment')">투자</button>
+      <button class="tab" data-view="ledger" onclick="setView('ledger')">가계부 내역</button>
+    </div>
   </section>
 
-  <div class="tabs">
-    <button class="tab active" data-view="dashboard">대시보드</button>
-    <button class="tab" data-view="expense">지출분석</button>
-    <button class="tab" data-view="investment">투자</button>
-    <button class="tab" data-view="balance">잔액</button>
-    <button class="tab" data-view="raw">확인</button>
+  <div id="dashboardView">
+    <section class="grid">
+      <div class="card"><h3>예산 수입</h3><div id="income" class="value">0원</div><div class="sub">월급/상여/비상금 등</div></div>
+      <div class="card"><h3>고정 지출</h3><div id="fixed" class="value">0원</div><div class="sub">보험·고정현금·이자 등</div></div>
+      <div class="card"><h3>변동 지출</h3><div id="variable" class="value">0원</div><div class="sub">가계부 입력분, 투자 제외</div></div>
+      <div class="card"><h3>투자</h3><div id="invest" class="value purple">0원</div><div class="sub">예산 투자 + 투자성 지출</div></div>
+      <div class="card"><h3>총 지출</h3><div id="totalExpense" class="value">0원</div><div class="sub">고정+변동+투자</div></div>
+      <div class="card"><h3>예상 잔액</h3><div id="remain" class="value green">0원</div><div class="sub">수입 - 총 지출</div></div>
+      <div class="card"><h3>저축/투자율</h3><div id="savingRate" class="value purple">0.0%</div><div class="sub">투자 ÷ 수입</div></div>
+      <div class="card"><h3>변동비 사용률</h3><div id="variableRate" class="value">0.0%</div><div class="sub">변동 지출 ÷ 수입</div></div>
+    </section>
+
+    <section class="section">
+      <div class="card"><h2>카테고리별 지출 <small class="sub">투자 제외</small></h2><div id="categoryList" class="list"></div></div>
+      <div class="card"><h2>결제자별 지출</h2><div id="payerList" class="list"></div></div>
+      <div class="card wide"><h2>월별 지출 추이</h2><div id="monthlyList" class="list"></div></div>
+      <div class="card wide"><h2>가계부잔액 시트 요약</h2><div id="balanceList" class="list"></div></div>
+    </section>
   </div>
 
-  <main id="app"></main>
-</div>
+  <div id="investmentView" class="hidden">
+    <section class="grid">
+      <div class="card"><h3>이번 달 투자 계획</h3><div id="invBudget" class="value purple">0원</div><div class="sub">예산 시트 투자 행 기준</div></div>
+      <div class="card"><h3>투자성 지출</h3><div id="invLedger" class="value purple">0원</div><div class="sub">가계부 투자/주식/ETF 등</div></div>
+      <div class="card"><h3>투자 합계</h3><div id="invTotal" class="value purple">0원</div><div class="sub">계획 + 실제 투자성 지출</div></div>
+      <div class="card"><h3>투자율</h3><div id="invRate" class="value purple">0.0%</div><div class="sub">투자 합계 ÷ 수입</div></div>
+    </section>
+    <section class="section">
+      <div class="card"><h2>투자 분류</h2><div id="investmentCategoryList" class="list"></div></div>
+      <div class="card"><h2>투자 월별 추이</h2><div id="investmentMonthlyList" class="list"></div></div>
+    </section>
+  </div>
 
+  <div id="ledgerView" class="hidden">
+    <section class="card">
+      <h2>이번 달 가계부 내역</h2>
+      <table class="table"><thead><tr><th>분류</th><th>내역</th><th>결제자</th><th class="right">금액</th><th>투자</th></tr></thead><tbody id="entryRows"></tbody></table>
+    </section>
+  </div>
+
+  <div class="footer">Financial Toolbox Pro v5 · Google Apps Script 연동형</div>
+</main>
 <script>
-const SHEETS = {budget:'예산', ledger:'가계부', balance:'가계부잔액'};
-const MONTHS = Array.from({length:12},(_,i)=>`${i+1}월`);
-let DATA = null, currentView='dashboard';
+let DATA = null, currentView = 'dashboard';
+const $ = id => document.getElementById(id);
+const fmt = n => (Math.round(Number(n)||0)).toLocaleString('ko-KR') + '원';
+const pct = n => ((Number(n)||0)*100).toFixed(1) + '%';
 
-const fmt = n => (Number(n)||0).toLocaleString('ko-KR')+'원';
-const pct = n => isFinite(n) ? (n*100).toFixed(1)+'%' : '-';
-const num = v => {
-  if(v==null || v==='') return 0;
-  if(typeof v==='number') return v;
-  const s = String(v).replace(/[,\s원]/g,'');
-  const x = Number(s);
-  return isNaN(x)?0:x;
-};
-const clean = v => (v==null?'':String(v).trim());
-const esc = s => clean(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-function getId(url){
-  const m = String(url).match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  return m ? m[1] : String(url).trim();
-}
-function setStatus(msg, err=false){
-  const el=document.getElementById('status'); el.textContent=msg; el.className='status'+(err?' err':'');
-}
-function parseGviz(text){
-  const start=text.indexOf('{'), end=text.lastIndexOf('}');
-  if(start<0||end<0) throw new Error('구글시트 응답을 해석하지 못했습니다.');
-  const json=JSON.parse(text.slice(start,end+1));
-  const rows=json.table.rows||[];
-  const maxC=(json.table.cols||[]).length;
-  return rows.map(r=>Array.from({length:maxC},(_,i)=>{
-    const c=r.c&&r.c[i]; if(!c) return null;
-    return c.f && typeof c.v==='number' ? c.v : c.v;
-  }));
-}
-async function fetchSheet(id, sheet){
-  const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheet)}&t=${Date.now()}`;
-  const res=await fetch(url);
-  if(!res.ok) throw new Error(`${sheet} 시트를 불러오지 못했습니다. 공유 권한을 확인하세요.`);
-  return parseGviz(await res.text());
+(function init(){
+  const saved = localStorage.getItem('ftp_api_url');
+  if(saved) $('apiUrl').value = saved;
+  for(let i=1;i<=12;i++){ const op=document.createElement('option'); op.value=i+'월'; op.textContent=i+'월'; $('month').appendChild(op); }
+  const now = new Date(); $('month').value = (now.getMonth()+1)+'월';
+})();
+
+function setStatus(msg, err=false){ $('status').textContent = msg; $('status').className = 'status' + (err?' err':''); }
+function setView(view){
+  currentView = view;
+  ['dashboard','investment','ledger'].forEach(v => {
+    $(v+'View').classList.toggle('hidden', v!==view);
+    document.querySelector(`[data-view="${v}"]`).classList.toggle('active', v===view);
+  });
 }
 
-function parseLedger(rows){
-  const tx=[], blocks=[];
-  if(!rows.length) return {tx,blocks};
-  const maxC=Math.max(...rows.map(r=>r.length));
-  for(let c=0;c<maxC;c+=4){
-    let month=clean(rows[0]?.[c]);
-    const h0=clean(rows[1]?.[c]), h1=clean(rows[1]?.[c+1]), h2=clean(rows[1]?.[c+2]), h3=clean(rows[1]?.[c+3]);
-    if(!month && h0==='분류') month = `${Math.floor(c/4)+1}월`;
-    if(!/^\d+월$/.test(month) && h0!=='분류') continue;
-    blocks.push({month,col:c,headers:[h0,h1,h2,h3]});
-    for(let r=2;r<rows.length;r++){
-      const category=clean(rows[r]?.[c]);
-      const item=clean(rows[r]?.[c+1]);
-      const amount=num(rows[r]?.[c+2]);
-      const payer=clean(rows[r]?.[c+3]);
-      if(!category && !item && !amount && !payer) continue;
-      if(amount===0 && !category && !item) continue;
-      tx.push({month,category,item,amount,payer,row:r+1});
-    }
-  }
-  return {tx,blocks};
-}
-function parseBudget(rows){
-  const monthly={}; MONTHS.forEach(m=>monthly[m]={income:0,fixed:0,investPlan:0,surplus:0,items:{},raw:[]});
-  const rowLabel = r => clean(rows[r]?.[0]);
-  const incomeLabels=['월급','상여','연말정산'];
-  const fixedLabels=['고정','보험료','고정현금','부모님저축','청약','이자','신용카드대금','고정비','특별지출'];
-  const investLabels=['투자'];
-  for(let c=1;c<=24;c+=2){
-    const month = clean(rows[0]?.[c]) || `${Math.floor((c-1)/2)+1}월`;
-    if(!monthly[month]) continue;
-    for(let r=1;r<Math.min(rows.length,25);r++){
-      const label=rowLabel(r); if(!label) continue;
-      const v1=num(rows[r]?.[c]), v2=num(rows[r]?.[c+1]), val=v1+v2;
-      if(!val && label!=='잉여') continue;
-      monthly[month].items[label]=(monthly[month].items[label]||0)+val;
-      monthly[month].raw.push({label,val});
-      if(incomeLabels.includes(label)) monthly[month].income += val;
-      else if(investLabels.includes(label)) monthly[month].investPlan += val;
-      else if(fixedLabels.includes(label)) monthly[month].fixed += val;
-      else if(label==='잉여') monthly[month].surplus += val;
-    }
-  }
-  // 자산/투자 영역: 사용자 파일 기준 위치
-  const savings=[], investments=[], specialFunds=[];
-  for(let r=27;r<Math.min(rows.length,45);r++){
-    const acc=clean(rows[r]?.[0]), accVal=num(rows[r]?.[1])+num(rows[r]?.[2]);
-    if(acc && accVal) savings.push({name:acc,value:accVal});
-    const invName=clean(rows[r]?.[3]);
-    if(invName && invName!=='종목'){
-      investments.push({
-        name:invName,
-        dahye:num(rows[r]?.[4]),
-        principal:num(rows[r]?.[5]),
-        total:num(rows[r]?.[6]),
-        profit:num(rows[r]?.[7])
-      });
-    }
-    const fundName=clean(rows[r]?.[8]) || clean(rows[26]?.[r-19]);
-  }
-  return {monthly,savings,investments};
-}
-function parseBalance(rows){
-  const out=[];
-  for(let r=2;r<rows.length;r++){
-    const month=clean(rows[r]?.[0]); if(!/^\d+월$/.test(month)) continue;
-    out.push({
-      month,
-      foodD:num(rows[r]?.[1]), foodJ:num(rows[r]?.[2]),
-      livingD:num(rows[r]?.[3]), livingJ:num(rows[r]?.[4]),
-      emergencyD:num(rows[r]?.[5]), emergencyJ:num(rows[r]?.[6])
-    });
-  }
-  return out;
-}
-function isInvestment(t, mode){
-  const key=(t.category+' '+t.item).toLowerCase();
-  const strict=['투자','주식','etf','코인','배당','예수금','미래에셋','isa','연금','s&p','qqq'];
-  const wide=[...strict,'청약','적금','cma','하나머니','토스'];
-  return (mode==='wide'?wide:strict).some(k=>key.includes(k.toLowerCase()));
-}
-function sumBy(arr, fn){
-  const m={}; arr.forEach(x=>{const k=fn(x)||'미분류'; m[k]=(m[k]||0)+(Number(x.amount)||0);}); return m;
-}
-function topEntries(obj, n=10){return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n);}
-function renderBars(obj, cls=''){
-  const entries=topEntries(obj,10), max=Math.max(1,...entries.map(e=>e[1]));
-  if(!entries.length) return '<p class="note">데이터가 없습니다.</p>';
-  return entries.map(([k,v])=>`<div class="barrow"><div class="barname">${esc(k)}</div><div class="bartrack"><div class="barfill ${cls}" style="width:${Math.max(3,v/max*100)}%"></div></div><div class="barval">${fmt(v)}</div></div>`).join('');
-}
-function table(rows, headers){
-  return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+function loadData(){
+  const url = $('apiUrl').value.trim();
+  if(!url) return setStatus('Apps Script 웹앱 URL을 입력하세요.', true);
+  localStorage.setItem('ftp_api_url', url);
+  setStatus('데이터를 불러오는 중입니다...');
+  const cb = 'ftpCallback_' + Date.now();
+  window[cb] = function(res){
+    try{
+      if(!res.ok) throw new Error(res.message || '데이터 불러오기 실패');
+      DATA = res.data;
+      render();
+      setStatus(`${DATA.spreadsheetName || '구글시트'} 데이터 불러오기 완료 · ${res.generatedAt || ''}`);
+    }catch(e){ setStatus(e.message, true); }
+    finally{ delete window[cb]; script.remove(); }
+  };
+  const script = document.createElement('script');
+  script.onerror = () => setStatus('Apps Script URL을 불러오지 못했습니다. 웹앱 배포 권한을 확인하세요.', true);
+  script.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
+  document.body.appendChild(script);
 }
 
-function dashboard(){
-  const m=document.getElementById('monthSelect').value;
-  const mode=document.getElementById('investMode').value;
-  const tx=DATA.ledger.tx.filter(x=>x.month===m);
-  const invTx=tx.filter(x=>isInvestment(x,mode));
-  const normalTx=tx.filter(x=>!isInvestment(x,mode));
-  const spent=normalTx.reduce((s,x)=>s+x.amount,0);
-  const invSpent=invTx.reduce((s,x)=>s+x.amount,0);
-  const b=DATA.budget.monthly[m]||{income:0,fixed:0,investPlan:0,surplus:0};
-  const totalPlanOut=b.fixed+b.investPlan;
-  const estimatedRemain=b.income - b.fixed - spent - invSpent;
-  const cat=sumBy(normalTx,x=>x.category);
-  const payer=sumBy(normalTx,x=>x.payer);
-  const monthlySpent=MONTHS.map(mm=>DATA.ledger.tx.filter(x=>x.month===mm && !isInvestment(x,mode)).reduce((s,x)=>s+x.amount,0));
-  const maxMonth=Math.max(1,...monthlySpent);
-  document.getElementById('app').innerHTML=`
-    <section class="grid4">
-      <div class="kpi"><div class="t">${m} 예산상 수입</div><div class="v green">${fmt(b.income)}</div><div class="s">예산 시트 월급/상여/연말정산 합계</div></div>
-      <div class="kpi"><div class="t">${m} 일반지출</div><div class="v red">${fmt(spent)}</div><div class="s">가계부 시트, 투자 제외</div></div>
-      <div class="kpi"><div class="t">${m} 투자/분리 지출</div><div class="v purple">${fmt(invSpent + b.investPlan)}</div><div class="s">가계부 투자성 지출 + 예산 투자계획</div></div>
-      <div class="kpi"><div class="t">추정 잔액</div><div class="v ${estimatedRemain>=0?'green':'red'}">${fmt(estimatedRemain)}</div><div class="s">수입 - 고정/일반/투자 지출</div></div>
-    </section>
-    <section class="split" style="margin-top:14px">
-      <div class="panel"><h2>📊 ${m} 카테고리별 일반지출</h2>${renderBars(cat)}</div>
-      <div class="panel"><h2>👥 결제자별 일반지출</h2>${renderBars(payer,'red')}
-        <p class="note">투자로 분류된 항목은 결제자 통계에서 제외했습니다.</p></div>
-    </section>
-    <section class="panel">
-      <h2>📈 월별 일반지출 추이</h2>
-      ${MONTHS.map((mm,i)=>`<div class="barrow"><div class="barname">${mm}</div><div class="bartrack"><div class="barfill" style="width:${Math.max(2,monthlySpent[i]/maxMonth*100)}%"></div></div><div class="barval">${fmt(monthlySpent[i])}</div></div>`).join('')}
-    </section>
-    <section class="grid3">
-      <div class="kpi"><div class="t">예산 고정성 지출</div><div class="v">${fmt(b.fixed)}</div><div class="s">고정/보험료/고정현금/부모님저축 등</div></div>
-      <div class="kpi"><div class="t">예산 투자계획</div><div class="v purple">${fmt(b.investPlan)}</div><div class="s">예산 시트 ‘투자’ 행</div></div>
-      <div class="kpi"><div class="t">예산 시트 잉여</div><div class="v ${b.surplus>=0?'green':'red'}">${fmt(b.surplus)}</div><div class="s">예산 시트 ‘잉여’ 행</div></div>
-    </section>`;
-}
-function expense(){
-  const m=document.getElementById('monthSelect').value, mode=document.getElementById('investMode').value;
-  const tx=DATA.ledger.tx.filter(x=>x.month===m);
-  const normal=tx.filter(x=>!isInvestment(x,mode));
-  const inv=tx.filter(x=>isInvestment(x,mode));
-  const rows=normal.sort((a,b)=>b.amount-a.amount).slice(0,80).map(x=>`<tr><td><span class="pill">${esc(x.category)}</span></td><td>${esc(x.item)}</td><td class="num">${fmt(x.amount)}</td><td>${esc(x.payer)}</td></tr>`);
-  document.getElementById('app').innerHTML=`
-  <section class="split">
-    <div class="panel"><h2>💳 ${m} 일반지출 상세</h2><div class="recent">${table(rows,['분류','내역','지출액','결제자'])}</div></div>
-    <div>
-      <div class="panel"><h2>🏷️ 분류별</h2>${renderBars(sumBy(normal,x=>x.category))}</div>
-      <div class="panel"><h2>🚫 투자로 분리된 가계부 항목</h2>${inv.length?table(inv.map(x=>`<tr><td><span class="pill inv">${esc(x.category)}</span></td><td>${esc(x.item)}</td><td class="num">${fmt(x.amount)}</td><td>${esc(x.payer)}</td></tr>`),['분류','내역','금액','결제자']):'<p class="note">해당 월에는 투자성 지출로 분리된 항목이 없습니다.</p>'}</div>
-    </div>
-  </section>`;
-}
-function investment(){
-  const mode=document.getElementById('investMode').value;
-  const invs=DATA.budget.investments.filter(x=>x.name);
-  const total=invs.reduce((s,x)=>s+(x.total||x.dahye||x.principal||0),0);
-  const profit=invs.reduce((s,x)=>s+x.profit,0);
-  const txInv=DATA.ledger.tx.filter(x=>isInvestment(x,mode));
-  const byMonth={}; MONTHS.forEach(m=>byMonth[m]=0); txInv.forEach(x=>byMonth[x.month]+=x.amount);
-  const rows=invs.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${fmt(x.dahye)}</td><td class="num">${fmt(x.principal)}</td><td class="num">${fmt(x.total)}</td><td class="num ${x.profit>=0?'green':'red'}">${fmt(x.profit)}</td></tr>`);
-  const saveRows=DATA.budget.savings.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${fmt(x.value)}</td></tr>`);
-  document.getElementById('app').innerHTML=`
-    <section class="grid3">
-      <div class="kpi"><div class="t">투자 평가/총액</div><div class="v purple">${fmt(total)}</div><div class="s">예산 시트 투자 영역 기준</div></div>
-      <div class="kpi"><div class="t">투자 수익금</div><div class="v ${profit>=0?'green':'red'}">${fmt(profit)}</div><div class="s">수익금 열 합계</div></div>
-      <div class="kpi"><div class="t">가계부 투자성 지출</div><div class="v purple">${fmt(txInv.reduce((s,x)=>s+x.amount,0))}</div><div class="s">투자 키워드 기준 별도 분리</div></div>
-    </section>
-    <section class="split" style="margin-top:14px">
-      <div class="panel"><h2>📈 투자 파트</h2>${table(rows,['종목','다혜','원금','총액','수익금'])}</div>
-      <div class="panel"><h2>🏦 예적금/현금성 자산</h2>${table(saveRows,['항목','금액'])}</div>
-    </section>
-    <section class="panel"><h2>월별 투자성 가계부 지출</h2>${renderBars(byMonth,'inv')}</section>`;
-}
-function balance(){
-  const rows=DATA.balance.map(x=>`<tr><td>${x.month}</td><td class="num">${fmt(x.foodD+x.foodJ)}</td><td class="num">${fmt(x.livingD+x.livingJ)}</td><td class="num">${fmt(x.emergencyD+x.emergencyJ)}</td><td class="num">${fmt(x.foodD+x.foodJ+x.livingD+x.livingJ+x.emergencyD+x.emergencyJ)}</td></tr>`);
-  document.getElementById('app').innerHTML=`<section class="panel"><h2>💼 가계부잔액 시트 요약</h2>${table(rows,['월','식비','생필품','비상금','합계'])}<p class="note">가계부잔액 시트의 식비/생필품/비상금, 다혜/진혁 합산 기준입니다.</p></section>`;
-}
-function raw(){
-  document.getElementById('app').innerHTML=`
-  <section class="panel"><h2>✅ 인식 결과</h2>
-    <p class="note">가계부 월 블록: ${DATA.ledger.blocks.map(b=>`${b.month}(${b.col+1}열)`).join(', ')}</p>
-    <p class="note">가계부 거래 건수: ${DATA.ledger.tx.length.toLocaleString('ko-KR')}건</p>
-    <p class="note">투자 항목 수: ${DATA.budget.investments.length}개 / 예적금 항목 수: ${DATA.budget.savings.length}개</p>
-    <details><summary>예산 월별 인식값 보기</summary><pre>${esc(JSON.stringify(DATA.budget.monthly,null,2)).slice(0,12000)}</pre></details>
-  </section>`;
-}
 function render(){
   if(!DATA) return;
-  if(currentView==='dashboard') dashboard();
-  if(currentView==='expense') expense();
-  if(currentView==='investment') investment();
-  if(currentView==='balance') balance();
-  if(currentView==='raw') raw();
+  const month = $('month').value;
+  const m = DATA.monthly[month] || {};
+  $('income').textContent = fmt(m.income);
+  $('fixed').textContent = fmt(m.fixed);
+  $('variable').textContent = fmt(m.variable);
+  $('invest').textContent = fmt(m.investmentTotal);
+  $('totalExpense').textContent = fmt(m.totalExpense);
+  $('remain').textContent = fmt(m.remain);
+  $('remain').className = 'value ' + ((m.remain||0)>=0?'green':'red');
+  $('savingRate').textContent = pct(m.savingRate);
+  $('variableRate').textContent = pct(m.variableRate);
+  $('invBudget').textContent = fmt(m.investmentBudget);
+  $('invLedger').textContent = fmt(m.investmentLedger);
+  $('invTotal').textContent = fmt(m.investmentTotal);
+  $('invRate').textContent = pct(m.savingRate);
+  renderBars('categoryList', m.category || {});
+  renderBars('payerList', m.payer || {});
+  renderBars('balanceList', m.balanceByCategory || {});
+  renderBars('investmentCategoryList', m.investmentCategory || {});
+  renderMonthly('monthlyList', 'totalExpense');
+  renderMonthly('investmentMonthlyList', 'investmentTotal');
+  renderEntries(m.entries || []);
 }
-async function load(){
-  try{
-    setStatus('불러오는 중입니다...');
-    const id=getId(document.getElementById('sheetUrl').value);
-    const [budgetRows, ledgerRows, balanceRows]=await Promise.all([
-      fetchSheet(id,SHEETS.budget), fetchSheet(id,SHEETS.ledger), fetchSheet(id,SHEETS.balance)
-    ]);
-    DATA={budget:parseBudget(budgetRows), ledger:parseLedger(ledgerRows), balance:parseBalance(balanceRows)};
-    if(DATA.ledger.tx.length===0) throw new Error('가계부 시트에서 월별 4열 구조(분류/내역/지출액/결제자)를 찾지 못했습니다.');
-    setStatus(`불러오기 완료: 가계부 ${DATA.ledger.tx.length.toLocaleString('ko-KR')}건, 투자 ${DATA.budget.investments.length}개 항목, 잔액 ${DATA.balance.length}개월 인식`);
-    render();
-  }catch(e){
-    console.error(e);
-    setStatus(e.message + ' / 공유권한, 시트명(예산·가계부·가계부잔액), 파일명 index.html 여부를 확인하세요.', true);
-  }
+$('month').addEventListener('change', render);
+
+function renderBars(id, obj){
+  const el = $(id); el.innerHTML = '';
+  const arr = Object.entries(obj).sort((a,b)=>b[1]-a[1]);
+  if(!arr.length){ el.innerHTML = '<div class="sub">데이터 없음</div>'; return; }
+  const max = Math.max(...arr.map(x=>x[1]), 1);
+  arr.slice(0,12).forEach(([k,v])=>{
+    const row=document.createElement('div'); row.className='row';
+    row.innerHTML = `<b>${escapeHtml(k)}</b><span class="bar"><i style="width:${Math.max(3, v/max*100)}%"></i></span><span class="right">${fmt(v)}</span>`;
+    el.appendChild(row);
+  });
 }
-document.getElementById('loadBtn').addEventListener('click', load);
-document.getElementById('monthSelect').innerHTML=MONTHS.map((m,i)=>`<option value="${m}" ${i===new Date().getMonth()?'selected':''}>${m}</option>`).join('');
-document.getElementById('monthSelect').addEventListener('change', render);
-document.getElementById('investMode').addEventListener('change', render);
-document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
-  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active'); currentView=btn.dataset.view; render();
-}));
-load();
+
+function renderMonthly(id, key){
+  const el = $(id); el.innerHTML = '';
+  const arr = (DATA.months || []).map(m=>[m, (DATA.monthly[m]||{})[key] || 0]);
+  const max = Math.max(...arr.map(x=>x[1]), 1);
+  arr.forEach(([m,v])=>{
+    const row=document.createElement('div'); row.className='row';
+    row.innerHTML = `<b>${m}</b><span class="bar"><i style="width:${Math.max(3, v/max*100)}%"></i></span><span class="right">${fmt(v)}</span>`;
+    el.appendChild(row);
+  });
+}
+
+function renderEntries(entries){
+  const el = $('entryRows'); el.innerHTML = '';
+  if(!entries.length){ el.innerHTML = '<tr><td colspan="5">데이터 없음</td></tr>'; return; }
+  entries.slice(0,200).forEach(e=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.memo)}</td><td>${escapeHtml(e.payer)}</td><td class="right">${fmt(e.amount)}</td><td>${e.investment?'투자':'-'}</td>`;
+    el.appendChild(tr);
+  });
+}
+
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 </script>
 </body>
 </html>
