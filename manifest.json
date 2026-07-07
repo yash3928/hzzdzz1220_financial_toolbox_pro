@@ -1,0 +1,9 @@
+{
+  "name": "부부 공동 가계부",
+  "short_name": "가계부",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#111827",
+  "icons": []
+}

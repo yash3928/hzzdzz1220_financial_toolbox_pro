@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>부부 공동 가계부</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Couple Budget</p>
+        <h1>부부 공동 가계부</h1>
+      </div>
+      <button id="resetBtn" class="ghost-btn" type="button">초기화</button>
+    </header>
+
+    <main>
+      <section class="summary-grid">
+        <article class="summary-card primary">
+          <span>이번 달 잔액</span>
+          <strong id="monthBalance">₩0</strong>
+        </article>
+        <article class="summary-card">
+          <span>수입</span>
+          <strong id="monthIncome">₩0</strong>
+        </article>
+        <article class="summary-card">
+          <span>지출</span>
+          <strong id="monthExpense">₩0</strong>
+        </article>
+        <article class="summary-card">
+          <span>저축률</span>
+          <strong id="savingRate">0%</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>빠른 입력</h2>
+          <span id="todayText"></span>
+        </div>
+
+        <form id="entryForm" class="entry-form">
+          <div class="segmented" role="group" aria-label="수입 지출 선택">
+            <label><input type="radio" name="type" value="expense" checked /> <span>지출</span></label>
+            <label><input type="radio" name="type" value="income" /> <span>수입</span></label>
+          </div>
+
+          <div class="form-row two">
+            <label>사용자
+              <select id="owner" required>
+                <option value="진혁">진혁</option>
+                <option value="다혜">다혜</option>
+                <option value="공동">공동</option>
+              </select>
+            </label>
+            <label>날짜
+              <input id="date" type="date" required />
+            </label>
+          </div>
+
+          <label>내용
+            <input id="memo" type="text" placeholder="예: 이마트, 월급, 관리비" required />
+          </label>
+
+          <div class="form-row two">
+            <label>금액
+              <input id="amount" type="number" inputmode="numeric" placeholder="예: 58000" min="0" required />
+            </label>
+            <label>분류
+              <select id="category" required>
+                <option value="식비">식비</option>
+                <option value="카페/간식">카페/간식</option>
+                <option value="교통/차량">교통/차량</option>
+                <option value="생활용품">생활용품</option>
+                <option value="관리비/공과금">관리비/공과금</option>
+                <option value="보험/의료">보험/의료</option>
+                <option value="쇼핑">쇼핑</option>
+                <option value="데이트/여가">데이트/여가</option>
+                <option value="저축/투자">저축/투자</option>
+                <option value="급여">급여</option>
+                <option value="기타">기타</option>
+              </select>
+            </label>
+          </div>
+
+          <button class="main-btn" type="submit">입력하기</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>AI 스타일 분석</h2>
+          <span>규칙 기반</span>
+        </div>
+        <div id="insights" class="insights"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>사용자별 현황</h2>
+        </div>
+        <div id="ownerStats" class="owner-stats"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>최근 내역</h2>
+          <button id="sampleBtn" class="ghost-btn" type="button">샘플 추가</button>
+        </div>
+        <div id="entryList" class="entry-list"></div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="하단 메뉴">
+      <button class="active" type="button">홈</button>
+      <button type="button">입력</button>
+      <button type="button">분석</button>
+      <button type="button">설정</button>
+    </nav>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
