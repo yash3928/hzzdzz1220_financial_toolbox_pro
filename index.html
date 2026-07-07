@@ -12,7 +12,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">Couple Budget</p>
+        <p class="eyebrow">Couple Finance Pro</p>
         <h1>부부 공동 가계부</h1>
       </div>
       <span id="syncStatus" class="sync-badge">로컬 저장</span>
@@ -77,10 +77,10 @@
       <section class="page" data-page="settings">
         <section class="panel">
           <div class="panel-head"><h2>공동 동기화 설정</h2><span>Firebase</span></div>
-          <div class="notice">두 휴대폰에 같은 Firebase 설정과 같은 가계부 코드를 입력하면 같은 내역을 실시간으로 공유합니다.</div>
+          <div class="notice">두 휴대폰에 같은 Firebase 설정과 같은 가계부 코드를 입력하면 같은 내역을 실시간으로 공유합니다. Firebase에서 복사한 &lt;script&gt; 코드 전체를 붙여넣어도 됩니다.</div>
           <form id="syncForm" class="entry-form">
-            <label>가계부 코드<input id="householdId" type="text" placeholder="예: jinhyuk-dahye-2026" /></label>
-            <label>Firebase 설정값(JSON)<textarea id="firebaseConfig" rows="8" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}'></textarea></label>
+            <label>가계부 코드<input id="householdId" type="text" value="hzzdzz_가계부" placeholder="hzzdzz_가계부" /></label>
+            <label>Firebase 설정값<textarea id="firebaseConfig" rows="10" placeholder='Firebase에서 복사한 const firebaseConfig = {...} 코드 또는 JSON을 붙여넣기'></textarea></label>
             <button class="main-btn" type="submit">공동 동기화 연결</button>
             <button id="localModeBtn" class="ghost-btn full" type="button">로컬 저장으로 전환</button>
           </form>
