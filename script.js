@@ -1,6 +1,6 @@
 import { connectHousehold, saveHouseholdData, disconnectHousehold } from './firebase.js';
 
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.7.3';
 const SCHEMA_VERSION = 3;
 const STORAGE_KEY = 'hzzdzz-finance-local-cache-v1';
 const LEGACY_STORAGE_KEYS = ['hzzdzz-finance-v05-local','couple-budget-v4-local','couple-budget-v3-local','couple-budget-v2-local'];
@@ -8,10 +8,26 @@ const SYNC_KEY = 'hzzdzz-finance-sync-v1';
 const LEGACY_SYNC_KEYS = ['couple-budget-v3-sync','couple-budget-v2-sync'];
 const DEFAULT_HOUSEHOLD_ID = 'hzzdzz_가계부';
 const MONTHLY_CATEGORIES = ['식비'];
-const ANNUAL_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','여행비','육아'];
+const ANNUAL_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
 const EXPENSE_CATEGORIES = [...MONTHLY_CATEGORIES, ...ANNUAL_CATEGORIES];
-const FIXED_CATEGORIES = ['보험료','고정현금','부모님 저축','저축','투자','청약','대출 이자','관리비','통신비','기타'];
-const ASSET_TYPES = ['은행', '현금', '연금', '청약', '코인', '기타'];
+const FIXED_CATEGORIES = ['보험료','고정현금','부모님 저축','대출 이자','관리비','통신비','기타'];
+const ASSET_TYPES = ['은행', '현금', '연금', '청약', '코인', '여행비', '기타'];
+const DEFAULT_DAHYE_DUTY = {
+  basePay: 2700000,
+  weekdayRate: 77330,
+  holidayRate: 284470,
+  sundayRate: 163640,
+  monThuAssistRate: 10000,
+  friAssistRate: 20000,
+  vehicleSupport: 0,
+  otherAllowance: 0,
+  pensionRate: 4.75,
+  healthRate: 3.595,
+  careRate: 13.14,
+  employmentRate: 0.9,
+  incomeTax: 58750,
+  localTaxRate: 10
+};
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 });
 const nowYear = new Date().getFullYear();
@@ -151,11 +167,12 @@ function jaturiBalance(){
 function investmentTotals(){
   const domestic = state.investments.filter(i=>i.type==='국내주식').reduce((a,i)=>a+num(i.current),0);
   const foreign = state.investments.filter(i=>i.type==='해외주식').reduce((a,i)=>a+num(i.current),0);
+  const cma = state.investments.filter(i=>i.type==='CMA').reduce((a,i)=>a+num(i.current),0);
   const principal = state.investments.reduce((a,i)=>a+num(i.principal),0);
   const current = state.investments.reduce((a,i)=>a+num(i.current),0);
   const profit = current - principal;
   const rate = principal ? profit / principal * 100 : 0;
-  return { domestic, foreign, principal, current, profit, rate };
+  return { domestic, foreign, cma, principal, current, profit, rate };
 }
 function totalAssets(){ return state.assets.reduce((a,x)=>a+num(x.amount),0) + investmentTotals().current; }
 function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -168,13 +185,70 @@ function scheduleRemoteSave(){
 }
 function hasUserData(data){ return !!(data && (data.entries?.length || data.fixedExpenses?.length || data.assets?.length || data.investments?.length || Object.keys(data.monthlyBudgets||{}).length || Object.keys(data.annualBudgets||{}).length)); }
 
-function renderAll(){ fillSelects(); renderPeriod(); renderHome(); renderExpenseHistory(); renderBudgets(); renderLists(); renderAssets(); renderInvestments(); renderSettings(); saveLocal(); }
+function renderAll(){ fillSelects(); renderPeriod(); renderHome(); renderExpenseHistory(); renderMonthlyExpenses(); renderBudgets(); renderLists(); renderAssets(); renderInvestments(); renderSettings(); saveLocal(); }
 function renderPeriod(){
   const p = getPeriod();
   $('periodText').textContent = `${p.label} · ${p.startISO} ~ ${p.endISO}`;
   $('dashboardTitle').textContent = `${p.label} 예산·정산 요약`;
 }
+function assetTypeSummary(){
+  const inv = investmentTotals();
+  const rows = {};
+  state.assets.forEach(a => { rows[a.type] = num(rows[a.type]) + num(a.amount); });
+  rows['국내주식'] = num(rows['국내주식']) + inv.domestic;
+  rows['해외주식'] = num(rows['해외주식']) + inv.foreign;
+  rows['CMA'] = num(rows['CMA']) + inv.cma;
+  return rows;
+}
+function renderHomeAssetSummary(){
+  const rows = assetTypeSummary();
+  const order = ['은행','현금','CMA','국내주식','해외주식','연금','청약','코인','여행비','기타'];
+  const total = totalAssets();
+  const body = order.filter(k => num(rows[k]) > 0).map(k => `<tr><th>${k}</th><td>${fmt.format(rows[k])}</td></tr>`).join('');
+  $('homeAssetTable').innerHTML = `<tbody><tr class="emphasis"><th>총 자산</th><td>${fmt.format(total)}</td></tr>${body || '<tr><td class="empty-cell" colspan="2">자산을 입력하면 이곳에 한눈에 표시됩니다.</td></tr>'}</tbody>`;
+}
+function periodExpenseRows(key = periodKey()){
+  return entriesInPeriod(key).filter(e => e.type === 'expense').sort((a,b)=>String(a.date).localeCompare(String(b.date)) || (a.createdAt||0)-(b.createdAt||0));
+}
+function settlementForRows(expenses){
+  const total = expenses.reduce((a,e)=>a+num(e.amount),0);
+  const jin = expenses.filter(e=>e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0);
+  const dahye = expenses.filter(e=>e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0);
+  const half = total / 2;
+  const diff = Math.round((jin - dahye) / 2);
+  let result = '정산할 내역이 없습니다.';
+  if(total > 0){
+    if(diff > 0) result = `다혜 → 진혁 ${fmt.format(diff)} 송금`;
+    else if(diff < 0) result = `진혁 → 다혜 ${fmt.format(Math.abs(diff))} 송금`;
+    else result = '정산금액 없음';
+  }
+  return { total, jin, dahye, half, result };
+}
+function renderMonthlyExpenses(){
+  const p = getPeriod();
+  const rows = periodExpenseRows(p.key);
+  if($('monthlyExpenseTitle')) $('monthlyExpenseTitle').textContent = `${p.label} 지출 내역`;
+  if(!rows.length){
+    $('monthlyExpenseTable').innerHTML = `<tbody><tr><td class="empty-cell">이번 기간 지출내역이 없습니다.</td></tr></tbody>`;
+  } else {
+    let running = 0;
+    $('monthlyExpenseTable').innerHTML = `<thead><tr><th>순번</th><th>날짜</th><th>결제자</th><th>분류</th><th>내용</th><th>금액</th><th>누계</th><th>관리</th></tr></thead><tbody>` + rows.map((e,i)=>{
+      running += num(e.amount);
+      return `<tr><td>${i+1}</td><td>${e.date}</td><td>${escapeHtml(e.payer||e.owner)}</td><td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.memo)}</td><td>${fmt.format(e.amount)}</td><td>${fmt.format(running)}</td><td class="actions"><button data-exp-edit="${e.id}" type="button">수정</button><button data-exp-delete="${e.id}" type="button">삭제</button></td></tr>`;
+    }).join('') + `</tbody>`;
+  }
+  const st = settlementForRows(rows);
+  if($('monthlySettleTotal')){
+    $('monthlySettleTotal').textContent = fmt.format(st.total);
+    $('monthlySettleJin').textContent = fmt.format(st.jin);
+    $('monthlySettleDahye').textContent = fmt.format(st.dahye);
+    $('monthlySettleHalf').textContent = fmt.format(st.half);
+    $('monthlySettleResult').textContent = st.result;
+  }
+}
+
 function renderHome(){
+  renderHomeAssetSummary();
   const list = currentPeriodEntries();
   const jin = incomeByOwner('진혁', list), dahye = incomeByOwner('다혜', list), income = jin + dahye;
   const fixed = fixedTotal();
@@ -193,19 +267,8 @@ function renderBudgetStatus(){
   $('budgetStatusTable').innerHTML = `<thead><tr><th>분류</th><th>구분</th><th>예산</th><th>지출액</th><th>잔여액</th></tr></thead><tbody>` + rows.map(r=>`<tr class="${r.remain<0?'over':''}"><th>${r.name}</th><td>${r.type}</td><td>${fmt.format(r.budget)}</td><td>${fmt.format(r.spent)}</td><td>${fmt.format(r.remain)}</td></tr>`).join('') + `</tbody>`;
 }
 function renderSettlement(){
-  const expenses = currentPeriodEntries().filter(e=>e.type==='expense');
-  const total = expenses.reduce((a,e)=>a+num(e.amount),0);
-  const jin = expenses.filter(e=>e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0);
-  const dahye = expenses.filter(e=>e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0);
-  const half = total / 2;
-  let result = '정산할 내역이 없습니다.';
-  const diff = Math.round((jin - dahye) / 2);
-  if(total > 0){
-    if(diff > 0) result = `다혜 → 진혁 ${fmt.format(diff)} 송금`;
-    else if(diff < 0) result = `진혁 → 다혜 ${fmt.format(Math.abs(diff))} 송금`;
-    else result = '정산금액 없음';
-  }
-  $('settleTotal').textContent = fmt.format(total); $('settleJin').textContent = fmt.format(jin); $('settleDahye').textContent = fmt.format(dahye); $('settleHalf').textContent = fmt.format(half); $('settleResult').textContent = result;
+  const st = settlementForRows(periodExpenseRows(periodKey()));
+  $('settleTotal').textContent = fmt.format(st.total); $('settleJin').textContent = fmt.format(st.jin); $('settleDahye').textContent = fmt.format(st.dahye); $('settleHalf').textContent = fmt.format(st.half); $('settleResult').textContent = st.result;
 }
 function renderHomeInsights(){
   const msgs = [];
@@ -239,7 +302,7 @@ function renderLists(){
 }
 function renderAssets(){
   const inv = investmentTotals();
-  const computed = [{ type:'국내주식', name:'투자관리 합계', amount:inv.domestic, readonly:true },{ type:'해외주식', name:'투자관리 합계', amount:inv.foreign, readonly:true }].filter(x=>x.amount>0);
+  const computed = [{ type:'국내주식', name:'투자관리 합계', amount:inv.domestic, readonly:true },{ type:'해외주식', name:'투자관리 합계', amount:inv.foreign, readonly:true },{ type:'CMA', name:'투자관리 합계', amount:inv.cma, readonly:true }].filter(x=>x.amount>0);
   const list = [...state.assets, ...computed];
   $('assetList').innerHTML = list.length ? list.map((a,i)=>`<div class="asset-item"><b>${escapeHtml(a.name)}</b><b>${fmt.format(a.amount)}</b><span>${escapeHtml(a.type)}${a.readonly?' · 자동연동':''}</span>${a.readonly?'':`<button type="button" data-asset-delete="${i}">삭제</button>`}</div>`).join('') : '<div class="empty">자산을 입력하면 총자산이 자동 계산됩니다.</div>';
 }
@@ -251,15 +314,44 @@ function renderInvestments(){
     return `<div class="list-item"><div><b>${escapeHtml(x.name)}</b><span>${escapeHtml(x.type)} · 원금 ${fmt.format(x.principal)} · 평가 ${fmt.format(x.current)}</span></div><strong>${rate.toFixed(1)}%</strong><button data-invest-edit="${x.id}" type="button">수정</button><button data-invest-delete="${x.id}" type="button">삭제</button></div>`;
   }).join('') : '<div class="empty">투자 종목을 입력하면 개별/총 수익률이 표시됩니다.</div>';
 }
+function getDutyConfig(year){
+  const raw = state.duty?.[year] || {};
+  return {
+    ...DEFAULT_DAHYE_DUTY,
+    ...raw,
+    holidayRate: raw.holidayRate ?? raw.weekendRate ?? DEFAULT_DAHYE_DUTY.holidayRate,
+    sundayRate: raw.sundayRate ?? raw.holidayRate ?? DEFAULT_DAHYE_DUTY.sundayRate,
+    months: raw.months || {}
+  };
+}
 function renderSettings(){
   $('monthStartDay').value = state.settings.monthStartDay;
-  const d = state.duty[nowYear] || {}; $('dutyYear').value = nowYear; $('weekdayRate').value = d.weekdayRate || ''; $('weekendRate').value = d.weekendRate || ''; $('holidayRate').value = d.holidayRate || '';
-  renderDutyMonths(nowYear);
+  const year = nowYear;
+  const d = getDutyConfig(year);
+  $('dutyYear').value = year;
+  $('dahyeBasePay').value = d.basePay || '';
+  $('weekdayRate').value = d.weekdayRate || '';
+  $('holidayRate').value = d.holidayRate || '';
+  $('sundayRate').value = d.sundayRate || '';
+  $('monThuAssistRate').value = d.monThuAssistRate || '';
+  $('friAssistRate').value = d.friAssistRate || '';
+  $('vehicleSupport').value = d.vehicleSupport || '';
+  $('otherAllowance').value = d.otherAllowance || '';
+  $('pensionRate').value = d.pensionRate ?? DEFAULT_DAHYE_DUTY.pensionRate;
+  $('healthRate').value = d.healthRate ?? DEFAULT_DAHYE_DUTY.healthRate;
+  $('careRate').value = d.careRate ?? DEFAULT_DAHYE_DUTY.careRate;
+  $('employmentRate').value = d.employmentRate ?? DEFAULT_DAHYE_DUTY.employmentRate;
+  $('incomeTax').value = d.incomeTax ?? DEFAULT_DAHYE_DUTY.incomeTax;
+  $('localTaxRate').value = d.localTaxRate ?? DEFAULT_DAHYE_DUTY.localTaxRate;
+  renderDutyMonths(year);
   $('householdId').value = sync.householdId || DEFAULT_HOUSEHOLD_ID; $('firebaseConfig').value = sync.configText || '';
 }
 function renderDutyMonths(year){
-  const d = state.duty[year] || {}; const months = d.months || {};
-  $('dutyMonths').innerHTML = Array.from({length:12},(_,i)=>i+1).map(m=>`<div class="duty-row"><b>${m}월</b><input data-duty-month="${m}" data-duty-type="weekday" type="number" min="0" placeholder="평일" value="${months[m]?.weekday||''}"><input data-duty-month="${m}" data-duty-type="weekend" type="number" min="0" placeholder="주말" value="${months[m]?.weekend||''}"><input data-duty-month="${m}" data-duty-type="holiday" type="number" min="0" placeholder="공휴" value="${months[m]?.holiday||''}"></div>`).join('');
+  const d = getDutyConfig(year); const months = d.months || {};
+  $('dutyMonths').innerHTML = Array.from({length:12},(_,i)=>i+1).map(m=>{
+    const row = months[m] || {};
+    return `<div class="duty-row"><b>${m}월</b><input data-duty-month="${m}" data-duty-type="weekday" type="number" min="0" placeholder="평일" value="${row.weekday||''}"><input data-duty-month="${m}" data-duty-type="holiday" type="number" min="0" placeholder="휴일" value="${row.holiday ?? row.weekend ?? ''}"><input data-duty-month="${m}" data-duty-type="sunday" type="number" min="0" placeholder="일요일" value="${row.sunday ?? ''}"><input data-duty-month="${m}" data-duty-type="monThuAssist" type="number" min="0" placeholder="월/목 보조" value="${row.monThuAssist ?? ''}"><input data-duty-month="${m}" data-duty-type="friAssist" type="number" min="0" placeholder="금 보조" value="${row.friAssist ?? ''}"></div>`;
+  }).join('');
 }
 function fillSelects(){
   const exp=$('expenseCategory'); if(exp && exp.options.length!==EXPENSE_CATEGORIES.length) exp.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -267,15 +359,45 @@ function fillSelects(){
   const asset=$('assetType'); if(asset && asset.options.length!==ASSET_TYPES.length) asset.innerHTML=ASSET_TYPES.map(c=>`<option value="${c}">${c}</option>`).join('');
   if($('monthStartDay').options.length<28) $('monthStartDay').innerHTML = Array.from({length:28},(_,i)=>`<option value="${i+1}">매월 ${i+1}일</option>`).join('');
 }
+function roundDownTen(value){ return Math.floor(num(value) / 10) * 10; }
+function dahyeDutyPay(date){
+  const y = new Date(date).getFullYear(); const m = new Date(date).getMonth()+1; const d = getDutyConfig(y); const row = d.months?.[m] || {};
+  const weekday = num(row.weekday)*num(d.weekdayRate);
+  const holiday = num(row.holiday ?? row.weekend)*num(d.holidayRate);
+  const sunday = num(row.sunday)*num(d.sundayRate);
+  const monThuAssist = num(row.monThuAssist)*num(d.monThuAssistRate);
+  const friAssist = num(row.friAssist)*num(d.friAssistRate);
+  return { weekday, holiday, sunday, monThuAssist, friAssist, total: weekday + holiday + sunday + monThuAssist + friAssist, counts: row, config: d };
+}
+function calculateDahyeSalary(date, baseOverride){
+  const y = new Date(date).getFullYear();
+  const d = getDutyConfig(y);
+  const duty = dahyeDutyPay(date);
+  const base = num(baseOverride || d.basePay);
+  const taxable = base + duty.total + num(d.otherAllowance);
+  const gross = taxable + num(d.vehicleSupport);
+  const pension = roundDownTen(taxable * num(d.pensionRate) / 100);
+  const health = taxable * num(d.healthRate) / 100;
+  const care = roundDownTen(health * num(d.careRate) / 100);
+  const employment = roundDownTen(taxable * num(d.employmentRate) / 100);
+  const incomeTax = num(d.incomeTax);
+  const localTax = roundDownTen(incomeTax * num(d.localTaxRate) / 100);
+  const deduction = pension + health + care + employment + incomeTax + localTax;
+  const net = gross - deduction;
+  return { base, dutyTotal:duty.total, duty, taxable, vehicleSupport:num(d.vehicleSupport), otherAllowance:num(d.otherAllowance), gross, pension, health, care, employment, incomeTax, localTax, deduction, net };
+}
 function dutyPay(owner, date){
   if(owner !== '다혜') return 0;
-  const y = new Date(date).getFullYear(); const m = new Date(date).getMonth()+1; const d = state.duty[y] || {}; const row = d.months?.[m] || {};
-  return num(row.weekday)*num(d.weekdayRate)+num(row.weekend)*num(d.weekendRate)+num(row.holiday)*num(d.holidayRate);
+  return dahyeDutyPay(date).total;
 }
 function updateDutyBox(){
-  const owner=$('salaryOwner').value, date=$('salaryDate').value || todayISO(), extra=dutyPay(owner,date);
+  const owner=$('salaryOwner').value, date=$('salaryDate').value || todayISO();
   $('dahyeDutyBox').classList.toggle('hidden', owner!=='다혜');
-  $('dahyeDutyBox').innerHTML = owner==='다혜' ? `해당 월 당직수당 예상: <b>${fmt.format(extra)}</b>` : '';
+  if(owner !== '다혜'){ $('dahyeDutyBox').innerHTML = ''; return; }
+  const base = num($('salaryBase').value) || getDutyConfig(new Date(date).getFullYear()).basePay;
+  const calc = calculateDahyeSalary(date, base);
+  $('salaryBase').placeholder = `기본급 기본값 ${fmt.format(calc.base)}`;
+  $('dahyeDutyBox').innerHTML = `<b>다혜 세후 예상액: ${fmt.format(calc.net)}</b><br>기본급 ${fmt.format(calc.base)} + 당직/보조 ${fmt.format(calc.dutyTotal)} = 과세합계 ${fmt.format(calc.taxable)}<br>공제합계 ${fmt.format(calc.deduction)} <span class="muted">(국민 ${fmt.format(calc.pension)}, 건강 ${fmt.format(calc.health)}, 요양 ${fmt.format(calc.care)}, 고용 ${fmt.format(calc.employment)}, 소득세 ${fmt.format(calc.incomeTax)}, 주민세 ${fmt.format(calc.localTax)})</span>`;
 }
 function bindEvents(){
   document.querySelectorAll('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.dataset.page===btn.dataset.target)); renderAll(); }));
@@ -285,8 +407,10 @@ function bindEvents(){
     else { state.entries.push({ id:uid(), ...payload, createdAt:Date.now() }); addLog('지출 입력', `${payload.category} ${fmt.format(payload.amount)}`); }
     resetExpenseForm(); scheduleRemoteSave(); renderAll(); });
   $('expenseCancelBtn').addEventListener('click', resetExpenseForm);
-  $('salaryOwner').addEventListener('change', updateDutyBox); $('salaryDate').addEventListener('change', updateDutyBox);
-  $('salaryForm').addEventListener('submit', e=>{ e.preventDefault(); const owner=$('salaryOwner').value, date=$('salaryDate').value; const extra=dutyPay(owner,date); const base=num($('salaryBase').value); state.entries.push({ id:uid(), type:'income', owner, payer:owner, date, category:'월급', amount:base+extra, memo: owner==='다혜' ? `월급+당직수당 ${fmt.format(extra)}` : '월급', createdAt:Date.now() }); addLog('월급 입력', `${owner} ${fmt.format(base+extra)}`); e.target.reset(); $('salaryDate').value=todayISO(); updateDutyBox(); scheduleRemoteSave(); renderAll(); });
+  $('salaryOwner').addEventListener('change', updateDutyBox); $('salaryDate').addEventListener('change', updateDutyBox); $('salaryBase').addEventListener('input', updateDutyBox);
+  $('salaryForm').addEventListener('submit', e=>{ e.preventDefault(); const owner=$('salaryOwner').value, date=$('salaryDate').value; const base=num($('salaryBase').value); let amount=base; let memo='월급';
+    if(owner==='다혜'){ const calc=calculateDahyeSalary(date, base || undefined); amount=Math.round(calc.net); memo=`세후월급 · 기본 ${fmt.format(calc.base)} · 당직/보조 ${fmt.format(calc.dutyTotal)} · 공제 ${fmt.format(calc.deduction)}`; }
+    state.entries.push({ id:uid(), type:'income', owner, payer:owner, date, category:'월급', amount, memo, createdAt:Date.now() }); addLog('월급 입력', `${owner} ${fmt.format(amount)}`); e.target.reset(); $('salaryDate').value=todayISO(); updateDutyBox(); scheduleRemoteSave(); renderAll(); });
   $('budgetMonth').addEventListener('change', ()=>{ $('foodBudgetInput').value = num(monthlyBudget($('budgetMonth').value).식비) || ''; });
   $('monthlyBudgetForm').addEventListener('submit', e=>{ e.preventDefault(); const key=$('budgetMonth').value; state.monthlyBudgets[key] = { ...(state.monthlyBudgets[key]||{}), 식비:num($('foodBudgetInput').value) }; addLog('월 예산 저장', key); scheduleRemoteSave(); renderAll(); });
   $('annualBudgetYear').addEventListener('change', renderAnnualBudgetFields);
@@ -300,7 +424,7 @@ function bindEvents(){
   $('investCancelBtn').addEventListener('click', resetInvestForm);
   $('settingsForm').addEventListener('submit', e=>{ e.preventDefault(); state.settings.monthStartDay = num($('monthStartDay').value); scheduleRemoteSave(); renderAll(); });
   $('dutyYear').addEventListener('change', e=>renderDutyMonths(num(e.target.value)));
-  $('dutyForm').addEventListener('submit', e=>{ e.preventDefault(); const y=num($('dutyYear').value); const months={}; document.querySelectorAll('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth; months[m]=months[m]||{}; months[m][inp.dataset.dutyType]=num(inp.value); }); state.duty[y] = { weekdayRate:num($('weekdayRate').value), weekendRate:num($('weekendRate').value), holidayRate:num($('holidayRate').value), months }; scheduleRemoteSave(); renderAll(); });
+  $('dutyForm').addEventListener('submit', e=>{ e.preventDefault(); const y=num($('dutyYear').value); const months={}; document.querySelectorAll('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth; months[m]=months[m]||{}; months[m][inp.dataset.dutyType]=num(inp.value); }); state.duty[y] = { basePay:num($('dahyeBasePay').value), weekdayRate:num($('weekdayRate').value), holidayRate:num($('holidayRate').value), sundayRate:num($('sundayRate').value), monThuAssistRate:num($('monThuAssistRate').value), friAssistRate:num($('friAssistRate').value), vehicleSupport:num($('vehicleSupport').value), otherAllowance:num($('otherAllowance').value), pensionRate:num($('pensionRate').value), healthRate:num($('healthRate').value), careRate:num($('careRate').value), employmentRate:num($('employmentRate').value), incomeTax:num($('incomeTax').value), localTaxRate:num($('localTaxRate').value), months }; addLog('다혜 급여 설정 저장', String(y)); scheduleRemoteSave(); renderAll(); });
   document.addEventListener('click', e=>{ const t=e.target;
     if(t.dataset.expEdit) startEditExpense(t.dataset.expEdit); if(t.dataset.expDelete) deleteExpense(t.dataset.expDelete);
     if(t.dataset.fixedDelete){ state.fixedExpenses.splice(num(t.dataset.fixedDelete),1); scheduleRemoteSave(); renderAll(); }
