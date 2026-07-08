@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
 let app = null;
 let db = null;
@@ -40,8 +40,14 @@ export function subscribeHousehold(householdId, callback, errorCallback){
 
 export async function saveHousehold(data){
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
-  const payload = {...data, updatedAt: serverTimestamp(), appVersion:'0.8.0'};
+  const payload = {...data, updatedAt: serverTimestamp(), appVersion:'0.8.1'};
   await setDoc(activeRef, payload, {merge:true});
+}
+
+export async function fetchHousehold(){
+  if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
+  const snap = await getDoc(activeRef);
+  return snap.exists() ? snap.data() : null;
 }
 
 export function disconnectFirebase(){

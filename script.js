@@ -1,6 +1,6 @@
-import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold } from './firebase.js';
+import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
 
-const APP_VERSION = '0.8.0';
+const APP_VERSION = '0.8.1';
 const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 const MONTHLY_CATEGORIES = ['식비'];
 const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
@@ -12,6 +12,7 @@ const DEFAULT_RATES = {weekday:77330, holiday:284470, sunday:163640, monThu:1000
 let state = loadLocalState();
 let firebaseReady = false;
 let syncingRemote = false;
+let refreshing = false;
 
 function defaultState(){
   return {
@@ -122,11 +123,31 @@ function calcDahyeMonth(month){
   return {duty, gross, deductions, net: Math.round(gross-deductions)};
 }
 function setBadge(text, cls){ const el=$('#syncBadge'); el.textContent=text; el.className='badge '+cls; }
+function formatSyncTime(date=new Date()){
+  return date.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function updateLastSyncLabel(){
+  const saved = localStorage.getItem('hzzdzz_last_sync_at');
+  const el = $('#lastSyncLabel');
+  if(el) el.textContent = saved ? `마지막 업데이트 ${formatSyncTime(new Date(saved))}` : '마지막 업데이트 -';
+}
+function markSynced(){
+  localStorage.setItem('hzzdzz_last_sync_at', new Date().toISOString());
+  updateLastSyncLabel();
+}
+function showToast(message){
+  const el = $('#toast');
+  if(!el) return;
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(()=>el.classList.remove('show'), 1800);
+}
 
 function render(){
   const p=getPeriod();
   $('#periodLabel').textContent=p.label;
-  renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings();
+  renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel();
 }
 function renderHome(){
   const invest = investTotals();
@@ -187,6 +208,92 @@ function renderSettings(){
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function escapeAttr(s){ return escapeHtml(s).replace(/`/g,'&#96;'); }
 
+async function refreshFromFirebase(showDone=true){
+  if(refreshing) return;
+  if(!firebaseReady){
+    const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null');
+    if(sync?.firebaseConfigText){
+      state.settings={...state.settings,...sync};
+      await connectFirebase();
+      return;
+    }
+    showToast('공동 동기화 설정이 필요합니다.');
+    return;
+  }
+  try{
+    refreshing = true;
+    setBadge('새로고침 중','loading');
+    setPullStatus('동기화 중...');
+    const remote = await fetchHousehold();
+    if(remote){
+      state = mergeDefaults({...state, ...remote, settings:{...state.settings, ...(remote.settings||{})}});
+      persistLocal();
+      render();
+    }
+    markSynced();
+    setBadge('공동 동기화','on');
+    if(showDone) showToast('최신 데이터로 업데이트되었습니다.');
+  } catch(e){
+    console.error(e);
+    setBadge('새로고침 오류','off');
+    showToast('새로고침 실패: '+e.message);
+  } finally {
+    refreshing = false;
+    resetPullIndicator();
+  }
+}
+
+function setPullStatus(text){
+  const el=$('#pullRefresh');
+  if(el) el.textContent=text;
+}
+function resetPullIndicator(){
+  const el=$('#pullRefresh');
+  if(!el) return;
+  el.classList.remove('visible','ready','loading');
+  el.style.transform='translate(-50%, -120%)';
+  el.textContent='아래로 당겨 새로고침';
+}
+function setupPullToRefresh(){
+  const el=$('#pullRefresh');
+  if(!el) return;
+  let startY=0;
+  let tracking=false;
+  let distance=0;
+  const threshold=76;
+  document.addEventListener('touchstart', e=>{
+    if(window.scrollY<=0 && !refreshing){
+      startY=e.touches[0].clientY;
+      tracking=true;
+      distance=0;
+    }
+  }, {passive:true});
+  document.addEventListener('touchmove', e=>{
+    if(!tracking || refreshing) return;
+    distance=e.touches[0].clientY-startY;
+    if(distance<=0) return;
+    if(window.scrollY>0){ tracking=false; return; }
+    const shown=Math.min(distance*0.55, 92);
+    el.classList.add('visible');
+    el.classList.toggle('ready', distance>threshold);
+    el.textContent = distance>threshold ? '놓으면 새로고침' : '아래로 당겨 새로고침';
+    el.style.transform=`translate(-50%, ${shown-120}%)`;
+    if(distance>18) e.preventDefault();
+  }, {passive:false});
+  document.addEventListener('touchend', ()=>{
+    if(!tracking) return;
+    tracking=false;
+    if(distance>threshold){
+      el.classList.add('loading');
+      el.textContent='동기화 중...';
+      el.style.transform='translate(-50%, 8px)';
+      refreshFromFirebase(true);
+    } else {
+      resetPullIndicator();
+    }
+  }, {passive:true});
+}
+
 async function connectFirebase(){
   try{
     setBadge('연결 중','loading');
@@ -201,7 +308,7 @@ async function connectFirebase(){
       if(remote){ state=mergeDefaults({...state, ...remote, settings:{...state.settings, ...(remote.settings||{})}}); }
       else { await saveHousehold(stripRuntime(state)); }
       syncingRemote=false;
-      persistLocal(); render(); setBadge('공동 동기화','on'); firebaseReady=true;
+      persistLocal(); render(); markSynced(); setBadge('공동 동기화','on'); firebaseReady=true;
     }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
   } catch(e){ console.error(e); setBadge('연결 실패','off'); alert(e.message); }
 }
@@ -235,8 +342,10 @@ function bindEvents(){
   $('#backupBtn').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
   $('#restoreBtn').addEventListener('click',()=>$('#restoreFile').click());
   $('#restoreFile').addEventListener('change', async e=>{ const file=e.target.files[0]; if(!file) return; const text=await file.text(); state=mergeDefaults(JSON.parse(text)); await persistRemote(); alert('복원 완료'); });
+  window.addEventListener('online', ()=>refreshFromFirebase(false));
 }
+
 function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(new Date()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
 
-bindEvents(); render();
+bindEvents(); setupPullToRefresh(); render();
 try{ const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null'); if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; persistLocal(); connectFirebase(); } else setBadge('오프라인','off'); } catch { setBadge('오프라인','off'); }
