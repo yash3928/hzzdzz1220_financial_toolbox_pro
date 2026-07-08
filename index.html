@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111827" />
-  <title>부부 공동 가계부</title>
+  <title>HZZDZZ Finance</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -12,8 +12,9 @@
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">Couple Finance Pro</p>
+        <p class="eyebrow">HZZDZZ Finance</p>
         <h1>부부 공동 가계부</h1>
+        <p id="periodText" class="period-text"></p>
       </div>
       <span id="syncStatus" class="sync-badge">로컬 저장</span>
     </header>
@@ -21,48 +22,91 @@
     <main>
       <section class="page page-home active" data-page="home">
         <section class="summary-grid">
-          <article class="summary-card primary"><span>이번 달 잔액</span><strong id="monthBalance">₩0</strong></article>
-          <article class="summary-card"><span>수입</span><strong id="monthIncome">₩0</strong></article>
-          <article class="summary-card"><span>지출</span><strong id="monthExpense">₩0</strong></article>
-          <article class="summary-card"><span>저축률</span><strong id="savingRate">0%</strong></article>
+          <article class="summary-card primary"><span>공동예산 잔액</span><strong id="budgetRemain">₩0</strong></article>
+          <article class="summary-card"><span>총자산</span><strong id="totalAssets">₩0</strong></article>
+          <article class="summary-card"><span>투자자산</span><strong id="investmentAssets">₩0</strong></article>
+          <article class="summary-card"><span>이번 기간 수입</span><strong id="periodIncome">₩0</strong></article>
+          <article class="summary-card"><span>이번 기간 지출</span><strong id="periodExpense">₩0</strong></article>
         </section>
 
         <section class="panel">
-          <div class="panel-head"><h2>사용자별 현황</h2><span id="todayText"></span></div>
-          <div id="ownerStats" class="owner-stats"></div>
+          <div class="panel-head"><h2>공동 예산 4분류</h2><span id="monthRuleText"></span></div>
+          <div id="budgetCards" class="budget-cards"></div>
         </section>
 
         <section class="panel">
-          <div class="panel-head"><h2>최근 내역</h2><button id="sampleBtn" class="ghost-btn" type="button">샘플 추가</button></div>
+          <div class="panel-head"><h2>최근 입력</h2><button id="sampleBtn" class="ghost-btn" type="button">샘플</button></div>
           <div id="entryList" class="entry-list"></div>
         </section>
       </section>
 
       <section class="page" data-page="input">
         <section class="panel">
-          <div class="panel-head"><h2>빠른 입력</h2><span>수입/지출</span></div>
-          <form id="entryForm" class="entry-form">
-            <div class="segmented" role="group" aria-label="수입 지출 선택">
-              <label><input type="radio" name="type" value="expense" checked /> <span>지출</span></label>
-              <label><input type="radio" name="type" value="income" /> <span>수입</span></label>
-            </div>
+          <div class="panel-head"><h2>공동 지출 입력</h2><span>식비 · 생필품 · 의료 · 비상금</span></div>
+          <form id="expenseForm" class="entry-form">
             <div class="form-row two">
-              <label>사용자
-                <select id="owner" required><option value="진혁">진혁</option><option value="다혜">다혜</option><option value="공동">공동</option></select>
+              <label>입력자
+                <select id="expenseOwner" required><option value="진혁">진혁</option><option value="다혜">다혜</option><option value="공동">공동</option></select>
               </label>
-              <label>날짜<input id="date" type="date" required /></label>
+              <label>날짜<input id="expenseDate" type="date" required /></label>
             </div>
-            <label>내용<input id="memo" type="text" placeholder="예: 이마트, 월급, 관리비" required /></label>
+            <label>분류
+              <select id="expenseCategory" required>
+                <option value="식비">식비</option>
+                <option value="생필품">생필품</option>
+                <option value="의료">의료</option>
+                <option value="비상금">비상금</option>
+              </select>
+            </label>
             <div class="form-row two">
-              <label>금액<input id="amount" type="number" inputmode="numeric" placeholder="예: 58000" min="0" required /></label>
-              <label>분류
-                <select id="category" required>
-                  <option value="식비">식비</option><option value="카페/간식">카페/간식</option><option value="교통/차량">교통/차량</option><option value="생활용품">생활용품</option><option value="관리비/공과금">관리비/공과금</option><option value="보험/의료">보험/의료</option><option value="쇼핑">쇼핑</option><option value="데이트/여가">데이트/여가</option><option value="저축/투자">저축/투자</option><option value="급여">급여</option><option value="기타">기타</option>
-                </select>
-              </label>
+              <label>금액<input id="expenseAmount" type="number" inputmode="numeric" placeholder="예: 58000" min="0" required /></label>
+              <label>내용<input id="expenseMemo" type="text" placeholder="예: 이마트 장보기" required /></label>
             </div>
-            <button class="main-btn" type="submit">입력하기</button>
+            <button class="main-btn" type="submit">지출 입력</button>
           </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><h2>월급 입력</h2><span>진혁 직접 / 다혜 당직 자동</span></div>
+          <form id="salaryForm" class="entry-form">
+            <div class="form-row two">
+              <label>대상
+                <select id="salaryOwner"><option value="진혁">진혁</option><option value="다혜">다혜</option></select>
+              </label>
+              <label>급여일<input id="salaryDate" type="date" required /></label>
+            </div>
+            <label id="baseSalaryLabel">실수령액 또는 기본급<input id="salaryBase" type="number" inputmode="numeric" placeholder="예: 3500000" min="0" required /></label>
+            <div id="dahyeDutyBox" class="notice hidden"></div>
+            <button class="main-btn" type="submit">월급 입력</button>
+          </form>
+        </section>
+      </section>
+
+      <section class="page" data-page="assets">
+        <section class="panel">
+          <div class="panel-head"><h2>자산 현황</h2><span>총자산 자동계산</span></div>
+          <form id="assetForm" class="entry-form compact-form">
+            <div class="form-row three">
+              <label>구분
+                <select id="assetType"><option>은행</option><option>현금</option><option>주식</option><option>ETF</option><option>연금</option><option>청약</option><option>코인</option><option>기타</option></select>
+              </label>
+              <label>이름<input id="assetName" type="text" placeholder="예: 우리은행" required /></label>
+              <label>금액<input id="assetAmount" type="number" inputmode="numeric" min="0" required /></label>
+            </div>
+            <button class="main-btn" type="submit">자산 추가</button>
+          </form>
+          <div id="assetList" class="asset-list"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>투자 관리</h2><span>수익률 자동계산</span></div>
+          <form id="investmentForm" class="entry-form">
+            <div class="form-row two">
+              <label>투자 원금<input id="investPrincipal" type="number" inputmode="numeric" min="0" /></label>
+              <label>현재 평가금액<input id="investCurrent" type="number" inputmode="numeric" min="0" /></label>
+            </div>
+            <button class="main-btn" type="submit">투자금 저장</button>
+          </form>
+          <div id="investmentResult" class="notice"></div>
         </section>
       </section>
 
@@ -71,23 +115,53 @@
           <div class="panel-head"><h2>AI 스타일 분석</h2><span>규칙 기반</span></div>
           <div id="insights" class="insights"></div>
         </section>
-        <section class="panel"><div class="panel-head"><h2>분류별 지출</h2></div><div id="categoryStats" class="category-stats"></div></section>
+        <section class="panel"><div class="panel-head"><h2>분류별 사용 현황</h2></div><div id="categoryStats" class="category-stats"></div></section>
       </section>
 
       <section class="page" data-page="settings">
         <section class="panel">
+          <div class="panel-head"><h2>월 기준일 / 공동 예산</h2><span>기본 10일</span></div>
+          <form id="budgetForm" class="entry-form">
+            <label>월 시작일
+              <select id="monthStartDay"></select>
+            </label>
+            <div class="form-row two">
+              <label>식비<input id="budgetFood" type="number" inputmode="numeric" min="0" /></label>
+              <label>생필품<input id="budgetLiving" type="number" inputmode="numeric" min="0" /></label>
+              <label>의료<input id="budgetMedical" type="number" inputmode="numeric" min="0" /></label>
+              <label>비상금<input id="budgetEmergency" type="number" inputmode="numeric" min="0" /></label>
+            </div>
+            <button class="main-btn" type="submit">예산 설정 저장</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><h2>다혜 연간 당직 설정</h2><span>연초 1회 입력</span></div>
+          <form id="dutyForm" class="entry-form">
+            <div class="form-row two">
+              <label>연도<input id="dutyYear" type="number" min="2020" max="2100" /></label>
+              <label>평일 단가<input id="weekdayRate" type="number" inputmode="numeric" min="0" /></label>
+              <label>주말 단가<input id="weekendRate" type="number" inputmode="numeric" min="0" /></label>
+              <label>공휴일 단가<input id="holidayRate" type="number" inputmode="numeric" min="0" /></label>
+            </div>
+            <div id="dutyMonths" class="duty-months"></div>
+            <button class="main-btn" type="submit">당직 설정 저장</button>
+          </form>
+        </section>
+
+        <section class="panel">
           <div class="panel-head"><h2>공동 동기화 설정</h2><span>Firebase</span></div>
-          <div class="notice">두 휴대폰에 같은 Firebase 설정과 같은 가계부 코드를 입력하면 같은 내역을 실시간으로 공유합니다. Firebase에서 복사한 &lt;script&gt; 코드 전체를 붙여넣어도 됩니다.</div>
+          <div class="notice">두 휴대폰에 같은 Firebase 설정과 같은 가계부 코드를 입력하면 같은 내역과 설정을 실시간으로 공유합니다.</div>
           <form id="syncForm" class="entry-form">
             <label>가계부 코드<input id="householdId" type="text" value="hzzdzz_가계부" placeholder="hzzdzz_가계부" /></label>
-            <label>Firebase 설정값<textarea id="firebaseConfig" rows="10" placeholder='Firebase에서 복사한 const firebaseConfig = {...} 코드 또는 JSON을 붙여넣기'></textarea></label>
+            <label>Firebase 설정값<textarea id="firebaseConfig" rows="8" placeholder="Firebase에서 복사한 &lt;script&gt; 코드 전체 또는 JSON을 붙여넣기"></textarea></label>
             <button class="main-btn" type="submit">공동 동기화 연결</button>
             <button id="localModeBtn" class="ghost-btn full" type="button">로컬 저장으로 전환</button>
           </form>
         </section>
         <section class="panel">
           <div class="panel-head"><h2>관리</h2></div>
-          <button id="resetBtn" class="danger-btn" type="button">현재 기기 데이터 초기화</button>
+          <button id="resetBtn" class="danger-btn" type="button">현재 기기 로컬 데이터 초기화</button>
         </section>
       </section>
     </main>
@@ -95,6 +169,7 @@
     <nav class="bottom-nav" aria-label="하단 메뉴">
       <button class="active" type="button" data-target="home">홈</button>
       <button type="button" data-target="input">입력</button>
+      <button type="button" data-target="assets">자산</button>
       <button type="button" data-target="analysis">분석</button>
       <button type="button" data-target="settings">설정</button>
     </nav>

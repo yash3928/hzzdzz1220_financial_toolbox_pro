@@ -1,36 +1,21 @@
-# 부부 공동 가계부 v2
+# HZZDZZ Finance v4 beta
 
-## 핵심 변경
-- 하단 메뉴(홈/입력/분석/설정)가 실제 화면 전환되도록 수정
-- 로컬 저장 유지
-- Firebase Cloud Firestore 공동 동기화 추가
-- 같은 Firebase 설정 + 같은 가계부 코드를 입력하면 두 사람이 같은 데이터를 실시간 공유
+## 교체 파일
+기존 GitHub Pages 저장소에 아래 3개 파일을 덮어쓰기 하세요.
 
-## Firebase 사용 순서
-1. Firebase 콘솔에서 프로젝트 생성
-2. 웹 앱 등록 후 firebaseConfig 값을 복사
-3. Firestore Database 생성
-4. 앱의 설정 화면에서 가계부 코드와 firebaseConfig JSON 붙여넣기
-5. 배우자 휴대폰에서도 같은 설정값과 같은 가계부 코드 입력
+- index.html
+- script.js
+- style.css
 
-## Firestore 데이터 경로
-households/{가계부코드}/entries/{내역ID}
+## 이번 버전 반영 내용
+- 공동예산 4분류: 식비 / 생필품 / 의료 / 비상금
+- 입력 분류도 4개로 단순화
+- 월 기준일 설정 가능: 기본 매월 10일
+- 월 계산 기준: 설정일 ~ 다음 달 설정일 전날
+- 자산 메뉴 추가: 총자산 / 투자 원금 / 현재 평가금액 / 손익 / 수익률
+- 월급 입력 추가: 진혁 직접 입력, 다혜 연간 당직 설정 기반 자동 계산
+- 다혜 연간 당직 설정: 평일/주말/공휴일 단가와 1~12월 횟수 입력
+- Firebase 공동 동기화 유지: 내역과 설정을 함께 동기화
 
-## 개발/테스트용 보안 규칙 예시
-주의: 아래 규칙은 테스트용입니다. 실제 운영 전에는 로그인 기반 규칙으로 바꾸는 것이 안전합니다.
-
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /households/{householdId}/entries/{entryId} {
-      allow read, write: if true;
-    }
-  }
-}
-
-## 다음 단계 권장
-- Firebase Authentication 추가
-- 진혁/다혜 계정만 접근 가능하도록 보안 규칙 강화
-- 예산 설정 화면 추가
-- 자산현황 화면 추가
-- 월별 비교 분석 추가
+## 주의
+기존 Firebase 설정은 브라우저에 저장되어 있으면 자동으로 이어집니다. 연결이 풀리면 설정 화면에서 기존 Firebase 설정값과 가계부 코드 `hzzdzz_가계부`를 다시 입력하세요.
