@@ -127,9 +127,17 @@
             <label>월·목 보조<input type="number" id="rateMonThu" /></label>
             <label>금요일 보조<input type="number" id="rateFriday" /></label>
           </div>
+          <div class="section-subtitle">세금/공제 기준</div>
+          <div class="rates-grid">
+            <label>국민연금<input type="number" id="taxPension" /></label>
+            <label>소득세<input type="number" id="taxIncome" /></label>
+            <label>차량보조<input type="number" id="taxVehicle" /></label>
+            <label>메모 차감<input type="number" id="taxMemoDeduct" /></label>
+          </div>
+          <p class="hint">건강보험 3.595%, 요양보험 13.14%, 고용보험 0.9%, 주민세 10%는 월급 엑셀 수식과 동일하게 계산합니다. 국민연금과 소득세는 엑셀에서 입력값으로 되어 있어 기준값을 직접 조정할 수 있습니다.</p>
           <div class="table-scroll">
             <table class="excel-table input-table" id="dahyeDutyTable">
-              <thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th><th>세후 예상</th></tr></thead>
+              <thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th><th>과세합계</th><th>국민</th><th>건강</th><th>요양</th><th>고용</th><th>소득세</th><th>주민세</th><th>공제합계</th><th>세후 예상</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>

@@ -40,7 +40,22 @@ export function subscribeHousehold(householdId, callback, errorCallback){
 
 export async function saveHousehold(data){
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
-  const payload = {...data, updatedAt: serverTimestamp(), appVersion:'0.8.1'};
+  const existingSnap = await getDoc(activeRef);
+  const existing = existingSnap.exists() ? existingSnap.data() : {};
+  const payload = {...data, updatedAt: serverTimestamp(), appVersion:'0.8.3'};
+
+  // 데이터 보존 안전장치:
+  // 프로그램 업데이트 직후 로컬 기본값([])이 기존 Firebase 배열 데이터를 덮어쓰는 것을 방지합니다.
+  // 실제 삭제는 각 항목의 삭제 버튼으로 처리하고, 빈 기본값 저장은 차단합니다.
+  ['expenses','investments'].forEach(key => {
+    if(Array.isArray(existing[key]) && existing[key].length > 0 && Array.isArray(payload[key]) && payload[key].length === 0){
+      payload[key] = existing[key];
+    }
+  });
+  if(existing.jaturi?.history?.length && Array.isArray(payload.jaturi?.history) && payload.jaturi.history.length === 0){
+    payload.jaturi.history = existing.jaturi.history;
+  }
+
   await setDoc(activeRef, payload, {merge:true});
 }
 

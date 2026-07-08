@@ -1,6 +1,6 @@
 import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
 
-const APP_VERSION = '0.8.1';
+const APP_VERSION = '0.8.3';
 const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 const MONTHLY_CATEGORIES = ['식비'];
 const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
@@ -8,11 +8,13 @@ const EXPENSE_CATEGORIES = [...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES];
 const ASSET_CATEGORIES = ['현금','은행','국내주식','해외주식','CMA','연금','청약','코인','여행비','기타'];
 const INVEST_TYPES = ['국내주식','해외주식','CMA'];
 const DEFAULT_RATES = {weekday:77330, holiday:284470, sunday:163640, monThu:10000, friday:20000};
+const DEFAULT_TAX = {pension:215220, incomeTax:58750, vehicleAllowance:0, memoDeduct:0};
 
 let state = loadLocalState();
 let firebaseReady = false;
 let syncingRemote = false;
 let refreshing = false;
+let remoteLoaded = false; // Firebase의 기존 데이터를 한 번 읽기 전에는 절대 저장하지 않음
 
 function defaultState(){
   return {
@@ -23,7 +25,7 @@ function defaultState(){
     fixedByMonth: {},
     salary: {
       jinhyuk: {},
-      dahye: { base:0, rates:{...DEFAULT_RATES}, months:{} }
+      dahye: { base:0, rates:{...DEFAULT_RATES}, tax:{...DEFAULT_TAX}, months:{} }
     },
     assets: Object.fromEntries(ASSET_CATEGORIES.map(c=>[c,0])),
     investments: [],
@@ -39,6 +41,7 @@ function mergeDefaults(data){
   merged.salary = {...base.salary, ...(data?.salary||{})};
   merged.salary.dahye = {...base.salary.dahye, ...(data?.salary?.dahye||{})};
   merged.salary.dahye.rates = {...base.salary.dahye.rates, ...(data?.salary?.dahye?.rates||{})};
+  merged.salary.dahye.tax = {...base.salary.dahye.tax, ...(data?.salary?.dahye?.tax||{})};
   merged.salary.dahye.months = {...base.salary.dahye.months, ...(data?.salary?.dahye?.months||{})};
   merged.salary.jinhyuk = {...base.salary.jinhyuk, ...(data?.salary?.jinhyuk||{})};
   merged.assets = {...base.assets, ...(data?.assets||{})};
@@ -59,6 +62,11 @@ async function persistRemote(){
   persistLocal();
   render();
   if(firebaseReady && !syncingRemote){
+    if(!remoteLoaded){
+      console.warn('Firebase 기존 데이터 확인 전 저장 차단: 데이터 덮어쓰기 방지');
+      setBadge('동기화 확인 중','loading');
+      return;
+    }
     try { await saveHousehold(stripRuntime(state)); setBadge('공동 동기화','on'); }
     catch(e){ console.error(e); setBadge('저장 오류','off'); alert('Firebase 저장 오류: '+e.message); }
   }
@@ -105,22 +113,39 @@ function totalAssets(){
 function investTotals(){
   return state.investments.reduce((a,it)=>{a.principal+=num(it.principal);a.current+=num(it.current);return a;},{principal:0,current:0});
 }
+function excelRoundDown(value, digits){
+  const factor = Math.pow(10, -digits);
+  return Math.trunc((Number(value)||0) / factor) * factor;
+}
 function calcDahyeMonth(month){
   const d = state.salary.dahye;
   const r = d.rates || DEFAULT_RATES;
+  const t = {...DEFAULT_TAX, ...(d.tax||{})};
   const m = d.months?.[month] || {};
-  const duty = num(m.weekday)*num(r.weekday)+num(m.holiday)*num(r.holiday)+num(m.sunday)*num(r.sunday)+num(m.monThu)*num(r.monThu)+num(m.friday)*num(r.friday);
-  const gross = num(d.base) + duty;
-  // 엑셀 세후 예상용 간이 공제. 실제 급여명세와 차이가 나면 세율/공제식을 조정합니다.
-  const pension = gross * 0.0475;
-  const health = gross * 0.03595;
-  const care = health * 0.1314;
-  const employment = gross * 0.009;
-  const taxable = Math.max(gross - pension - health - care - employment, 0);
-  const incomeTax = taxable * 0.015;
-  const localTax = incomeTax * 0.1;
-  const deductions = pension+health+care+employment+incomeTax+localTax;
-  return {duty, gross, deductions, net: Math.round(gross-deductions)};
+
+  // 월급 엑셀 기준: 기본급 + 당직수당 + 기타수당 = 기본급+과세합계(F열)
+  const duty = num(m.weekday)*num(r.weekday)
+    + num(m.holiday)*num(r.holiday)
+    + num(m.sunday)*num(r.sunday)
+    + num(m.monThu)*num(r.monThu)
+    + num(m.friday)*num(r.friday);
+  const taxablePay = num(d.base) + duty + num(m.extraAllowance);
+  const paymentTotal = taxablePay + num(t.vehicleAllowance);
+
+  // 월급.xlsx Sheet1 수식 검토 반영
+  // F=SUM(B:E), H=SUM(F:G), J=F*3.595%, K=ROUNDDOWN(J*13.14%,-1),
+  // L=ROUNDDOWN(F*0.9%,-1), N=ROUNDDOWN(M*10%,-1), O=SUM(I:N), P=H-O, Q=P-C
+  // 국민연금(I열)과 소득세(M열)는 엑셀에서 수식이 아닌 입력값이므로 기준값을 사용자가 조정합니다.
+  const pension = num(t.pension);
+  const health = taxablePay * 0.03595;
+  const care = excelRoundDown(health * 0.1314, -1);
+  const employment = excelRoundDown(taxablePay * 0.009, -1);
+  const incomeTax = num(t.incomeTax);
+  const localTax = excelRoundDown(incomeTax * 0.10, -1);
+  const deductions = pension + health + care + employment + incomeTax + localTax;
+  const netBeforeMemo = paymentTotal - deductions;
+  const net = netBeforeMemo - num(t.memoDeduct);
+  return {duty, taxablePay, paymentTotal, pension, health, care, employment, incomeTax, localTax, deductions, net: Math.round(net)};
 }
 function setBadge(text, cls){ const el=$('#syncBadge'); el.textContent=text; el.className='badge '+cls; }
 function formatSyncTime(date=new Date()){
@@ -185,10 +210,13 @@ function renderBudget(){
 }
 function renderSalary(){
   $('#jinhyukSalary').value = currentJinhyukSalary() || '';
-  const d=state.salary.dahye; $('#dahyeBase').value=num(d.base)||''; $('#rateWeekday').value=num(d.rates.weekday); $('#rateHoliday').value=num(d.rates.holiday); $('#rateSunday').value=num(d.rates.sunday); $('#rateMonThu').value=num(d.rates.monThu); $('#rateFriday').value=num(d.rates.friday);
+  const d=state.salary.dahye;
+  const tax={...DEFAULT_TAX, ...(d.tax||{})};
+  $('#dahyeBase').value=num(d.base)||''; $('#rateWeekday').value=num(d.rates.weekday); $('#rateHoliday').value=num(d.rates.holiday); $('#rateSunday').value=num(d.rates.sunday); $('#rateMonThu').value=num(d.rates.monThu); $('#rateFriday').value=num(d.rates.friday);
+  $('#taxPension').value=num(tax.pension)||''; $('#taxIncome').value=num(tax.incomeTax)||''; $('#taxVehicle').value=num(tax.vehicleAllowance)||''; $('#taxMemoDeduct').value=num(tax.memoDeduct)||'';
   $('#dahyeDutyTable tbody').innerHTML = Array.from({length:12},(_,i)=>i+1).map(m=>{
     const v=d.months[m]||{}; const calc=calcDahyeMonth(m);
-    return `<tr><td>${m}월 : 당직비</td><td><input data-duty-month="${m}" data-duty-key="weekday" type="number" value="${num(v.weekday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="holiday" type="number" value="${num(v.holiday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="sunday" type="number" value="${num(v.sunday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="monThu" type="number" value="${num(v.monThu)||''}"></td><td><input data-duty-month="${m}" data-duty-key="friday" type="number" value="${num(v.friday)||''}"></td><td>${money(calc.duty)}</td><td>${money(calc.net)}</td></tr>`;
+    return `<tr><td>${m}월 : 당직비</td><td><input data-duty-month="${m}" data-duty-key="weekday" type="number" value="${num(v.weekday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="holiday" type="number" value="${num(v.holiday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="sunday" type="number" value="${num(v.sunday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="monThu" type="number" value="${num(v.monThu)||''}"></td><td><input data-duty-month="${m}" data-duty-key="friday" type="number" value="${num(v.friday)||''}"></td><td>${money(calc.duty)}</td><td>${money(calc.taxablePay)}</td><td>${money(calc.pension)}</td><td>${money(calc.health)}</td><td>${money(calc.care)}</td><td>${money(calc.employment)}</td><td>${money(calc.incomeTax)}</td><td>${money(calc.localTax)}</td><td>${money(calc.deductions)}</td><td>${money(calc.net)}</td></tr>`;
   }).join('');
 }
 function renderAssets(){
@@ -226,7 +254,9 @@ async function refreshFromFirebase(showDone=true){
     setPullStatus('동기화 중...');
     const remote = await fetchHousehold();
     if(remote){
+      // Firebase 데이터를 기준으로 병합합니다. 프로그램 업데이트 후 로컬 기본값이 기존 데이터를 덮지 않도록 합니다.
       state = mergeDefaults({...state, ...remote, settings:{...state.settings, ...(remote.settings||{})}});
+      remoteLoaded = true;
       persistLocal();
       render();
     }
@@ -305,8 +335,17 @@ async function connectFirebase(){
     initFirebase(cfg);
     subscribeHousehold(state.settings.householdId, async remote=>{
       syncingRemote=true;
-      if(remote){ state=mergeDefaults({...state, ...remote, settings:{...state.settings, ...(remote.settings||{})}}); }
-      else { await saveHousehold(stripRuntime(state)); }
+      if(remote){
+        // 기존 Firebase 데이터가 항상 우선입니다.
+        // 업데이트된 프로그램의 빈 기본값이 투자/자산/예산 데이터를 덮어쓰지 않도록 합니다.
+        state=mergeDefaults({...state, ...remote, settings:{...state.settings, ...(remote.settings||{})}});
+        remoteLoaded = true;
+      }
+      else {
+        // 새 가계부일 때만 최초 문서를 생성합니다.
+        remoteLoaded = true;
+        await saveHousehold(stripRuntime(state));
+      }
       syncingRemote=false;
       persistLocal(); render(); markSynced(); setBadge('공동 동기화','on'); firebaseReady=true;
     }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
@@ -334,7 +373,7 @@ function bindEvents(){
   $('#fixedList').addEventListener('input', e=>{ const key=getPeriod().key; const arr=currentFixed(); const i=num(e.target.dataset.fixedName ?? e.target.dataset.fixedAmount); if(e.target.dataset.fixedName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.fixedAmount!==undefined) arr[i].amount=num(e.target.value); state.fixedByMonth[key]=arr; });
   $('#fixedList').addEventListener('change', persistRemote);
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ state.salary.jinhyuk[getPeriod().key]=num($('#jinhyukSalary').value); await persistRemote(); });
-  $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth; const k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
+  $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={pension:num($('#taxPension').value), incomeTax:num($('#taxIncome').value), vehicleAllowance:num($('#taxVehicle').value), memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth; const k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
   $('#saveAssetsBtn').addEventListener('click', async()=>{ $$('[data-asset]').forEach(i=>state.assets[i.dataset.asset]=num(i.value)); await persistRemote(); });
   $('#saveInvestBtn').addEventListener('click', async()=>{ state.investments=state.investments.map((it,i)=>({...it,type:$(`[data-invest-type="${i}"]`)?.value||it.type,name:$(`[data-invest-name="${i}"]`)?.value||'',principal:num($(`[data-invest-principal="${i}"]`)?.value),current:num($(`[data-invest-current="${i}"]`)?.value)})); await persistRemote(); });
   $('#connectBtn').addEventListener('click', connectFirebase);
