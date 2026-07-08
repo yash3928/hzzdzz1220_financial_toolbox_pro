@@ -42,7 +42,7 @@ export async function saveHousehold(data){
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
   const existingSnap = await getDoc(activeRef);
   const existing = existingSnap.exists() ? existingSnap.data() : {};
-  const payload = {...data, updatedAt: serverTimestamp(), appVersion:'0.8.3'};
+  const payload = {...data, updatedAt: serverTimestamp(), appVersion:'0.9.0'};
 
   // 데이터 보존 안전장치:
   // 프로그램 업데이트 직후 로컬 기본값([])이 기존 Firebase 배열 데이터를 덮어쓰는 것을 방지합니다.
@@ -52,6 +52,14 @@ export async function saveHousehold(data){
       payload[key] = existing[key];
     }
   });
+  if(existing.assets?.cashItems?.length && Array.isArray(payload.assets?.cashItems) && payload.assets.cashItems.length === 0){
+    payload.assets.cashItems = existing.assets.cashItems;
+  }
+  if(existing.investmentSummary && payload.investmentSummary){
+    const emptyNew = ['domestic','overseas','cma'].every(k => !payload.investmentSummary?.[k]?.amount);
+    const hasOld = ['domestic','overseas','cma'].some(k => existing.investmentSummary?.[k]?.amount);
+    if(emptyNew && hasOld) payload.investmentSummary = existing.investmentSummary;
+  }
   if(existing.jaturi?.history?.length && Array.isArray(payload.jaturi?.history) && payload.jaturi.history.length === 0){
     payload.jaturi.history = existing.jaturi.history;
   }
