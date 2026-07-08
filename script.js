@@ -1,11 +1,11 @@
 import { connectHousehold, saveHouseholdData, disconnectHousehold } from './firebase.js';
 
-const APP_VERSION = '0.6.0';
+const APP_VERSION = '0.6.1';
 const SCHEMA_VERSION = 2;
 const STORAGE_KEY = 'hzzdzz-finance-local-cache-v1';
 const LEGACY_STORAGE_KEYS = ['hzzdzz-finance-v05-local','couple-budget-v4-local','couple-budget-v3-local','couple-budget-v2-local'];
 const SYNC_KEY = 'hzzdzz-finance-sync-v1';
-const LEGACY_SYNC_KEYS = ['couple-budget-v3-sync'];
+const LEGACY_SYNC_KEYS = ['couple-budget-v3-sync','couple-budget-v2-sync'];
 const DEFAULT_HOUSEHOLD_ID = 'hzzdzz_가계부';
 const BUDGET_CATEGORIES = ['식비', '생필품', '의료', '비상금', '여행비', '경조사비', '육아'];
 const ASSET_TYPES = ['은행', '현금', '연금', '청약', '코인', '기타'];
@@ -27,7 +27,8 @@ const defaultData = {
 };
 
 let state = mergeData(loadStoredJson([STORAGE_KEY, ...LEGACY_STORAGE_KEYS]));
-let sync = loadStoredJson([SYNC_KEY, ...LEGACY_SYNC_KEYS]) || { householdId: DEFAULT_HOUSEHOLD_ID, configText: '' };
+let sync = normalizeSync(loadStoredJson([SYNC_KEY, ...LEGACY_SYNC_KEYS]));
+localStorage.setItem(SYNC_KEY, JSON.stringify(sync));
 let remoteReady = false;
 let syncingFromRemote = false;
 
@@ -38,10 +39,19 @@ function loadStoredJson(keys){
   }
   return null;
 }
+
+function normalizeSync(raw){
+  if(!raw) return { householdId: DEFAULT_HOUSEHOLD_ID, configText: '' };
+  const householdId = raw.householdId || raw.household || DEFAULT_HOUSEHOLD_ID;
+  let configText = raw.configText || '';
+  if(!configText && raw.config) configText = JSON.stringify(raw.config, null, 2);
+  return { householdId, configText };
+}
 function hasUserData(data){
   return !!(data && (data.entries?.length || data.fixedExpenses?.length || data.annualPlans?.length || data.assets?.length || data.investments?.length || Object.keys(data.monthlyBudgets||{}).length || Object.keys(data.duty||{}).length));
 }
 function mergeData(raw){
+  if(Array.isArray(raw)) raw = { entries: raw };
   const old = raw || {};
   const oldSettings = old.settings || {};
   const oldBudgets = oldSettings.budgets || {};
