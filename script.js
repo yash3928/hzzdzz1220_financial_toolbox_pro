@@ -1,6 +1,6 @@
 import { connectHousehold, saveHouseholdData, disconnectHousehold } from './firebase.js';
 
-const APP_VERSION = '0.6.1';
+const APP_VERSION = '0.6.2';
 const SCHEMA_VERSION = 2;
 const STORAGE_KEY = 'hzzdzz-finance-local-cache-v1';
 const LEGACY_STORAGE_KEYS = ['hzzdzz-finance-v05-local','couple-budget-v4-local','couple-budget-v3-local','couple-budget-v2-local'];
