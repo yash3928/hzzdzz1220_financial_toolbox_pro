@@ -3,267 +3,187 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111827" />
   <title>HZZDZZ Couple Finance</title>
-  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app-shell">
+  <div class="app">
     <header class="topbar">
       <div>
-        <p class="eyebrow">HZZDZZ Couple Finance</p>
-        <h1>부부 예산 · 정산 관리</h1>
-        <p id="periodText" class="period-text"></p>
+        <h1>HZZDZZ Couple Finance</h1>
+        <p id="periodLabel">엑셀형 부부 예산·정산 관리</p>
       </div>
-      <span id="syncStatus" class="sync-badge">로컬 저장</span>
+      <div id="syncBadge" class="badge off">오프라인</div>
     </header>
 
     <main>
-      <section class="page page-home active" data-page="home">
-        <section class="excel-panel top-asset-panel">
-          <div class="sheet-title"><b>총 자산 현황</b><span>홈 최상단</span></div>
-          <table class="sheet-table asset-summary-table" id="homeAssetTable"></table>
+      <section id="view-home" class="view active">
+        <section class="panel asset-top">
+          <div class="section-title">총 자산 현황</div>
+          <div class="asset-grid" id="assetSummaryGrid"></div>
+          <div class="total-line"><span>총자산</span><strong id="homeTotalAssets">0원</strong></div>
         </section>
 
-        <section class="excel-panel">
-          <div class="sheet-title"><b id="dashboardTitle">이번 기간 요약</b><span>엑셀 요약형</span></div>
-          <table class="sheet-table summary-table">
+        <section class="panel excel-panel">
+          <div class="section-title">월별 수입·지출 요약</div>
+          <table class="excel-table compact">
             <tbody>
-              <tr><th>진혁 월급</th><td id="incomeJin">₩0</td><th>다혜 월급</th><td id="incomeDahye">₩0</td></tr>
-              <tr><th>총수입</th><td id="incomeTotal">₩0</td><th>고정지출</th><td id="fixedTotal">₩0</td></tr>
-              <tr><th>식비 예산</th><td id="foodBudgetCell">₩0</td><th>공동지출</th><td id="expenseTotalCell">₩0</td></tr>
-              <tr class="emphasis"><th>잉여자금</th><td id="surplusCell">₩0</td><th>자투리 통장</th><td id="jaturiCell">₩0</td></tr>
+              <tr><th>진혁 월급</th><td id="homeJinhyukSalary">0원</td></tr>
+              <tr><th>다혜 월급</th><td id="homeDahyeSalary">0원</td></tr>
+              <tr><th>총 수입</th><td id="homeIncome">0원</td></tr>
+              <tr><th>월별 고정지출</th><td id="homeFixed">0원</td></tr>
+              <tr><th>예산 사용액</th><td id="homeBudgetSpent">0원</td></tr>
+              <tr class="strong"><th>잉여자금</th><td id="homeSurplus">0원</td></tr>
             </tbody>
           </table>
         </section>
 
-        <section class="excel-panel">
-          <div class="sheet-title"><b>예산 현황</b><span>예산 · 지출액 · 잔여액</span></div>
-          <table class="sheet-table" id="budgetStatusTable"></table>
+        <section class="panel excel-panel">
+          <div class="section-title">예산 현황</div>
+          <div class="table-scroll">
+            <table class="excel-table" id="homeBudgetTable">
+              <thead><tr><th>분류</th><th>구분</th><th>예산</th><th>지출</th><th>잔액</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="jaturi-box">
+            <span>자투리 통장</span><strong id="jaturiBalance">0원</strong>
+          </div>
         </section>
 
-        <section class="excel-panel">
-          <div class="sheet-title"><b>정산 현황</b><span>지출내역 기준 자동계산</span></div>
-          <table class="sheet-table settlement-table">
+        <section class="panel excel-panel">
+          <div class="section-title">정산 요약</div>
+          <table class="excel-table compact">
             <tbody>
-              <tr><th>공동지출 합계</th><td id="settleTotal">₩0</td></tr>
-              <tr><th>진혁 결제</th><td id="settleJin">₩0</td></tr>
-              <tr><th>다혜 결제</th><td id="settleDahye">₩0</td></tr>
-              <tr><th>1인 부담</th><td id="settleHalf">₩0</td></tr>
-              <tr class="emphasis"><th>정산 결과</th><td id="settleResult">정산할 내역이 없습니다.</td></tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section class="excel-panel">
-          <div class="sheet-title"><b>AI 요약</b><span>규칙 기반</span></div>
-          <div id="homeInsights" class="insights compact"></div>
-        </section>
-      </section>
-
-      <section class="page" data-page="input">
-        <section class="panel">
-          <div class="panel-head"><h2>공동지출 입력</h2><span>정산용 지출내역</span></div>
-          <form id="expenseForm" class="entry-form">
-            <input id="expenseEditId" type="hidden" />
-            <div class="form-row two">
-              <label>결제자
-                <select id="expensePayer" required><option value="진혁">진혁</option><option value="다혜">다혜</option></select>
-              </label>
-              <label>날짜<input id="expenseDate" type="date" required /></label>
-            </div>
-            <label>분류<select id="expenseCategory" required></select></label>
-            <div class="form-row two">
-              <label>금액<input id="expenseAmount" type="number" inputmode="numeric" placeholder="예: 58000" min="0" required /></label>
-              <label>내용<input id="expenseMemo" type="text" placeholder="예: 이마트 장보기" required /></label>
-            </div>
-            <div class="button-row">
-              <button id="expenseSubmitBtn" class="main-btn" type="submit">지출 입력</button>
-              <button id="expenseCancelBtn" class="ghost-btn hidden" type="button">수정 취소</button>
-            </div>
-          </form>
-        </section>
-
-        <section class="excel-panel">
-          <div class="sheet-title"><b>지출내역</b><span>수정 · 삭제 가능</span></div>
-          <div class="table-scroll"><table class="sheet-table expense-table" id="expenseHistoryTable"></table></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head"><h2>월급 입력</h2><span>진혁 직접 / 다혜 당직 자동</span></div>
-          <form id="salaryForm" class="entry-form">
-            <div class="form-row two">
-              <label>대상<select id="salaryOwner"><option value="진혁">진혁</option><option value="다혜">다혜</option></select></label>
-              <label>급여일<input id="salaryDate" type="date" required /></label>
-            </div>
-            <label>진혁은 실수령액 / 다혜는 기본급<input id="salaryBase" type="number" inputmode="numeric" placeholder="진혁: 실수령액, 다혜: 기본급" min="0" /></label>
-            <div id="dahyeDutyBox" class="notice hidden"></div>
-            <button class="main-btn" type="submit">월급 입력</button>
-          </form>
-        </section>
-      </section>
-
-      <section class="page" data-page="monthly">
-        <section class="excel-panel">
-          <div class="sheet-title"><b id="monthlyExpenseTitle">월별 지출 내역</b><span>엑셀형 대조표</span></div>
-          <div class="table-scroll"><table class="sheet-table monthly-expense-table" id="monthlyExpenseTable"></table></div>
-        </section>
-
-        <section class="excel-panel">
-          <div class="sheet-title"><b>월별 정산 요약</b><span>결제자 기준</span></div>
-          <table class="sheet-table settlement-table">
-            <tbody>
-              <tr><th>공동지출 합계</th><td id="monthlySettleTotal">₩0</td></tr>
-              <tr><th>진혁 결제</th><td id="monthlySettleJin">₩0</td></tr>
-              <tr><th>다혜 결제</th><td id="monthlySettleDahye">₩0</td></tr>
-              <tr><th>1인 부담</th><td id="monthlySettleHalf">₩0</td></tr>
-              <tr class="emphasis"><th>정산 결과</th><td id="monthlySettleResult">정산할 내역이 없습니다.</td></tr>
+              <tr><th>공동지출 합계</th><td id="settleTotal">0원</td></tr>
+              <tr><th>진혁 결제</th><td id="settleJinhyuk">0원</td></tr>
+              <tr><th>다혜 결제</th><td id="settleDahye">0원</td></tr>
+              <tr><th>1인 부담</th><td id="settleHalf">0원</td></tr>
+              <tr class="strong"><th>정산</th><td id="settleResult">정산 없음</td></tr>
             </tbody>
           </table>
         </section>
       </section>
 
-      <section class="page" data-page="budget">
+      <section id="view-ledger" class="view">
         <section class="panel">
-          <div class="panel-head"><h2>월 예산 설정</h2><span>식비</span></div>
-          <form id="monthlyBudgetForm" class="entry-form">
-            <label>예산 기준월<input id="budgetMonth" type="month" required /></label>
-            <label>식비 월 예산<input id="foodBudgetInput" type="number" inputmode="numeric" min="0" placeholder="예: 500000" /></label>
-            <button class="main-btn" type="submit">월 예산 저장</button>
-          </form>
-          <div class="notice">식비를 예산보다 적게 쓰면 자투리 통장에 쌓이고, 초과하면 다음 달 식비 예산에서 차감하는 기준으로 표시합니다.</div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head"><h2>연 예산 설정</h2><span>생필품 · 비상금 · 쇼핑비 등</span></div>
-          <form id="annualBudgetForm" class="entry-form">
-            <label>연도<input id="annualBudgetYear" type="number" min="2020" max="2100" required /></label>
-            <div id="annualBudgetFields" class="form-row two"></div>
-            <button class="main-btn" type="submit">연 예산 저장</button>
+          <div class="section-title">공동지출 입력</div>
+          <form id="expenseForm" class="form-grid">
+            <input type="hidden" id="expenseId" />
+            <label>날짜<input type="date" id="expenseDate" required /></label>
+            <label>결제자<select id="expensePayer"><option>진혁</option><option>다혜</option></select></label>
+            <label>분류<select id="expenseCategory"></select></label>
+            <label>금액<input type="number" id="expenseAmount" inputmode="numeric" required /></label>
+            <label class="full">내용<input type="text" id="expenseMemo" placeholder="예: 이마트, 병원, 경조사" /></label>
+            <div class="button-row full"><button type="submit" class="primary">저장</button><button type="button" id="expenseCancel" class="ghost">취소</button></div>
           </form>
         </section>
-
-        <section class="panel">
-          <div class="panel-head"><h2>매월 고정지출</h2><span>월급 대비 잉여자금 계산</span></div>
-          <form id="fixedForm" class="entry-form">
-            <div class="form-row two">
-              <label>항목명<input id="fixedName" type="text" placeholder="예: 보험료" required /></label>
-              <label>분류<select id="fixedCategory" required></select></label>
-            </div>
-            <div class="form-row two">
-              <label>금액<input id="fixedAmount" type="number" inputmode="numeric" min="0" required /></label>
-              <label>메모<input id="fixedMemo" type="text" placeholder="선택" /></label>
-            </div>
-            <button class="main-btn" type="submit">고정지출 추가</button>
-          </form>
-          <div id="fixedList" class="list-stack"></div>
+        <section class="panel excel-panel">
+          <div class="section-title">월별 지출 내역</div>
+          <div class="table-scroll ledger-scroll">
+            <table class="excel-table" id="ledgerTable">
+              <thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th><th>관리</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </section>
       </section>
 
-      <section class="page" data-page="assets">
-        <section class="panel">
-          <div class="panel-head"><h2>자산 현황</h2><span>국내/해외주식/CMA는 투자관리 자동연동</span></div>
-          <form id="assetForm" class="entry-form compact-form">
-            <div class="form-row three">
-              <label>구분<select id="assetType"></select></label>
-              <label>이름<input id="assetName" type="text" placeholder="예: 우리은행" required /></label>
-              <label>금액<input id="assetAmount" type="number" inputmode="numeric" min="0" required /></label>
-            </div>
-            <button class="main-btn" type="submit">자산 추가</button>
-          </form>
-          <div id="assetList" class="asset-list"></div>
+      <section id="view-budget" class="view">
+        <section class="panel excel-panel">
+          <div class="section-title">월 예산 / 연 예산 설정</div>
+          <p class="hint">식비는 월 예산, 나머지는 연 예산입니다. 여행비는 자산현황에서 관리합니다.</p>
+          <div class="table-scroll">
+            <table class="excel-table input-table" id="budgetInputTable">
+              <thead><tr><th>분류</th><th>구분</th><th>예산</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button id="saveBudgetBtn" class="primary wide">예산 저장</button>
         </section>
-
-        <section class="panel">
-          <div class="panel-head"><h2>투자 관리</h2><span>종목별 수익률</span></div>
-          <form id="investmentForm" class="entry-form">
-            <input id="investEditId" type="hidden" />
-            <div class="form-row two">
-              <label>구분<select id="investType"><option value="국내주식">국내주식</option><option value="해외주식">해외주식</option><option value="CMA">CMA</option></select></label>
-              <label>종목명<input id="investName" type="text" placeholder="예: 삼성전자" required /></label>
-            </div>
-            <div class="form-row two">
-              <label>투자원금<input id="investPrincipal" type="number" inputmode="numeric" min="0" required /></label>
-              <label>현재 평가금액<input id="investCurrent" type="number" inputmode="numeric" min="0" required /></label>
-            </div>
-            <div class="button-row">
-              <button id="investSubmitBtn" class="main-btn" type="submit">투자자산 저장</button>
-              <button id="investCancelBtn" class="ghost-btn hidden" type="button">수정 취소</button>
-            </div>
-          </form>
-          <div id="investmentResult" class="notice"></div>
-          <div id="investmentList" class="list-stack"></div>
+        <section class="panel excel-panel">
+          <div class="section-title">월별 고정지출</div>
+          <p class="hint">고정지출도 월별로 입력합니다. 저축/청약/투자는 자산 또는 투자관리에서 관리합니다.</p>
+          <div id="fixedList"></div>
+          <button id="addFixedBtn" class="ghost wide">+ 고정지출 항목 추가</button>
         </section>
       </section>
 
-      <section class="page" data-page="settings">
-        <section class="panel">
-          <div class="panel-head"><h2>기본 설정</h2><span>월 기준일</span></div>
-          <form id="settingsForm" class="entry-form">
-            <label>월 시작일<select id="monthStartDay"></select></label>
-            <button class="main-btn" type="submit">기본 설정 저장</button>
-          </form>
+      <section id="view-salary" class="view">
+        <section class="panel excel-panel">
+          <div class="section-title">월급 관리</div>
+          <label>진혁 세후 월급<input type="number" id="jinhyukSalary" inputmode="numeric" /></label>
+          <button id="saveJinhyukSalary" class="primary wide">진혁 월급 저장</button>
         </section>
+        <section class="panel excel-panel">
+          <div class="section-title">다혜 당직비 / 세후 월급</div>
+          <div class="rates-grid">
+            <label>기본급<input type="number" id="dahyeBase" /></label>
+            <label>평일 단가<input type="number" id="rateWeekday" /></label>
+            <label>휴일 단가<input type="number" id="rateHoliday" /></label>
+            <label>일요일 단가<input type="number" id="rateSunday" /></label>
+            <label>월·목 보조<input type="number" id="rateMonThu" /></label>
+            <label>금요일 보조<input type="number" id="rateFriday" /></label>
+          </div>
+          <div class="table-scroll">
+            <table class="excel-table input-table" id="dahyeDutyTable">
+              <thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th><th>세후 예상</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button id="saveDahyeSalary" class="primary wide">다혜 연간 급여 저장</button>
+          <p class="hint">당직 횟수는 연초 입력 후 월별로 언제든 수정할 수 있습니다.</p>
+        </section>
+      </section>
 
-        <section class="panel">
-          <div class="panel-head"><h2>다혜 연간 당직 설정</h2><span>연초 1회 입력</span></div>
-          <form id="dutyForm" class="entry-form">
-            <div class="form-row two">
-              <label>연도<input id="dutyYear" type="number" min="2020" max="2100" /></label>
-              <label>기본급<input id="dahyeBasePay" type="number" inputmode="numeric" min="0" placeholder="2700000" /></label>
-            </div>
-            <div class="form-row two">
-              <label>평일 단가<input id="weekdayRate" type="number" inputmode="numeric" min="0" /></label>
-              <label>휴일 단가<input id="holidayRate" type="number" inputmode="numeric" min="0" /></label>
-              <label>일요일 단가<input id="sundayRate" type="number" inputmode="numeric" min="0" /></label>
-              <label>월/목 보조 단가<input id="monThuAssistRate" type="number" inputmode="numeric" min="0" /></label>
-              <label>금요일 보조 단가<input id="friAssistRate" type="number" inputmode="numeric" min="0" /></label>
-            </div>
-            <div class="notice">월별 횟수는 평일 / 휴일 / 일요일 / 월·목 보조 / 금요일 보조 순서입니다.</div>
-            <div id="dutyMonths" class="duty-months"></div>
-            <div class="panel-subtitle">세금·공제 설정</div>
-            <div class="form-row two">
-              <label>차량보조<input id="vehicleSupport" type="number" inputmode="numeric" min="0" /></label>
-              <label>기타수당<input id="otherAllowance" type="number" inputmode="numeric" min="0" /></label>
-              <label>국민연금 %<input id="pensionRate" type="number" inputmode="decimal" step="0.001" min="0" /></label>
-              <label>건강보험 %<input id="healthRate" type="number" inputmode="decimal" step="0.001" min="0" /></label>
-              <label>요양보험 %<input id="careRate" type="number" inputmode="decimal" step="0.001" min="0" /></label>
-              <label>고용보험 %<input id="employmentRate" type="number" inputmode="decimal" step="0.001" min="0" /></label>
-              <label>소득세<input id="incomeTax" type="number" inputmode="numeric" min="0" /></label>
-              <label>주민세 %<input id="localTaxRate" type="number" inputmode="decimal" step="0.001" min="0" /></label>
-            </div>
-            <button class="main-btn" type="submit">다혜 급여 설정 저장</button>
-          </form>
+      <section id="view-assets" class="view">
+        <section class="panel excel-panel">
+          <div class="section-title">자산현황</div>
+          <div class="table-scroll">
+            <table class="excel-table input-table" id="assetInputTable">
+              <thead><tr><th>자산</th><th>금액</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button id="saveAssetsBtn" class="primary wide">자산 저장</button>
         </section>
+      </section>
 
-        <section class="panel">
-          <div class="panel-head"><h2>공동 동기화 설정</h2><span>Firebase</span></div>
-          <div class="notice">두 휴대폰에 같은 Firebase 설정과 같은 가계부 코드를 입력하면 같은 데이터를 실시간으로 공유합니다.</div>
-          <form id="syncForm" class="entry-form">
-            <label>가계부 코드<input id="householdId" type="text" value="hzzdzz_가계부" placeholder="hzzdzz_가계부" /></label>
-            <label>Firebase 설정값<textarea id="firebaseConfig" rows="8" placeholder="Firebase에서 복사한 &lt;script&gt; 코드 전체 또는 JSON을 붙여넣기"></textarea></label>
-            <button class="main-btn" type="submit">공동 동기화 연결</button>
-            <button id="localModeBtn" class="ghost-btn full" type="button">로컬 저장으로 전환</button>
-          </form>
+      <section id="view-invest" class="view">
+        <section class="panel excel-panel">
+          <div class="section-title">투자관리</div>
+          <div class="table-scroll">
+            <table class="excel-table input-table" id="investmentTable">
+              <thead><tr><th>구분</th><th>종목/계좌</th><th>원금</th><th>현재금액</th><th>수익</th><th>수익률</th><th>관리</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button id="addInvestBtn" class="ghost wide">+ 투자 항목 추가</button>
+          <button id="saveInvestBtn" class="primary wide">투자 저장</button>
         </section>
+      </section>
 
+      <section id="view-settings" class="view">
         <section class="panel">
-          <div class="panel-head"><h2>데이터 백업 / 복원</h2><span>업데이트 전 권장</span></div>
-          <button id="backupBtn" class="main-btn" type="button">데이터 백업 JSON 저장</button>
-          <label class="file-restore-label">데이터 복원 JSON 선택<input id="restoreFile" type="file" accept="application/json,.json" /></label>
+          <div class="section-title">공동 동기화 설정</div>
+          <label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label>
+          <label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label>
+          <label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label>
+          <div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">복원</button></div>
+          <input id="restoreFile" type="file" accept="application/json" hidden />
+          <p class="hint">Firestore 생성 후 같은 Firebase 설정값과 같은 가계부 ID를 두 분 모두 입력하면 동기화됩니다.</p>
         </section>
-        <section class="panel"><div class="panel-head"><h2>관리</h2><span>로컬 캐시만 삭제</span></div><button id="resetBtn" class="danger-btn" type="button">현재 기기 로컬 데이터 초기화</button></section>
       </section>
     </main>
 
-    <nav class="bottom-nav" aria-label="하단 메뉴">
-      <button class="active" type="button" data-target="home">홈</button>
-      <button type="button" data-target="input">입력</button>
-      <button type="button" data-target="monthly">내역</button>
-      <button type="button" data-target="budget">예산</button>
-      <button type="button" data-target="assets">자산</button>
-      <button type="button" data-target="settings">설정</button>
+    <nav class="bottom-nav">
+      <button data-view="home" class="active">홈</button>
+      <button data-view="ledger">내역</button>
+      <button data-view="budget">예산</button>
+      <button data-view="salary">급여</button>
+      <button data-view="assets">자산</button>
+      <button data-view="invest">투자</button>
+      <button data-view="settings">설정</button>
     </nav>
   </div>
   <script type="module" src="script.js"></script>
