@@ -1,8 +1,11 @@
-import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import { getFirestore, doc, onSnapshot, setDoc, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import { connectHousehold, saveHouseholdData, disconnectHousehold } from './firebase.js';
 
-const STORAGE_KEY = 'hzzdzz-finance-v05-local';
-const SYNC_KEY = 'couple-budget-v3-sync';
+const APP_VERSION = '0.6.0';
+const SCHEMA_VERSION = 2;
+const STORAGE_KEY = 'hzzdzz-finance-local-cache-v1';
+const LEGACY_STORAGE_KEYS = ['hzzdzz-finance-v05-local','couple-budget-v4-local','couple-budget-v3-local','couple-budget-v2-local'];
+const SYNC_KEY = 'hzzdzz-finance-sync-v1';
+const LEGACY_SYNC_KEYS = ['couple-budget-v3-sync'];
 const DEFAULT_HOUSEHOLD_ID = 'hzzdzz_가계부';
 const BUDGET_CATEGORIES = ['식비', '생필품', '의료', '비상금', '여행비', '경조사비', '육아'];
 const ASSET_TYPES = ['은행', '현금', '연금', '청약', '코인', '기타'];
@@ -18,23 +21,32 @@ const defaultData = {
   annualPlans: [],
   assets: [],
   investments: [],
-  duty: {}
+  duty: {},
+  logs: [],
+  appMeta: { schemaVersion: SCHEMA_VERSION, appVersion: APP_VERSION }
 };
 
-let state = mergeData(JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem('couple-budget-v4-local') || 'null'));
-let sync = JSON.parse(localStorage.getItem(SYNC_KEY) || 'null') || { householdId: DEFAULT_HOUSEHOLD_ID, configText: '' };
-let db = null;
-let dataRef = null;
-let unsub = null;
+let state = mergeData(loadStoredJson([STORAGE_KEY, ...LEGACY_STORAGE_KEYS]));
+let sync = loadStoredJson([SYNC_KEY, ...LEGACY_SYNC_KEYS]) || { householdId: DEFAULT_HOUSEHOLD_ID, configText: '' };
 let remoteReady = false;
-let saveTimer = null;
+let syncingFromRemote = false;
 
+function loadStoredJson(keys){
+  for(const key of keys){
+    const text = localStorage.getItem(key);
+    if(text){ try{ return JSON.parse(text); }catch{} }
+  }
+  return null;
+}
+function hasUserData(data){
+  return !!(data && (data.entries?.length || data.fixedExpenses?.length || data.annualPlans?.length || data.assets?.length || data.investments?.length || Object.keys(data.monthlyBudgets||{}).length || Object.keys(data.duty||{}).length));
+}
 function mergeData(raw){
   const old = raw || {};
   const oldSettings = old.settings || {};
   const oldBudgets = oldSettings.budgets || {};
   const base = structuredClone(defaultData);
-  return {
+  const merged = {
     ...base,
     ...old,
     entries: Array.isArray(old.entries) ? old.entries : [],
@@ -44,8 +56,13 @@ function mergeData(raw){
     annualPlans: Array.isArray(old.annualPlans) ? old.annualPlans : [],
     assets: Array.isArray(old.assets || oldSettings.assets) ? (old.assets || oldSettings.assets) : [],
     investments: Array.isArray(old.investments) ? old.investments : oldSettings.investment ? [{ id: uid(), type:'국내주식', name:'투자자산', principal:num(oldSettings.investment.principal), current:num(oldSettings.investment.current) }] : [],
-    duty: old.duty || oldSettings.duty || {}
+    duty: old.duty || oldSettings.duty || {},
+    logs: Array.isArray(old.logs) ? old.logs : [],
+    appMeta: { schemaVersion: SCHEMA_VERSION, appVersion: APP_VERSION, ...(old.appMeta||{}) }
   };
+  merged.appMeta.schemaVersion = SCHEMA_VERSION;
+  merged.appMeta.appVersion = APP_VERSION;
+  return merged;
 }
 function uid(){ return `${Date.now()}_${Math.random().toString(16).slice(2)}`; }
 function num(v){ return Number(v || 0); }
@@ -92,11 +109,16 @@ function investmentTotals(){
 function totalAssets(){ return state.assets.reduce((a,x)=>a+num(x.amount),0) + investmentTotals().current; }
 
 function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function addLog(action, detail){
+  state.logs = state.logs || [];
+  state.logs.unshift({ id:uid(), action, detail, at:new Date().toISOString() });
+  state.logs = state.logs.slice(0,200);
+}
 function scheduleRemoteSave(){
+  state.appMeta = { schemaVersion: SCHEMA_VERSION, appVersion: APP_VERSION };
   saveLocal();
-  if(!dataRef || !remoteReady) return;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => setDoc(dataRef, { ...state, updatedAt: new Date().toISOString() }, { merge:false }).catch(err=>alert('Firebase 저장 오류: '+err.message)), 350);
+  if(!remoteReady || syncingFromRemote) return;
+  saveHouseholdData(state);
 }
 
 function renderAll(){
@@ -215,21 +237,23 @@ function bindEvents(){
   document.querySelectorAll('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.dataset.page===btn.dataset.target)); renderAll(); }));
   $('budgetToggle').addEventListener('click', ()=>$('budgetDetailPanel').classList.toggle('hidden'));
   $('expenseDate').value = todayISO(); $('salaryDate').value = todayISO(); $('annualYear').value = nowYear;
-  $('expenseForm').addEventListener('submit', e=>{ e.preventDefault(); state.entries.push({ id:uid(), type:'expense', owner:$('expenseOwner').value, date:$('expenseDate').value, category:$('expenseCategory').value, amount:num($('expenseAmount').value), memo:$('expenseMemo').value, createdAt:Date.now() }); e.target.reset(); $('expenseDate').value=todayISO(); scheduleRemoteSave(); renderAll(); });
+  $('expenseForm').addEventListener('submit', e=>{ e.preventDefault(); state.entries.push({ id:uid(), type:'expense', owner:$('expenseOwner').value, date:$('expenseDate').value, category:$('expenseCategory').value, amount:num($('expenseAmount').value), memo:$('expenseMemo').value, createdAt:Date.now() }); addLog('지출 입력', `${$('expenseCategory').value} ${fmt.format($('expenseAmount').value)}`); e.target.reset(); $('expenseDate').value=todayISO(); scheduleRemoteSave(); renderAll(); });
   $('salaryOwner').addEventListener('change', updateDutyBox); $('salaryDate').addEventListener('change', updateDutyBox);
-  $('salaryForm').addEventListener('submit', e=>{ e.preventDefault(); const owner=$('salaryOwner').value, date=$('salaryDate').value; const extra=dutyPay(owner,date); const base=num($('salaryBase').value); state.entries.push({ id:uid(), type:'income', owner, date, category:'월급', amount:base+extra, memo: owner==='다혜' ? `월급+당직수당 ${fmt.format(extra)}` : '월급', createdAt:Date.now() }); e.target.reset(); $('salaryDate').value=todayISO(); updateDutyBox(); scheduleRemoteSave(); renderAll(); });
+  $('salaryForm').addEventListener('submit', e=>{ e.preventDefault(); const owner=$('salaryOwner').value, date=$('salaryDate').value; const extra=dutyPay(owner,date); const base=num($('salaryBase').value); state.entries.push({ id:uid(), type:'income', owner, date, category:'월급', amount:base+extra, memo: owner==='다혜' ? `월급+당직수당 ${fmt.format(extra)}` : '월급', createdAt:Date.now() }); addLog('월급 입력', `${owner} ${fmt.format(base+extra)}`); e.target.reset(); $('salaryDate').value=todayISO(); updateDutyBox(); scheduleRemoteSave(); renderAll(); });
   $('budgetMonth').addEventListener('change', renderBudgetFields);
-  $('monthlyBudgetForm').addEventListener('submit', e=>{ e.preventDefault(); const key=$('budgetMonth').value; state.monthlyBudgets[key] = {}; document.querySelectorAll('[data-budget-cat]').forEach(inp=>state.monthlyBudgets[key][inp.dataset.budgetCat]=num(inp.value)); scheduleRemoteSave(); renderAll(); });
-  $('fixedForm').addEventListener('submit', e=>{ e.preventDefault(); state.fixedExpenses.push({ id:uid(), name:$('fixedName').value, category:$('fixedCategory').value, amount:num($('fixedAmount').value), memo:$('fixedMemo').value, active:true }); e.target.reset(); scheduleRemoteSave(); renderAll(); });
-  $('annualForm').addEventListener('submit', e=>{ e.preventDefault(); state.annualPlans.push({ id:uid(), year:num($('annualYear').value), month:num($('annualMonth').value), name:$('annualName').value, category:$('annualCategory').value, amount:num($('annualAmount').value), memo:$('annualMemo').value }); e.target.reset(); $('annualYear').value=nowYear; scheduleRemoteSave(); renderAll(); });
-  $('assetForm').addEventListener('submit', e=>{ e.preventDefault(); state.assets.push({ id:uid(), type:$('assetType').value, name:$('assetName').value, amount:num($('assetAmount').value) }); e.target.reset(); scheduleRemoteSave(); renderAll(); });
-  $('investmentForm').addEventListener('submit', e=>{ e.preventDefault(); state.investments.push({ id:uid(), type:$('investType').value, name:$('investName').value, principal:num($('investPrincipal').value), current:num($('investCurrent').value) }); e.target.reset(); scheduleRemoteSave(); renderAll(); });
+  $('monthlyBudgetForm').addEventListener('submit', e=>{ e.preventDefault(); const key=$('budgetMonth').value; state.monthlyBudgets[key] = {}; document.querySelectorAll('[data-budget-cat]').forEach(inp=>state.monthlyBudgets[key][inp.dataset.budgetCat]=num(inp.value)); addLog('월별 예산 저장', key); scheduleRemoteSave(); renderAll(); });
+  $('fixedForm').addEventListener('submit', e=>{ e.preventDefault(); state.fixedExpenses.push({ id:uid(), name:$('fixedName').value, category:$('fixedCategory').value, amount:num($('fixedAmount').value), memo:$('fixedMemo').value, active:true }); addLog('고정지출 추가', $('fixedName').value); e.target.reset(); scheduleRemoteSave(); renderAll(); });
+  $('annualForm').addEventListener('submit', e=>{ e.preventDefault(); state.annualPlans.push({ id:uid(), year:num($('annualYear').value), month:num($('annualMonth').value), name:$('annualName').value, category:$('annualCategory').value, amount:num($('annualAmount').value), memo:$('annualMemo').value }); addLog('연간 계획 추가', $('annualName').value); e.target.reset(); $('annualYear').value=nowYear; scheduleRemoteSave(); renderAll(); });
+  $('assetForm').addEventListener('submit', e=>{ e.preventDefault(); state.assets.push({ id:uid(), type:$('assetType').value, name:$('assetName').value, amount:num($('assetAmount').value) }); addLog('자산 추가', $('assetName').value); e.target.reset(); scheduleRemoteSave(); renderAll(); });
+  $('investmentForm').addEventListener('submit', e=>{ e.preventDefault(); state.investments.push({ id:uid(), type:$('investType').value, name:$('investName').value, principal:num($('investPrincipal').value), current:num($('investCurrent').value) }); addLog('투자 추가', $('investName').value); e.target.reset(); scheduleRemoteSave(); renderAll(); });
   $('settingsForm').addEventListener('submit', e=>{ e.preventDefault(); state.settings.monthStartDay = num($('monthStartDay').value); scheduleRemoteSave(); renderAll(); });
   $('dutyYear').addEventListener('change', e=>renderDutyMonths(num(e.target.value)));
   $('dutyForm').addEventListener('submit', e=>{ e.preventDefault(); const y=num($('dutyYear').value); const months={}; document.querySelectorAll('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth; months[m]=months[m]||{}; months[m][inp.dataset.dutyType]=num(inp.value); }); state.duty[y] = { weekdayRate:num($('weekdayRate').value), weekendRate:num($('weekendRate').value), holidayRate:num($('holidayRate').value), months }; scheduleRemoteSave(); renderAll(); });
   document.addEventListener('click', e=>{ const t=e.target; if(t.dataset.fixedDelete){ state.fixedExpenses.splice(num(t.dataset.fixedDelete),1); scheduleRemoteSave(); renderAll(); } if(t.dataset.annualDelete){ state.annualPlans.splice(num(t.dataset.annualDelete),1); scheduleRemoteSave(); renderAll(); } if(t.dataset.assetDelete){ state.assets.splice(num(t.dataset.assetDelete),1); scheduleRemoteSave(); renderAll(); } if(t.dataset.investDelete){ state.investments.splice(num(t.dataset.investDelete),1); scheduleRemoteSave(); renderAll(); } });
+  $('backupBtn').addEventListener('click', backupData);
+  $('restoreFile').addEventListener('change', restoreData);
   $('syncForm').addEventListener('submit', async e=>{ e.preventDefault(); sync = { householdId:$('householdId').value.trim() || DEFAULT_HOUSEHOLD_ID, configText:$('firebaseConfig').value.trim() }; localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); await connectFirebase(); });
-  $('localModeBtn').addEventListener('click',()=>{ localStorage.removeItem(SYNC_KEY); sync={householdId:DEFAULT_HOUSEHOLD_ID,configText:''}; location.reload(); });
+  $('localModeBtn').addEventListener('click',()=>{ disconnectHousehold(); localStorage.removeItem(SYNC_KEY); sync={householdId:DEFAULT_HOUSEHOLD_ID,configText:''}; location.reload(); });
   $('resetBtn').addEventListener('click',()=>{ if(confirm('현재 기기의 로컬 데이터를 초기화할까요? 공동 동기화 데이터는 삭제하지 않습니다.')){ localStorage.removeItem(STORAGE_KEY); location.reload(); } });
 }
 function updateDutyBox(){
@@ -237,29 +261,52 @@ function updateDutyBox(){
   $('dahyeDutyBox').classList.toggle('hidden', owner!=='다혜');
   $('dahyeDutyBox').innerHTML = owner==='다혜' ? `해당 월 당직수당 예상: <b>${fmt.format(extra)}</b>` : '';
 }
-function parseFirebaseConfig(text){
-  if(!text) throw new Error('Firebase 설정값이 비어 있습니다.');
-  const match = text.match(/firebaseConfig\s*=\s*({[\s\S]*?})\s*;?/);
-  const raw = match ? match[1] : text;
-  const jsonLike = raw.replace(/([,{]\s*)([A-Za-z0-9_]+)\s*:/g,'$1"$2":').replace(/'/g,'"');
-  return JSON.parse(jsonLike);
+
+function backupData(){
+  const backup = { exportedAt:new Date().toISOString(), appVersion:APP_VERSION, schemaVersion:SCHEMA_VERSION, householdId:sync.householdId, data:state };
+  const blob = new Blob([JSON.stringify(backup,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `hzzdzz-finance-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+function restoreData(e){
+  const file = e.target.files?.[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      const restored = parsed.data || parsed;
+      if(!confirm('백업 파일의 데이터로 복원할까요? 현재 Firebase 데이터도 복원 데이터로 갱신됩니다.')) return;
+      state = mergeData(restored);
+      addLog('데이터 복원', file.name);
+      scheduleRemoteSave();
+      renderAll();
+      alert('복원이 완료되었습니다.');
+    }catch(err){ alert('복원 파일을 확인해주세요: '+err.message); }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
 }
 async function connectFirebase(){
-  try{
-    const config = parseFirebaseConfig(sync.configText);
-    const app = getApps().length ? getApps()[0] : initializeApp(config);
-    db = getFirestore(app);
-    enableIndexedDbPersistence(db).catch(()=>{});
-    dataRef = doc(db, 'households', sync.householdId || DEFAULT_HOUSEHOLD_ID, 'app', 'data');
-    $('syncStatus').textContent='연결 중'; $('syncStatus').classList.remove('on');
-    if(unsub) unsub();
-    unsub = onSnapshot(dataRef, snap=>{
+  connectHousehold({
+    configText: sync.configText,
+    householdId: sync.householdId || DEFAULT_HOUSEHOLD_ID,
+    onStatus: text => { $('syncStatus').textContent = text; $('syncStatus').classList.toggle('on', text==='공동 동기화'); },
+    onRemoteData: data => {
+      syncingFromRemote = true;
+      state = mergeData(data);
       remoteReady = true;
-      if(snap.exists()) state = mergeData(snap.data());
-      else setDoc(dataRef, { ...state, updatedAt: new Date().toISOString() });
-      $('syncStatus').textContent='공동 동기화'; $('syncStatus').classList.add('on'); renderAll();
-    }, err=>{ $('syncStatus').textContent='동기화 오류'; alert('Firebase 연결 오류: '+err.message); });
-  }catch(err){ alert('Firebase 설정값을 확인해주세요: '+err.message); }
+      renderAll();
+      syncingFromRemote = false;
+    },
+    onMissingData: () => {
+      remoteReady = true;
+      const initial = hasUserData(state) ? state : mergeData(null);
+      return initial;
+    },
+    onError: err => { $('syncStatus').textContent='동기화 오류'; alert('Firebase 연결 오류: '+err.message); }
+  });
 }
 
 bindEvents(); fillSelects(); updateDutyBox(); renderAll(); if(sync.configText) connectFirebase();

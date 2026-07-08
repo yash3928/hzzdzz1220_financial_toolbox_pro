@@ -203,7 +203,13 @@
             <button id="localModeBtn" class="ghost-btn full" type="button">로컬 저장으로 전환</button>
           </form>
         </section>
-        <section class="panel"><div class="panel-head"><h2>관리</h2></div><button id="resetBtn" class="danger-btn" type="button">현재 기기 로컬 데이터 초기화</button></section>
+        <section class="panel">
+          <div class="panel-head"><h2>데이터 백업 / 복원</h2><span>업데이트 전 권장</span></div>
+          <div class="notice">입력 데이터는 Firebase에 저장됩니다. 추가로 JSON 백업을 저장해 두면 Firebase 변경이나 휴대폰 교체 시 복원할 수 있습니다.</div>
+          <button id="backupBtn" class="main-btn" type="button">데이터 백업 JSON 저장</button>
+          <label class="file-restore-label">데이터 복원 JSON 선택<input id="restoreFile" type="file" accept="application/json,.json" /></label>
+        </section>
+        <section class="panel"><div class="panel-head"><h2>관리</h2><span>로컬 캐시만 삭제</span></div><button id="resetBtn" class="danger-btn" type="button">현재 기기 로컬 데이터 초기화</button></section>
       </section>
     </main>
 
