@@ -18,8 +18,8 @@ let remoteLoaded = false;
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const money = n => `${Math.round(Number(n)||0).toLocaleString('ko-KR')}원`;
-const moneyInput = n => { const v = Math.round(Number(n)||0); return v ? v.toLocaleString('ko-KR') : ''; };
 const num = v => Number(String(v ?? '').replace(/,/g,'')) || 0;
+const moneyInput = v => { const n = num(v); return n ? n.toLocaleString('ko-KR') : ''; };
 const ymd = d => d.toISOString().slice(0,10);
 const currentYear = () => new Date().getFullYear();
 
@@ -184,11 +184,11 @@ function renderHome(){
 function renderLedger(){ const sel=$('#expenseCategory'); if(sel.options.length===0) sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr><td>${e.date||''}</td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
 function renderBudget(){ $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>`<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-budget="${c}" type="number" value="${num(state.budgets[c])}"></td></tr>`).join(''); const list=currentFixed(); $('#fixedList').innerHTML=list.map((f,i)=>`<div class="fixed-row"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"><input type="number" placeholder="금액" data-fixed-amount="${i}" value="${num(f.amount)}"><button class="danger" data-fixed-del="${i}">삭제</button></div>`).join('') || '<p class="hint padded">이번 월 고정지출이 없습니다.</p>'; }
 function renderSalary(){
-  const jinBody = $('#jinhyukSalaryTable tbody');
-  if(jinBody){
-    jinBody.innerHTML = Array.from({length:12},(_,i)=>i+1).map(m=>{
-      const key = `${currentYear()}-${String(m).padStart(2,'0')}`;
-      return `<tr><td>${m}월</td><td><input data-jinhyuk-month="${key}" class="money-input" inputmode="numeric" type="text" value="${moneyInput(state.salary.jinhyuk[key])}"></td></tr>`;
+  const jinTable=$('#jinhyukSalaryTable tbody');
+  if(jinTable){
+    jinTable.innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
+      const key=`${currentYear()}-${String(m).padStart(2,'0')}`;
+      return `<tr><td>${m}월</td><td><input data-jinhyuk-month="${key}" data-money="1" inputmode="numeric" type="text" value="${moneyInput(state.salary.jinhyuk[key])}"></td></tr>`;
     }).join('');
   }
   const d=state.salary.dahye, tax={...DEFAULT_TAX,...(d.tax||{})};
@@ -274,6 +274,7 @@ function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=y
 
 function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
+  document.addEventListener('input', e=>{ const inp=e.target.closest('input[data-money]'); if(!inp) return; const raw=String(inp.value||'').replace(/[^0-9]/g,''); inp.value=raw ? Number(raw).toLocaleString('ko-KR') : ''; });
   document.addEventListener('click', async e=>{ const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
@@ -292,12 +293,6 @@ function bindEvents(){
   $('#fixedList').addEventListener('change', persistRemote);
   $('#cashItemList').addEventListener('input', e=>{ const i=num(e.target.dataset.cashName ?? e.target.dataset.cashAmount); const arr=state.assets.cashItems; if(e.target.dataset.cashName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.cashAmount!==undefined) arr[i].amount=num(e.target.value); });
   $('#cashItemList').addEventListener('change', persistRemote);
-  document.addEventListener('input', e=>{
-    const inp=e.target.closest('.money-input');
-    if(!inp) return;
-    const raw=String(inp.value||'').replace(/[^0-9]/g,'');
-    inp.value=raw ? Number(raw).toLocaleString('ko-KR') : '';
-  });
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ $$('[data-jinhyuk-month]').forEach(inp=>{ state.salary.jinhyuk[inp.dataset.jinhyukMonth]=num(inp.value); }); await persistRemote(); });
   $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={pension:num($('#taxPension').value),taxHealth:$('#taxHealth').value===''?'':num($('#taxHealth').value),taxCare:$('#taxCare').value===''?'':num($('#taxCare').value),taxEmployment:$('#taxEmployment').value===''?'':num($('#taxEmployment').value),incomeTax:num($('#taxIncome').value),taxLocal:$('#taxLocal').value===''?'':num($('#taxLocal').value),otherDeduct:num($('#taxOther').value),vehicleAllowance:num($('#taxVehicle').value),memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
   $('#saveAssetsBtn').addEventListener('click', async()=>{ $$('[data-purpose-asset]').forEach(i=>state.assets.purpose[i.dataset.purposeAsset]=num(i.value)); await persistRemote(); });
