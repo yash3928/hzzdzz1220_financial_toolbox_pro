@@ -91,7 +91,7 @@
       </section>
 
       <section id="view-budget" class="view">
-        <section class="panel excel-panel"><div class="section-title"><span>📊 월 예산 / 연 예산 설정</span></div><p class="hint">식비는 월 예산, 나머지는 연 예산입니다.</p><div class="table-scroll"><table class="excel-table input-table" id="budgetInputTable"><thead><tr><th>분류</th><th>구분</th><th>예산</th></tr></thead><tbody></tbody></table></div><button id="saveBudgetBtn" class="primary wide">예산 저장</button></section>
+        <section class="panel excel-panel"><div class="section-title"><span>📊 월별 / 연도별 예산 설정</span></div><p class="hint">식비는 월별, 나머지는 연도별 기준으로 관리합니다.</p><div class="table-scroll"><table class="excel-table input-table" id="budgetInputTable"><thead><tr><th>분류</th><th>구분</th><th>예산</th></tr></thead><tbody></tbody></table></div><button id="saveBudgetBtn" class="primary wide">예산 저장</button></section>
         <section class="panel excel-panel"><div class="section-title"><span>💸 월별 고정지출</span></div><p class="hint">월별로 실제 지출금액을 입력합니다.</p><div id="fixedList"></div><button id="addFixedBtn" class="ghost wide">+ 고정지출 항목 추가</button></section>
       </section>
 
@@ -112,8 +112,8 @@
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="dahyeTax"><span>🧾 다혜 세금/공제 기준</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeTax">
-            <div class="rates-grid"><label>국민연금<input type="number" id="taxPension" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>차량보조<input type="number" id="taxVehicle" /></label><label>메모 차감<input type="number" id="taxMemoDeduct" /></label></div>
-            <p class="hint">건강보험 3.595%, 요양보험 13.14%, 고용보험 0.9%, 주민세 10%는 월급 엑셀 수식 기준입니다.</p>
+            <div class="rates-grid"><label>국민연금<input type="number" id="taxPension" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>차량보조<input type="number" id="taxVehicle" /></label><label>메모(비고란)<input type="number" id="taxMemoDeduct" /></label></div>
+            <p class="hint">엑셀 기준: 차인지급액 = 지급합계 - 공제합계. 메모(비고란)는 별도 참고값이며 차인지급액에서 자동 차감하지 않습니다.</p>
           </div>
         </section>
 
