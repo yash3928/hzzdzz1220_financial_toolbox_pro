@@ -38,30 +38,39 @@ export function subscribeHousehold(householdId, callback, errorCallback){
   });
 }
 
-export async function saveHousehold(data){
+
+function isPlainObject(v){ return v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date); }
+function hasMeaningfulValue(v){
+  if(Array.isArray(v)) return v.length > 0;
+  if(isPlainObject(v)) return Object.values(v).some(hasMeaningfulValue);
+  if(typeof v === 'number') return v !== 0;
+  if(typeof v === 'string') return v.trim() !== '';
+  return v !== null && v !== undefined;
+}
+function deepPreserve(existing, incoming){
+  if(Array.isArray(incoming)){
+    if(incoming.length === 0 && Array.isArray(existing) && existing.length > 0) return existing;
+    return incoming;
+  }
+  if(isPlainObject(incoming)){
+    if(isPlainObject(existing) && !hasMeaningfulValue(incoming) && hasMeaningfulValue(existing)) return existing;
+    const out = {...(isPlainObject(existing) ? existing : {})};
+    for(const [k,v] of Object.entries(incoming)) out[k] = deepPreserve(existing?.[k], v);
+    return out;
+  }
+  return incoming;
+}
+
+export async function saveHousehold(data, options = {}){
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
   const existingSnap = await getDoc(activeRef);
   const existing = existingSnap.exists() ? existingSnap.data() : {};
-  const payload = {...data, updatedAt: serverTimestamp(), appVersion:'0.9.0'};
+  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.0.0'};
 
-  // 데이터 보존 안전장치:
-  // 프로그램 업데이트 직후 로컬 기본값([])이 기존 Firebase 배열 데이터를 덮어쓰는 것을 방지합니다.
-  // 실제 삭제는 각 항목의 삭제 버튼으로 처리하고, 빈 기본값 저장은 차단합니다.
-  ['expenses','investments'].forEach(key => {
-    if(Array.isArray(existing[key]) && existing[key].length > 0 && Array.isArray(payload[key]) && payload[key].length === 0){
-      payload[key] = existing[key];
-    }
-  });
-  if(existing.assets?.cashItems?.length && Array.isArray(payload.assets?.cashItems) && payload.assets.cashItems.length === 0){
-    payload.assets.cashItems = existing.assets.cashItems;
-  }
-  if(existing.investmentSummary && payload.investmentSummary){
-    const emptyNew = ['domestic','overseas','cma'].every(k => !payload.investmentSummary?.[k]?.amount);
-    const hasOld = ['domestic','overseas','cma'].some(k => existing.investmentSummary?.[k]?.amount);
-    if(emptyNew && hasOld) payload.investmentSummary = existing.investmentSummary;
-  }
-  if(existing.jaturi?.history?.length && Array.isArray(payload.jaturi?.history) && payload.jaturi.history.length === 0){
-    payload.jaturi.history = existing.jaturi.history;
+  // forceRestore일 때만 백업 파일 내용으로 덮어씁니다.
+  // 일반 저장/업데이트에서는 빈 기본값이 기존 Firebase 데이터를 덮지 못하도록 전역 보호합니다.
+  if(!options.forceRestore){
+    payload = deepPreserve(existing, payload);
   }
 
   await setDoc(activeRef, payload, {merge:true});

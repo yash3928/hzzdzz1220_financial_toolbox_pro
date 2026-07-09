@@ -96,8 +96,41 @@
       </section>
 
       <section id="view-salary" class="view">
-        <section class="panel excel-panel"><div class="section-title"><span>💵 월급 관리</span></div><label>진혁 세후 월급<input type="number" id="jinhyukSalary" inputmode="numeric" /></label><button id="saveJinhyukSalary" class="primary wide">진혁 월급 저장</button></section>
-        <section class="panel excel-panel"><div class="section-title"><span>💵 다혜 당직비 / 세후 월급</span></div><div class="rates-grid"><label>기본급<input type="number" id="dahyeBase" /></label><label>평일 단가<input type="number" id="rateWeekday" /></label><label>휴일 단가<input type="number" id="rateHoliday" /></label><label>일요일 단가<input type="number" id="rateSunday" /></label><label>월·목 보조<input type="number" id="rateMonThu" /></label><label>금요일 보조<input type="number" id="rateFriday" /></label></div><div class="section-subtitle">세금/공제 기준</div><div class="rates-grid"><label>국민연금<input type="number" id="taxPension" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>차량보조<input type="number" id="taxVehicle" /></label><label>메모 차감<input type="number" id="taxMemoDeduct" /></label></div><p class="hint">건강보험 3.595%, 요양보험 13.14%, 고용보험 0.9%, 주민세 10%는 월급 엑셀 수식 기준입니다.</p><div class="table-scroll"><table class="excel-table input-table" id="dahyeDutyTable"><thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th><th>세후 예상</th></tr></thead><tbody></tbody></table></div><button id="saveDahyeSalary" class="primary wide">다혜 연간 급여 저장</button></section>
+        <section class="panel excel-panel">
+          <div class="section-title"><span>💵 월급 관리</span></div>
+          <label>진혁 세후 월급<input type="number" id="jinhyukSalary" inputmode="numeric" /></label>
+          <button id="saveJinhyukSalary" class="primary wide">진혁 월급 저장</button>
+        </section>
+
+        <section class="accordion-card salary-card">
+          <button class="accordion-toggle" data-acc="dahyeBasic"><span>💵 다혜 기본 설정</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-dahyeBasic">
+            <div class="rates-grid"><label>기본급<input type="number" id="dahyeBase" /></label><label>평일 단가<input type="number" id="rateWeekday" /></label><label>휴일 단가<input type="number" id="rateHoliday" /></label><label>일요일 단가<input type="number" id="rateSunday" /></label><label>월·목 보조<input type="number" id="rateMonThu" /></label><label>금요일 보조<input type="number" id="rateFriday" /></label></div>
+          </div>
+        </section>
+
+        <section class="accordion-card salary-card">
+          <button class="accordion-toggle" data-acc="dahyeTax"><span>🧾 다혜 세금/공제 기준</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-dahyeTax">
+            <div class="rates-grid"><label>국민연금<input type="number" id="taxPension" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>차량보조<input type="number" id="taxVehicle" /></label><label>메모 차감<input type="number" id="taxMemoDeduct" /></label></div>
+            <p class="hint">건강보험 3.595%, 요양보험 13.14%, 고용보험 0.9%, 주민세 10%는 월급 엑셀 수식 기준입니다.</p>
+          </div>
+        </section>
+
+        <section class="accordion-card salary-card">
+          <button class="accordion-toggle" data-acc="dahyeDuty"><span>📅 다혜 월별 당직 횟수</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-dahyeDuty">
+            <div class="table-scroll"><table class="excel-table input-table" id="dahyeDutyTable"><thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th><th>세후 예상</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="accordion-card salary-card">
+          <button class="accordion-toggle" data-acc="dahyeNet"><span>📊 다혜 월별 세후 금액</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-dahyeNet">
+            <div class="table-scroll"><table class="excel-table" id="dahyeNetTable"><thead><tr><th>월</th><th>지급합계</th><th>공제합계</th><th>세후</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
+        <button id="saveDahyeSalary" class="primary wide">다혜 연간 급여 저장</button>
       </section>
 
       <section id="view-assets" class="view">
@@ -109,7 +142,7 @@
         <section class="panel excel-panel"><div class="section-title"><span>📈 투자 현황 입력</span></div><p class="hint">증권앱에서 확인한 총 평가금액과 수익률만 입력합니다. 매수·매도 내역은 관리하지 않습니다.</p><div class="table-scroll"><table class="excel-table input-table" id="investmentTable"><thead><tr><th>구분</th><th>현재금액</th><th>수익률</th></tr></thead><tbody></tbody></table></div><button id="saveInvestBtn" class="primary wide">투자 저장</button></section>
       </section>
 
-      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">복원</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">프로그램 업데이트 후에도 Firebase 데이터는 유지되도록 저장 안전장치를 적용했습니다.</p></section></section>
+      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">복원</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">v1.0 데이터 보호 모드: 일반 업데이트 저장은 기존 Firebase 데이터를 빈 값으로 덮어쓰지 않습니다. 복원 버튼은 백업 파일을 선택했을 때만 강제 복원합니다.</p></section></section>
     </main>
 
     <nav class="bottom-nav">
