@@ -79,7 +79,7 @@
             <label>날짜<input type="date" id="expenseDate" required /></label>
             <label>결제자<select id="expensePayer"><option>진혁</option><option>다혜</option></select></label>
             <label>분류<select id="expenseCategory"></select></label>
-            <label>금액<input type="number" id="expenseAmount" inputmode="numeric" required /></label>
+            <label>금액<input type="text" inputmode="numeric" data-money id="expenseAmount" inputmode="numeric" required /></label>
             <label class="full">내용<input type="text" id="expenseMemo" placeholder="예: 이마트, 병원, 경조사" /></label>
             <div class="button-row full"><button type="submit" class="primary">저장</button><button type="button" id="expenseCancel" class="ghost">취소</button></div>
           </form>
@@ -99,7 +99,6 @@
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="jinhyukSalary"><span>💵 진혁 월별 세후 월급</span><b>보기</b></button>
           <div class="accordion-content" id="acc-jinhyukSalary">
-            <p class="hint">진혁은 세후 월급만 월별로 입력합니다. 입력하면 5,555,555처럼 콤마로 표시됩니다.</p>
             <div class="table-scroll"><table class="excel-table input-table" id="jinhyukSalaryTable"><thead><tr><th>월</th><th>세후 월급</th></tr></thead><tbody></tbody></table></div>
             <button id="saveJinhyukSalary" class="primary wide">진혁 월급 저장</button>
           </div>
@@ -108,14 +107,14 @@
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="dahyeBasic"><span>💵 다혜 기본 설정</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeBasic">
-            <div class="rates-grid"><label>기본급<input type="number" id="dahyeBase" /></label><label>평일 단가<input type="number" id="rateWeekday" /></label><label>휴일 단가<input type="number" id="rateHoliday" /></label><label>일요일 단가<input type="number" id="rateSunday" /></label><label>월·목 보조<input type="number" id="rateMonThu" /></label><label>금요일 보조<input type="number" id="rateFriday" /></label><label>차량보조<input type="number" id="taxVehicle" /></label></div>
+            <div class="rates-grid"><label>기본급<input type="text" inputmode="numeric" data-money id="dahyeBase" /></label><label>평일 단가<input type="text" inputmode="numeric" data-money id="rateWeekday" /></label><label>휴일 단가<input type="text" inputmode="numeric" data-money id="rateHoliday" /></label><label>일요일 단가<input type="text" inputmode="numeric" data-money id="rateSunday" /></label><label>월·목 보조<input type="text" inputmode="numeric" data-money id="rateMonThu" /></label><label>금요일 보조<input type="text" inputmode="numeric" data-money id="rateFriday" /></label><label>차량보조<input type="text" inputmode="numeric" data-money id="taxVehicle" /></label></div>
           </div>
         </section>
 
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="dahyeTax"><span>🧾 다혜 공제항목</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeTax">
-            <div class="rates-grid"><label>국민연금<input type="number" id="taxPension" /></label><label>건강보험<input type="number" id="taxHealth" /></label><label>요양보험<input type="number" id="taxCare" /></label><label>고용보험<input type="number" id="taxEmployment" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>주민세<input type="number" id="taxLocal" /></label><label>기타공제<input type="number" id="taxOther" /></label><label>메모(비고란)<input type="number" id="taxMemoDeduct" /></label></div>
+            <div class="rates-grid"><label>국민연금<input type="text" inputmode="numeric" data-money id="taxPension" /></label><label>건강보험<input type="text" inputmode="numeric" data-money id="taxHealth" /></label><label>요양보험<input type="text" inputmode="numeric" data-money id="taxCare" /></label><label>고용보험<input type="text" inputmode="numeric" data-money id="taxEmployment" /></label><label>소득세<input type="text" inputmode="numeric" data-money id="taxIncome" /></label><label>주민세<input type="text" inputmode="numeric" data-money id="taxLocal" /></label><label>기타공제<input type="text" inputmode="numeric" data-money id="taxOther" /></label><label>메모(비고란)<input type="text" inputmode="numeric" data-money id="taxMemoDeduct" /></label></div>
             <p class="hint">엑셀 월급표의 실제 공제금액을 입력합니다. 월별 금액은 아래 표에서 수정할 수 있습니다.</p>
             <div class="table-scroll"><table class="excel-table input-table" id="dahyeTaxTable"><thead><tr><th>월</th><th>국민연금</th><th>건강보험</th><th>요양보험</th><th>고용보험</th><th>소득세</th><th>주민세</th><th>기타공제</th><th>공제합계</th></tr></thead><tbody></tbody></table></div>
           </div>
