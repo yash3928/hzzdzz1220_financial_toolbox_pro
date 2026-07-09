@@ -1,6 +1,6 @@
 import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 const MONTHLY_CATEGORIES = ['식비'];
 const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
@@ -127,7 +127,7 @@ function calcDahyeMonth(month){
   const deductions=pension+health+care+employment+incomeTax+localTax;
   const net=paymentTotal-deductions;
   const memoAfter=net-num(t.memoDeduct);
-  return {duty,taxablePay,paymentTotal,pension,health,care,employment,incomeTax,localTax,deductions,net:Math.round(net),memoAfter:Math.round(memoAfter)};
+  return {duty,taxablePay,paymentTotal,gross:paymentTotal,pension,health,care,employment,incomeTax,localTax,deductions,deduct:deductions,net:Math.round(net),memoAfter:Math.round(memoAfter)};
 }
 function yearExpenseSummary(month){ const p=periodForMonth(currentYear(), month), ex=expensesInPeriod(p), total=ex.reduce((a,e)=>a+num(e.amount),0), jin=ex.filter(e=>e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0), dah=ex.filter(e=>e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0), half=total/2; let settle='-'; if(jin>half) settle=`다혜→진혁 ${money(jin-half)}`; else if(dah>half) settle=`진혁→다혜 ${money(dah-half)}`; return {total,jin,dah,settle}; }
 function setBadge(text, cls){ const el=$('#syncBadge'); el.textContent=text; el.className='badge '+cls; }
@@ -151,7 +151,7 @@ function renderHome(){
   $('#homeJinhyukSalary').textContent=money(j); $('#homeDahyeSalary').textContent=money(d); $('#homeIncome').textContent=money(income); $('#homeFixed').textContent=money(fixed); $('#homeBudgetSpent').textContent=money(spent); $('#homeSurplus').textContent=money(surplus); $('#homeSurplus').className=surplus>=0?'plus':'minus';
   $('#incomeAccSummary').textContent=`잉여 ${money(surplus)}`;
 
-  $('#homeBudgetTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const b=num(state.budgets[c]), s=catSpent(c), bal=b-s; return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월':'연'}예산</td><td>${money(b)}</td><td>${money(s)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`; }).join('');
+  $('#homeBudgetTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const b=num(state.budgets[c]), s=catSpent(c), bal=b-s; return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td>${money(b)}</td><td>${money(s)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`; }).join('');
   $('#jaturiBalance').textContent=money(state.jaturi.balance); $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
 
   $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const r=yearExpenseSummary(m); return `<tr><td>${m}월</td><td>${money(r.total)}</td><td>${money(r.jin)}</td><td>${money(r.dah)}</td><td>${r.settle}</td></tr>`; }).join('');
@@ -177,7 +177,36 @@ async function refreshFromFirebase(showDone=true){ if(refreshing) return; if(!fi
 function setPullStatus(text){ const el=$('#pullRefresh'); if(el) el.textContent=text; }
 function resetPullIndicator(){ const el=$('#pullRefresh'); if(!el) return; el.classList.remove('visible','ready','loading'); el.style.transform='translate(-50%, -120%)'; el.textContent='아래로 당겨 새로고침'; }
 function setupPullToRefresh(){ const el=$('#pullRefresh'); if(!el) return; let startY=0, tracking=false, distance=0; const threshold=76; document.addEventListener('touchstart',e=>{ if(window.scrollY<=0&&!refreshing){ startY=e.touches[0].clientY; tracking=true; distance=0; }},{passive:true}); document.addEventListener('touchmove',e=>{ if(!tracking||refreshing) return; distance=e.touches[0].clientY-startY; if(distance<=0) return; if(window.scrollY>0){ tracking=false; return; } const shown=Math.min(distance*0.55,92); el.classList.add('visible'); el.classList.toggle('ready',distance>threshold); el.textContent=distance>threshold?'놓으면 새로고침':'아래로 당겨 새로고침'; el.style.transform=`translate(-50%, ${shown-120}%)`; if(distance>18) e.preventDefault(); },{passive:false}); document.addEventListener('touchend',()=>{ if(!tracking) return; tracking=false; if(distance>threshold){ el.classList.add('loading'); el.textContent='동기화 중...'; el.style.transform='translate(-50%, 8px)'; refreshFromFirebase(true); } else resetPullIndicator(); },{passive:true}); }
-async function connectFirebase(){ try{ setBadge('연결 중','loading'); state.settings.firebaseConfigText=$('#firebaseConfigText').value.trim(); state.settings.householdId=$('#householdId').value.trim()||DEFAULT_HOUSEHOLD; state.settings.cycleStartDay=num($('#cycleStartDay').value)||10; persistLocal(); const cfg=parseFirebaseConfig(state.settings.firebaseConfigText); initFirebase(cfg); subscribeHousehold(state.settings.householdId, async remote=>{ syncingRemote=true; if(remote){ state=mergeDefaults({...state,...remote,settings:{...state.settings,...(remote.settings||{})}}); remoteLoaded=true; } else { remoteLoaded=true; await saveHousehold(stripRuntime(state)); } syncingRemote=false; persistLocal(); render(); markSynced(); setBadge('공동 동기화','on'); firebaseReady=true; }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); }); } catch(e){ console.error(e); setBadge('연결 실패','off'); alert(e.message); } }
+async function connectFirebase(){
+  try{
+    setBadge('연결 중','loading');
+    const configInput = ($('#firebaseConfigText')?.value || state.settings.firebaseConfigText || '').trim();
+    const householdInput = ($('#householdId')?.value || state.settings.householdId || DEFAULT_HOUSEHOLD).trim();
+    const cycleInput = num($('#cycleStartDay')?.value || state.settings.cycleStartDay) || 10;
+    state.settings.firebaseConfigText = configInput;
+    state.settings.householdId = householdInput || DEFAULT_HOUSEHOLD;
+    state.settings.cycleStartDay = cycleInput;
+    persistLocal();
+    const cfg=parseFirebaseConfig(state.settings.firebaseConfigText);
+    initFirebase(cfg);
+    firebaseReady=true;
+    subscribeHousehold(state.settings.householdId, async remote=>{
+      syncingRemote=true;
+      if(remote){
+        state=mergeDefaults({...state,...remote,settings:{...state.settings,...(remote.settings||{})}});
+        remoteLoaded=true;
+      } else {
+        remoteLoaded=true;
+        await saveHousehold(stripRuntime(state));
+      }
+      syncingRemote=false;
+      persistLocal();
+      render();
+      markSynced();
+      setBadge('공동 동기화','on');
+    }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
+  } catch(e){ console.error(e); firebaseReady=false; setBadge('연결 실패','off'); alert(e.message); }
+}
 function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(new Date()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
 
 function bindEvents(){
@@ -208,9 +237,26 @@ function bindEvents(){
   $('#cycleStartDay').addEventListener('change', async()=>{ state.settings.cycleStartDay=num($('#cycleStartDay').value)||10; await persistRemote(); });
   $('#backupBtn').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
   $('#restoreBtn').addEventListener('click',()=>$('#restoreFile').click());
-  $('#restoreFile').addEventListener('change', async e=>{ const file=e.target.files[0]; if(!file) return; const text=await file.text(); state=mergeDefaults(JSON.parse(text)); await persistRemote(); alert('복원 완료'); });
+  $('#restoreFile').addEventListener('change', async e=>{
+    const file=e.target.files[0]; if(!file) return;
+    if(!confirm('백업 파일 내용으로 Firebase 데이터를 복원합니다. 계속할까요?')) return;
+    const text=await file.text();
+    state=mergeDefaults(JSON.parse(text));
+    persistLocal(); render();
+    if(firebaseReady && remoteLoaded){
+      try{ await saveHousehold(stripRuntime(state), {forceRestore:true}); markSynced(); setBadge('공동 동기화','on'); alert('복원 완료'); }
+      catch(err){ console.error(err); alert('복원 실패: '+err.message); }
+    } else {
+      alert('복원 파일을 불러왔습니다. 공동 동기화 연결 후 다시 복원 버튼을 눌러 Firebase에 반영해주세요.');
+    }
+  });
   window.addEventListener('online', ()=>refreshFromFirebase(false));
 }
 
 bindEvents(); setupPullToRefresh(); render();
-try{ const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null'); if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; persistLocal(); connectFirebase(); } else setBadge('오프라인','off'); } catch { setBadge('오프라인','off'); }
+try{
+  const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null');
+  const savedConfig = sync?.firebaseConfigText || state.settings?.firebaseConfigText;
+  if(savedConfig){ state.settings={...state.settings,...(sync||{}), firebaseConfigText:savedConfig}; persistLocal(); connectFirebase(); }
+  else setBadge('오프라인','off');
+} catch { setBadge('오프라인','off'); }
