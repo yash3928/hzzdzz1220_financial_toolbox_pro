@@ -7,7 +7,9 @@ const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경�
 const EXPENSE_CATEGORIES = [...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES];
 const PURPOSE_ASSETS = ['여행비','연금','청약','코인','기타'];
 const DEFAULT_RATES = {weekday:77330, holiday:284470, sunday:163640, monThu:10000, friday:20000};
-const DEFAULT_TAX = {pension:215220, taxHealth:0, taxCare:0, taxEmployment:0, incomeTax:58750, taxLocal:5870, otherDeduct:0, vehicleAllowance:0, memoDeduct:0};
+// 월급(1).xlsx 기준값: 세금/보험료는 자동 계산하지 않고 실제 입력값을 그대로 사용합니다.
+const DEFAULT_DAHYE_BASE = 2700000;
+const DEFAULT_TAX = {pension:215220, taxHealth:120136.6315, taxCare:15780, taxEmployment:30070, incomeTax:58750, taxLocal:5870, otherDeduct:0, vehicleAllowance:0, memoDeduct:0};
 
 let state = loadLocalState();
 let firebaseReady = false;
@@ -29,7 +31,7 @@ function defaultState(){
     budgets: Object.fromEntries([...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES].map(c=>[c,0])),
     expenses: [],
     fixedByMonth: {},
-    salary: { jinhyuk: {}, dahye: { base:0, rates:{...DEFAULT_RATES}, tax:{...DEFAULT_TAX}, months:{} } },
+    salary: { jinhyuk: {}, dahye: { base:DEFAULT_DAHYE_BASE, rates:{...DEFAULT_RATES}, tax:{...DEFAULT_TAX}, months:{} } },
     assets: { cashItems: [], purpose: Object.fromEntries(PURPOSE_ASSETS.map(c=>[c,0])) },
     investmentSummary: { domestic:{amount:0, rate:0}, overseas:{amount:0, rate:0}, cma:{amount:0, rate:0} },
     investments: [],
@@ -125,6 +127,59 @@ function monthlyOverride(m, key, fallback){
 function taxDefault(t, key, fallback){
   return (Object.prototype.hasOwnProperty.call(t, key) && t[key] !== '' && t[key] !== null && t[key] !== undefined) ? num(t[key]) : fallback;
 }
+
+function looksLikeOldTaxDefaults(t={}){
+  const health=num(t.taxHealth), care=num(t.taxCare), employment=num(t.taxEmployment);
+  const oldHealth=[0,97065,112366], oldCare=[0,12750,14760], oldEmployment=[0,24290,28130];
+  return oldHealth.includes(Math.round(health)) || oldCare.includes(Math.round(care)) || oldEmployment.includes(Math.round(employment));
+}
+function applyExcelSalaryDefaults(){
+  const d=state.salary?.dahye;
+  if(!d) return;
+  if(!num(d.base)) d.base=DEFAULT_DAHYE_BASE;
+  d.tax=d.tax||{};
+  if(looksLikeOldTaxDefaults(d.tax)) d.tax={...d.tax, ...DEFAULT_TAX};
+  d.months=d.months||{};
+  Object.values(d.months).forEach(m=>{
+    if(!m) return;
+    if(looksLikeOldTaxDefaults(m)){
+      m.taxPension=DEFAULT_TAX.pension;
+      m.taxHealth=DEFAULT_TAX.taxHealth;
+      m.taxCare=DEFAULT_TAX.taxCare;
+      m.taxEmployment=DEFAULT_TAX.taxEmployment;
+      m.taxIncome=DEFAULT_TAX.incomeTax;
+      m.taxLocal=DEFAULT_TAX.taxLocal;
+      m.taxOther=DEFAULT_TAX.otherDeduct;
+    }
+  });
+}
+const plainNumber = v => String(v ?? '').replace(/,/g,'');
+const commaNumber = v => {
+  const raw=plainNumber(v);
+  if(raw==='') return '';
+  const n=Number(raw);
+  return Number.isFinite(n) ? n.toLocaleString('ko-KR') : raw;
+};
+function markMoneyInputs(root=document){
+  const selectors=[
+    '#expenseAmount','#jinhyukSalary','#dahyeBase','#rateWeekday','#rateHoliday','#rateSunday','#rateMonThu','#rateFriday','#taxVehicle',
+    '#taxPension','#taxHealth','#taxCare','#taxEmployment','#taxIncome','#taxLocal','#taxOther','#taxMemoDeduct',
+    '[data-budget]','[data-fixed-amount]','[data-cash-amount]','[data-purpose-asset]','[data-invest-amount]',
+    '[data-tax-key]'
+  ];
+  root.querySelectorAll(selectors.join(',')).forEach(inp=>{
+    if(inp.dataset.moneyFormatted==='1') return;
+    inp.dataset.moneyFormatted='1';
+    inp.classList.add('money-input');
+    inp.setAttribute('inputmode','numeric');
+    inp.type='text';
+    inp.value=commaNumber(inp.value);
+  });
+}
+function formatMoneyInputValue(inp){
+  const raw=plainNumber(inp.value).replace(/[^0-9.-]/g,'');
+  inp.value=commaNumber(raw);
+}
 function calcDahyeMonth(month){
   const d=state.salary.dahye, r=d.rates||DEFAULT_RATES, t={...DEFAULT_TAX,...(d.tax||{})}, m=d.months?.[month]||{};
   const duty=num(m.weekday)*num(r.weekday)+num(m.holiday)*num(r.holiday)+num(m.sunday)*num(r.sunday)+num(m.monThu)*num(r.monThu)+num(m.friday)*num(r.friday);
@@ -155,7 +210,8 @@ function showToast(message){ const el=$('#toast'); if(!el) return; el.textConten
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function escapeAttr(s){ return escapeHtml(s).replace(/`/g,'&#96;'); }
 
-function render(){ $('#periodLabel').textContent=getPeriod().label; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
+function render(){
+  applyExcelSalaryDefaults(); $('#periodLabel').textContent=getPeriod().label; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); markMoneyInputs(); }
 function renderHome(){
   const assetRows=[
     ['현금', cashTotal(), true], ['국내주식', state.investmentSummary.domestic.amount, false], ['해외주식', state.investmentSummary.overseas.amount, false], ['CMA', state.investmentSummary.cma.amount, false], ...PURPOSE_ASSETS.map(k=>[k, state.assets.purpose[k], false])
@@ -266,6 +322,7 @@ async function connectFirebase(){
 function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(new Date()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
 
 function bindEvents(){
+  document.addEventListener('input', e=>{ if(e.target?.classList?.contains('money-input')) formatMoneyInputValue(e.target); });
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
   document.addEventListener('click', async e=>{ const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
