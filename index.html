@@ -113,7 +113,8 @@
           <button class="accordion-toggle" data-acc="dahyeTax"><span>🧾 다혜 공제항목</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeTax">
             <div class="rates-grid"><label>국민연금<input type="number" id="taxPension" /></label><label>건강보험<input type="number" id="taxHealth" /></label><label>요양보험<input type="number" id="taxCare" /></label><label>고용보험<input type="number" id="taxEmployment" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>주민세<input type="number" id="taxLocal" /></label><label>기타공제<input type="number" id="taxOther" /></label><label>메모(비고란)<input type="number" id="taxMemoDeduct" /></label></div>
-            <p class="hint">엑셀 기준: 차인지급액 = 지급합계 - 공제합계. 차량보조는 지급항목이며, 메모(비고란)는 차인지급액에서 자동 차감하지 않습니다.</p>
+            <p class="hint">엑셀 월급표의 실제 공제금액을 입력합니다. 월별 금액은 아래 표에서 수정할 수 있습니다.</p>
+            <div class="table-scroll"><table class="excel-table input-table" id="dahyeTaxTable"><thead><tr><th>월</th><th>국민연금</th><th>건강보험</th><th>요양보험</th><th>고용보험</th><th>소득세</th><th>주민세</th><th>기타공제</th><th>공제합계</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
 
@@ -127,8 +128,8 @@
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="dahyeNet"><span>📊 다혜 월별 세후 금액</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeNet">
-            <p class="note">엑셀 월급표 기준으로 계산하며, 실제 세금이 달라지면 월별 공제칸을 직접 수정하세요.</p>
-            <div class="table-scroll"><table class="excel-table input-table" id="dahyeNetTable"><thead><tr><th>월</th><th>지급합계</th><th>국민연금</th><th>건강보험</th><th>요양보험</th><th>고용보험</th><th>소득세</th><th>주민세</th><th>기타공제</th><th>공제합계</th><th>세후</th></tr></thead><tbody></tbody></table></div>
+            <p class="note">세부 공제항목은 다혜 공제항목에서 수정하고, 여기서는 지급합계와 세후만 확인합니다.</p>
+            <div class="table-scroll"><table class="excel-table input-table" id="dahyeNetTable"><thead><tr><th>월</th><th>지급합계</th><th>세후</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
         <button id="saveDahyeSalary" class="primary wide">다혜 연간 급여 저장</button>
