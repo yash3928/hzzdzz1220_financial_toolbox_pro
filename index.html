@@ -112,8 +112,8 @@
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="dahyeTax"><span>🧾 다혜 공제항목</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeTax">
-            <div class="rates-grid"><label>국민연금<input type="number" id="taxPension" /></label><label>건강보험<input type="number" id="taxHealth" /></label><label>요양보험<input type="number" id="taxCare" /></label><label>고용보험<input type="number" id="taxEmployment" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>주민세<input type="number" id="taxLocal" /></label><label>기타공제<input type="number" id="taxOther" /></label><label>메모(비고란)<input type="number" id="taxMemoDeduct" /></label></div>
-            <p class="hint">엑셀 월급표의 실제 공제금액을 입력합니다. 월별 금액은 아래 표에서 수정할 수 있습니다.</p>
+            <div class="rates-grid"><label>국민연금율(%)<input type="number" step="0.001" id="taxPensionRate" /></label><label>국민연금 기준금액<input type="number" id="taxPensionBase" /></label><label>건강보험율(%)<input type="number" step="0.001" id="taxHealthRate" /></label><label>요양보험율(%)<input type="number" step="0.001" id="taxCareRate" /></label><label>고용보험율(%)<input type="number" step="0.001" id="taxEmploymentRate" /></label><label>소득세<input type="number" id="taxIncome" /></label><label>기타공제<input type="number" id="taxOther" /></label><label>메모(비고란)<input type="number" id="taxMemoDeduct" /></label></div>
+            <p class="hint">4대보험은 입력한 요율(%)로 자동 계산합니다. 요양보험은 건강보험 금액 기준, 주민세는 소득세의 10%로 계산합니다. 소득세와 기타공제는 직접 입력합니다.</p>
             <div class="table-scroll"><table class="excel-table input-table" id="dahyeTaxTable"><thead><tr><th>월</th><th>국민연금</th><th>건강보험</th><th>요양보험</th><th>고용보험</th><th>소득세</th><th>주민세</th><th>기타공제</th><th>공제합계</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
@@ -121,7 +121,7 @@
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="dahyeDuty"><span>📅 다혜 월별 당직 횟수</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeDuty">
-            <div class="table-scroll"><table class="excel-table input-table" id="dahyeDutyTable"><thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th><th>세후 예상</th></tr></thead><tbody></tbody></table></div>
+            <div class="table-scroll"><table class="excel-table input-table" id="dahyeDutyTable"><thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>상여금</th><th>당직비</th><th>세후 예상</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
 
