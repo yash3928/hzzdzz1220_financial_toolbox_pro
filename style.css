@@ -34,3 +34,89 @@
 #assetInputTable{ min-width:520px; }
 .section-title{font-size:16px;line-height:1.25}
 .panel .hint,.accordion-content .hint{padding-left:2px;padding-right:2px}
+
+/* v1.1.7 prevent horizontal table overflow: fit tables inside mobile screen */
+.table-scroll{overflow-x:hidden !important; overflow-y:visible !important; width:100%; max-width:100%;}
+.excel-table{width:100% !important; min-width:0 !important; table-layout:fixed !important;}
+.excel-table th,
+.excel-table td{white-space:normal !important; word-break:keep-all; overflow-wrap:anywhere; line-height:1.25; text-align:center !important; padding:8px 4px !important;}
+.excel-table thead th{font-size:13px !important; font-weight:900 !important; padding:10px 4px !important; background:#e8eef7 !important; border-bottom:2px solid #c8d2e1 !important;}
+.excel-table tbody td{font-size:12px !important;}
+.excel-table input,
+.excel-table select{min-width:0 !important; width:100% !important; max-width:100% !important; font-size:12px !important; padding:7px 3px !important; text-align:center !important;}
+
+/* override previous min-width rules */
+.ledger-scroll .excel-table,
+#yearExpenseTable,
+#yearSalaryTable,
+#dahyeDutyTable,
+#dahyeTaxTable,
+#dahyeNetTable,
+#ledgerTable,
+#homeBudgetTable,
+#budgetInputTable,
+#homeInvestTable,
+#investmentTable,
+#assetInputTable{min-width:0 !important;width:100% !important;}
+
+/* compact widths per table so all columns fit without right-scroll */
+#ledgerTable th:nth-child(1), #ledgerTable td:nth-child(1){width:18%;}
+#ledgerTable th:nth-child(2), #ledgerTable td:nth-child(2){width:23%;}
+#ledgerTable th:nth-child(3), #ledgerTable td:nth-child(3){width:16%;}
+#ledgerTable th:nth-child(4), #ledgerTable td:nth-child(4){width:15%;}
+#ledgerTable th:nth-child(5), #ledgerTable td:nth-child(5){width:18%;}
+#ledgerTable th:nth-child(6), #ledgerTable td:nth-child(6){width:10%;}
+
+#yearExpenseTable th:nth-child(1), #yearExpenseTable td:nth-child(1){width:12%;}
+#yearExpenseTable th:nth-child(2), #yearExpenseTable td:nth-child(2){width:22%;}
+#yearExpenseTable th:nth-child(3), #yearExpenseTable td:nth-child(3){width:22%;}
+#yearExpenseTable th:nth-child(4), #yearExpenseTable td:nth-child(4){width:22%;}
+#yearExpenseTable th:nth-child(5), #yearExpenseTable td:nth-child(5){width:22%;}
+
+#homeBudgetTable th:nth-child(1), #homeBudgetTable td:nth-child(1),
+#budgetInputTable th:nth-child(1), #budgetInputTable td:nth-child(1){width:24%;}
+#homeBudgetTable th:nth-child(2), #homeBudgetTable td:nth-child(2),
+#budgetInputTable th:nth-child(2), #budgetInputTable td:nth-child(2){width:18%;}
+#homeBudgetTable th:nth-child(3), #homeBudgetTable td:nth-child(3),
+#homeBudgetTable th:nth-child(4), #homeBudgetTable td:nth-child(4),
+#homeBudgetTable th:nth-child(5), #homeBudgetTable td:nth-child(5){width:19.33%;}
+#budgetInputTable th:nth-child(3), #budgetInputTable td:nth-child(3){width:58%;}
+
+#yearSalaryTable th:nth-child(1), #yearSalaryTable td:nth-child(1),
+#dahyeNetTable th:nth-child(1), #dahyeNetTable td:nth-child(1){width:14%;}
+#yearSalaryTable th:nth-child(2), #yearSalaryTable td:nth-child(2),
+#yearSalaryTable th:nth-child(3), #yearSalaryTable td:nth-child(3),
+#yearSalaryTable th:nth-child(4), #yearSalaryTable td:nth-child(4){width:28.66%;}
+#dahyeNetTable th:nth-child(2), #dahyeNetTable td:nth-child(2),
+#dahyeNetTable th:nth-child(3), #dahyeNetTable td:nth-child(3){width:43%;}
+
+#investmentTable th:nth-child(1), #investmentTable td:nth-child(1),
+#homeInvestTable th:nth-child(1), #homeInvestTable td:nth-child(1){width:24%;}
+#investmentTable th:nth-child(2), #investmentTable td:nth-child(2),
+#homeInvestTable th:nth-child(2), #homeInvestTable td:nth-child(2){width:48%;}
+#investmentTable th:nth-child(3), #investmentTable td:nth-child(3),
+#homeInvestTable th:nth-child(3), #homeInvestTable td:nth-child(3){width:28%;}
+
+#assetInputTable th:nth-child(1), #assetInputTable td:nth-child(1){width:32%;}
+#assetInputTable th:nth-child(2), #assetInputTable td:nth-child(2){width:68%;}
+
+/* very wide salary tax/duty tables: shrink and wrap labels */
+#dahyeDutyTable th, #dahyeDutyTable td,
+#dahyeTaxTable th, #dahyeTaxTable td{font-size:10px !important; padding:6px 2px !important;}
+#dahyeDutyTable input, #dahyeTaxTable input{font-size:10px !important; padding:5px 1px !important;}
+#dahyeDutyTable th:nth-child(1), #dahyeDutyTable td:nth-child(1),
+#dahyeTaxTable th:nth-child(1), #dahyeTaxTable td:nth-child(1){width:10%;}
+#dahyeDutyTable th:nth-child(n+2), #dahyeDutyTable td:nth-child(n+2){width:12.85%;}
+#dahyeTaxTable th:nth-child(n+2), #dahyeTaxTable td:nth-child(n+2){width:11.25%;}
+
+@media(max-width:420px){
+  .view{padding:9px !important;}
+  .panel{padding:12px !important;}
+  .excel-panel{padding:0 !important;}
+  .excel-table th,.excel-table td{font-size:11px !important;padding:7px 3px !important;}
+  .excel-table thead th{font-size:12px !important;padding:9px 3px !important;}
+  .excel-table input,.excel-table select{font-size:11px !important;padding:6px 2px !important;}
+  #dahyeDutyTable th, #dahyeDutyTable td,
+  #dahyeTaxTable th, #dahyeTaxTable td{font-size:9px !important;padding:5px 1px !important;}
+  #dahyeDutyTable input, #dahyeTaxTable input{font-size:9px !important;padding:4px 1px !important;}
+}
