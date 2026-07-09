@@ -96,13 +96,16 @@
       </section>
 
       <section id="view-salary" class="view">
-        <section class="accordion-card salary-card">
-          <button class="accordion-toggle" data-acc="jinhyukSalary"><span>💵 진혁 월별 세후 월급</span><b>보기</b></button>
-          <div class="accordion-content" id="acc-jinhyukSalary">
-            <p class="hint padded">진혁은 세후 월급만 월별로 입력합니다. 필요한 달만 수정할 수 있습니다.</p>
-            <div class="table-scroll"><table class="excel-table input-table" id="jinhyukSalaryTable"><thead><tr><th>월</th><th>세후 월급</th></tr></thead><tbody></tbody></table></div>
-            <button id="saveJinhyukSalary" class="primary wide">진혁 월급 저장</button>
+        <section class="panel excel-panel">
+          <div class="section-title"><span>💵 진혁 월별 세후 월급</span></div>
+          <p class="hint">진혁은 세후 월급만 월별로 입력합니다. 입력값은 5,555처럼 자동 콤마 표시됩니다.</p>
+          <div class="table-scroll">
+            <table class="excel-table input-table" id="jinhyukSalaryTable">
+              <thead><tr><th>월</th><th>세후 월급</th></tr></thead>
+              <tbody></tbody>
+            </table>
           </div>
+          <button id="saveJinhyukSalary" class="primary wide">진혁 월별 월급 저장</button>
         </section>
 
         <section class="accordion-card salary-card">
