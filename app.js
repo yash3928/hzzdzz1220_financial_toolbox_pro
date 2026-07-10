@@ -222,12 +222,12 @@ function getPeriod(){
 function periodForMonth(year, month){ const startDay=Math.min(Math.max(num(state.settings.cycleStartDay)||10,1),28); return {start:new Date(year,month-1,startDay), end:new Date(year,month,startDay-1), key:`${year}-${String(month).padStart(2,'0')}`}; }
 function expensesInPeriod(p){ return state.expenses.filter(e=>{ const d=new Date((e.date||'')+'T00:00:00'); return d>=new Date(p.start.toDateString()) && d<=new Date(p.end.toDateString()); }); }
 function currentExpenses(){ return expensesInPeriod(getPeriod()); }
-function catSpent(cat, ex=currentExpenses()){ return ex.filter(e=>e.category===cat).reduce((a,e)=>a+num(e.amount),0); }
+function catSpent(cat, ex=currentExpenses()){ const cats=cat==='쇼핑비'?['쇼핑비','쇼핑비(진혁)','쇼핑비(다혜)']:[cat]; return ex.filter(e=>cats.includes(e.category)).reduce((a,e)=>a+num(e.amount),0); }
 function currentFixed(){ return state.fixedByMonth[getPeriod().key] || []; }
 function fixedTotal(key=getPeriod().key){ return (state.fixedByMonth[key]||[]).reduce((a,f)=>a+num(f.amount),0); }
 function currentJinhyukSalary(){ return num(state.salary.jinhyuk[getPeriod().key]); }
 function currentDahyeSalary(){ return calcDahyeMonth(getPeriod().start.getMonth()+1).net; }
-function totalBudgetSpent(){ return EXPENSE_CATEGORIES.reduce((a,c)=>a+catSpent(c),0); }
+function totalBudgetSpent(){ return [...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].reduce((a,c)=>a+catSpent(c),0); }
 function cashTotal(){ return (state.assets.cashItems||[]).reduce((a,it)=>a+num(it.amount),0); }
 function purposeTotal(){ return Object.values(state.assets.purpose||{}).reduce((a,v)=>a+num(v),0); }
 function investAssetTotal(){ return num(state.investmentSummary.domestic.amount)+num(state.investmentSummary.overseas.amount)+num(state.investmentSummary.cma.amount); }
@@ -364,7 +364,7 @@ function renderHome(){
   $('#incomeAccSummary').textContent=`잉여 ${money(surplus)}`;
 
   $('#homeBudgetTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const b=num(state.budgets[c]), s=catSpent(c), bal=b-s; return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td>${money(b)}</td><td>${money(s)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`; }).join('');
-  $('#jaturiBalance').textContent=money(state.jaturi.balance); $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
+  $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
 
   $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const r=yearExpenseSummary(m); return `<tr><td>${m}월</td><td>${money(r.total)}</td><td>${money(r.jin)}</td><td>${money(r.dah)}</td><td>${r.settle}</td></tr>`; }).join('');
   $('#expenseAccSummary').textContent=`올해 ${money(Array.from({length:12},(_,i)=>yearExpenseSummary(i+1).total).reduce((a,b)=>a+b,0))}`;
@@ -375,12 +375,12 @@ function renderHome(){
   $('#homeInvestTable tbody').innerHTML=`<tr><td>국내주식</td><td>${money(state.investmentSummary.domestic.amount)}</td><td>${num(state.investmentSummary.domestic.rate).toFixed(1)}%</td></tr><tr><td>해외주식</td><td>${money(state.investmentSummary.overseas.amount)}</td><td>${num(state.investmentSummary.overseas.rate).toFixed(1)}%</td></tr><tr><td>CMA</td><td>${money(state.investmentSummary.cma.amount)}</td><td>-</td></tr>`;
   $('#investAccSummary').textContent=money(investAssetTotal());
 }
-function renderLedger(){ const sel=$('#expenseCategory'); if(sel.options.length===0) sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr><td>${e.date||''}</td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
+function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); if(EXPENSE_CATEGORIES.includes(selected)) sel.value=selected; const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr><td>${e.date||''}</td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
 function renderBudget(){
   $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>`<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`).join('');
   const title=$('#fixedSectionTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
   const list=currentFixed();
-  $('#fixedList').innerHTML=list.map((f,i)=>`<div class="fixed-row"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"><button class="danger" data-fixed-del="${i}">삭제</button></div>`).join('') || '<p class="hint padded">선택한 월의 고정지출이 없습니다.</p>';
+  $('#fixedList').innerHTML=list.map((f,i)=>`<div class="fixed-item"><div class="fixed-row"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"><button class="ghost memo-btn" data-fixed-memo-toggle="${i}" title="메모 보기">📝</button><button class="danger" data-fixed-del="${i}">삭제</button></div><div class="fixed-memo hidden" data-fixed-memo-wrap="${i}"><textarea rows="3" placeholder="이 고정지출에 대한 메모를 입력하세요." data-fixed-memo="${i}">${escapeHtml(f.memo||'')}</textarea></div></div>`).join('') || '<p class="hint padded">선택한 월의 고정지출이 없습니다.</p>';
 }
 function renderSalary(){
   const jinTable=$('#jinhyukSalaryTable tbody');
@@ -544,7 +544,8 @@ function bindEvents(){
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
     if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); setExpenseFormOpen(true); window.scrollTo({top:0,behavior:'smooth'}); }}
     if(t.dataset.delExp){ if(confirm('이 지출내역을 삭제하시겠습니까?')){ state.expenses=state.expenses.filter(x=>x.id!==t.dataset.delExp); await persistRemote(); }}
-    if(t.id==='addFixedBtn'){ const key=getPeriod().key; state.fixedByMonth[key]=currentFixed().concat([{name:'',amount:0}]); renderBudget(); }
+    if(t.id==='addFixedBtn'){ const key=getPeriod().key; state.fixedByMonth[key]=currentFixed().concat([{name:'',amount:0,memo:''}]); renderBudget(); }
+    if(t.dataset.fixedMemoToggle!==undefined){ const wrap=document.querySelector(`[data-fixed-memo-wrap="${t.dataset.fixedMemoToggle}"]`); if(wrap) wrap.classList.toggle('hidden'); }
     if(t.dataset.fixedDel!==undefined){ const key=getPeriod().key, arr=currentFixed(); arr.splice(num(t.dataset.fixedDel),1); state.fixedByMonth[key]=arr; await persistRemote(); }
     if(t.id==='addCashItemBtn'){ state.assets.cashItems.push({id:crypto.randomUUID(),name:'',amount:0}); renderAssets(); }
     if(t.dataset.cashDel!==undefined){ state.assets.cashItems.splice(num(t.dataset.cashDel),1); await persistRemote(); }
@@ -553,7 +554,7 @@ function bindEvents(){
   $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(false); await persistRemote(); });
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
   $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget]').forEach(i=>state.budgets[i.dataset.budget]=num(i.value)); await persistRemote(); });
-  $('#fixedList').addEventListener('input', e=>{ const key=getPeriod().key, arr=currentFixed(), i=num(e.target.dataset.fixedName ?? e.target.dataset.fixedAmount); if(e.target.dataset.fixedName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.fixedAmount!==undefined) arr[i].amount=num(e.target.value); state.fixedByMonth[key]=arr; });
+  $('#fixedList').addEventListener('input', e=>{ const key=getPeriod().key, arr=currentFixed(), i=num(e.target.dataset.fixedName ?? e.target.dataset.fixedAmount ?? e.target.dataset.fixedMemo); if(e.target.dataset.fixedName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.fixedAmount!==undefined) arr[i].amount=num(e.target.value); if(e.target.dataset.fixedMemo!==undefined) arr[i].memo=e.target.value; state.fixedByMonth[key]=arr; });
   $('#fixedList').addEventListener('change', persistRemote);
   $('#cashItemList').addEventListener('input', e=>{ const i=num(e.target.dataset.cashName ?? e.target.dataset.cashAmount); const arr=state.assets.cashItems; if(e.target.dataset.cashName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.cashAmount!==undefined) arr[i].amount=num(e.target.value); });
   $('#cashItemList').addEventListener('change', persistRemote);

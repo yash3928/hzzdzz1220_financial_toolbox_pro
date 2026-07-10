@@ -179,3 +179,16 @@
 
 /* v1.4.8 예산 화면 보기형 구성 */
 .budget-hint{padding:12px 12px 10px}.accordion-content #fixedList{padding-top:10px}
+
+/* v1.4.9 화면 정렬, 지출내역 보기, 고정지출 메모 */
+#view-budget>.accordion-card,#view-ledger>.accordion-card,#view-ledger>.panel{width:100%;margin-left:0;margin-right:0;}
+#view-budget .accordion-toggle,#view-ledger .accordion-toggle{padding-left:16px;padding-right:14px;}
+.fixed-item{border-bottom:1px solid var(--line);padding:0 0 8px;margin-bottom:8px;}
+.fixed-item:last-child{border-bottom:0;}
+.fixed-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 44px auto;align-items:center;}
+.fixed-row .memo-btn{padding:10px 6px;font-size:16px;}
+.fixed-memo{margin:0 0 4px;}
+.fixed-memo textarea{font-family:inherit;font-size:14px;min-height:72px;resize:vertical;}
+.fixed-memo.hidden{display:none;}
+.ledger-history-card .accordion-content{overflow:hidden;}
+@media(max-width:420px){.fixed-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px}.fixed-row .danger{grid-column:1/-1}.fixed-memo{margin-top:2px}}

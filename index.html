@@ -54,7 +54,6 @@
           <button class="accordion-toggle" data-acc="budget"><span>📊 예산 현황</span><b id="budgetAccSummary">보기</b></button>
           <div class="accordion-content" id="acc-budget">
             <div class="table-scroll"><table class="excel-table" id="homeBudgetTable"><thead><tr><th>분류</th><th>구분</th><th>예산</th><th>지출</th><th>잔액</th></tr></thead><tbody></tbody></table></div>
-            <div class="jaturi-box"><span>자투리 통장</span><strong id="jaturiBalance">0원</strong></div>
           </div>
         </section>
 
@@ -124,9 +123,11 @@
           </form>
           </div>
         </section>
-        <section class="panel excel-panel">
-          <div class="section-title"><span id="ledgerPeriodTitle">📅 선택 월 지출 내역</span></div>
-          <div class="table-scroll ledger-scroll"><table class="excel-table" id="ledgerTable"><thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th><th>관리</th></tr></thead><tbody></tbody></table></div>
+        <section class="accordion-card excel-panel ledger-history-card">
+          <button class="accordion-toggle" data-acc="ledgerHistory"><span id="ledgerPeriodTitle">📅 선택 월 지출 내역</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-ledgerHistory">
+            <div class="table-scroll ledger-scroll"><table class="excel-table" id="ledgerTable"><thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th><th>관리</th></tr></thead><tbody></tbody></table></div>
+          </div>
         </section>
       </section>
 
