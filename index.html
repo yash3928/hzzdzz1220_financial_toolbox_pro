@@ -96,44 +96,57 @@
       </section>
 
       <section id="view-salary" class="view">
-        <section class="accordion-card salary-card">
-          <button class="accordion-toggle" data-acc="jinhyukSalary"><span>💵 진혁 월별 세후 월급</span><b>보기</b></button>
-          <div class="accordion-content" id="acc-jinhyukSalary">
+        <section class="accordion-card salary-person-card">
+          <button class="accordion-toggle person-toggle" data-acc="jinhyukGroup"><span>💵 진혁</span><b>보기</b></button>
+          <div class="accordion-content person-content" id="acc-jinhyukGroup">
+            <div class="section-subtitle">진혁 월별 세후 월급</div>
             <div class="table-scroll"><table class="excel-table input-table" id="jinhyukSalaryTable"><thead><tr><th>월</th><th>세후 월급</th></tr></thead><tbody></tbody></table></div>
             <button id="saveJinhyukSalary" class="primary wide">진혁 월급 저장</button>
           </div>
         </section>
 
-        <section class="accordion-card salary-card">
-          <button class="accordion-toggle" data-acc="dahyeBasic"><span>💵 다혜 기본 설정</span><b>보기</b></button>
-          <div class="accordion-content" id="acc-dahyeBasic">
-            <div class="rates-grid"><label>기본급<input type="text" inputmode="numeric" data-money id="dahyeBase" /></label><label>평일 단가<input type="text" inputmode="numeric" data-money id="rateWeekday" /></label><label>휴일 단가<input type="text" inputmode="numeric" data-money id="rateHoliday" /></label><label>일요일 단가<input type="text" inputmode="numeric" data-money id="rateSunday" /></label><label>월·목 보조<input type="text" inputmode="numeric" data-money id="rateMonThu" /></label><label>금요일 보조<input type="text" inputmode="numeric" data-money id="rateFriday" /></label><label>차량보조<input type="text" inputmode="numeric" data-money id="taxVehicle" /></label></div>
-          </div>
-        </section>
+        <section class="accordion-card salary-person-card">
+          <button class="accordion-toggle person-toggle" data-acc="dahyeGroup"><span>💵 다혜</span><b>보기</b></button>
+          <div class="accordion-content person-content" id="acc-dahyeGroup">
+            <section class="accordion-card salary-card inner-accordion">
+              <button class="accordion-toggle" data-acc="dahyeBasic"><span>1. 기본 설정</span><b>보기</b></button>
+              <div class="accordion-content" id="acc-dahyeBasic">
+                <div class="rates-grid"><label>기본급<input type="text" inputmode="numeric" data-money id="dahyeBase" /></label><label>평일 단가<input type="text" inputmode="numeric" data-money id="rateWeekday" /></label><label>휴일 단가<input type="text" inputmode="numeric" data-money id="rateHoliday" /></label><label>일요일 단가<input type="text" inputmode="numeric" data-money id="rateSunday" /></label><label>월·목 보조<input type="text" inputmode="numeric" data-money id="rateMonThu" /></label><label>금요일 보조<input type="text" inputmode="numeric" data-money id="rateFriday" /></label><label>차량보조<input type="text" inputmode="numeric" data-money id="taxVehicle" /></label></div>
+              </div>
+            </section>
 
-        <section class="accordion-card salary-card">
-          <button class="accordion-toggle" data-acc="dahyeTax"><span>🧾 다혜 공제항목</span><b>보기</b></button>
-          <div class="accordion-content" id="acc-dahyeTax">
-            <div class="rates-grid"><label>국민연금(%)<input type="number" step="0.001" id="taxPension" /></label><label>건강보험(%)<input type="number" step="0.001" id="taxHealth" /></label><label>요양보험(%)<input type="number" step="0.001" id="taxCare" /></label><label>고용보험(%)<input type="number" step="0.001" id="taxEmployment" /></label><label>소득세<input type="text" inputmode="numeric" data-money id="taxIncome" /></label><label>주민세<input type="text" inputmode="numeric" data-money id="taxLocal" /></label><label>기타공제<input type="text" inputmode="numeric" data-money id="taxOther" /></label><label>메모(비고란)<input type="text" inputmode="numeric" data-money id="taxMemoDeduct" /></label></div>
-            <p class="hint">보험요율은 %로 입력하고, 소득세·주민세·기타공제는 금액으로 입력합니다. 월별로 필요한 부분만 수정할 수 있습니다.</p>
-            <div class="table-scroll"><table class="excel-table input-table" id="dahyeTaxTable"><thead><tr><th>월</th><th>국민연금(%)</th><th>건강보험(%)</th><th>요양보험(%)</th><th>고용보험(%)</th><th>소득세</th><th>주민세</th><th>기타공제</th><th>공제합계</th></tr></thead><tbody></tbody></table></div>
-          </div>
-        </section>
+            <section class="accordion-card salary-card inner-accordion">
+              <button class="accordion-toggle" data-acc="dahyeTax"><span>2. 공제항목</span><b>보기</b></button>
+              <div class="accordion-content" id="acc-dahyeTax">
+                <div class="rates-grid"><label>국민연금(%)<input type="number" step="0.001" id="taxPension" /></label><label>건강보험(%)<input type="number" step="0.001" id="taxHealth" /></label><label>요양보험(%)<input type="number" step="0.001" id="taxCare" /></label><label>고용보험(%)<input type="number" step="0.001" id="taxEmployment" /></label><label>소득세<input type="text" inputmode="numeric" data-money id="taxIncome" /></label><label>주민세<input type="text" inputmode="numeric" data-money id="taxLocal" /></label><label>기타공제<input type="text" inputmode="numeric" data-money id="taxOther" /></label><label>메모(비고란)<input type="text" inputmode="numeric" data-money id="taxMemoDeduct" /></label></div>
+                <p class="hint">보험요율은 %로 입력하고, 소득세·주민세·기타공제는 금액으로 입력합니다. 월별로 필요한 부분만 수정할 수 있습니다.</p>
+                <div class="table-scroll"><table class="excel-table input-table" id="dahyeTaxTable"><thead><tr><th>월</th><th>국민연금(%)</th><th>건강보험(%)</th><th>요양보험(%)</th><th>고용보험(%)</th><th>소득세</th><th>주민세</th><th>기타공제</th><th>공제합계</th></tr></thead><tbody></tbody></table></div>
+              </div>
+            </section>
 
-        <section class="accordion-card salary-card">
-          <button class="accordion-toggle" data-acc="dahyeDuty"><span>📅 다혜 월별 당직 횟수</span><b>보기</b></button>
-          <div class="accordion-content" id="acc-dahyeDuty">
-            <div class="table-scroll"><table class="excel-table input-table" id="dahyeDutyTable"><thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th></tr></thead><tbody></tbody></table></div>
-          </div>
-        </section>
+            <section class="accordion-card salary-card inner-accordion">
+              <button class="accordion-toggle" data-acc="dahyeDuty"><span>3. 월별 당직 횟수</span><b>보기</b></button>
+              <div class="accordion-content" id="acc-dahyeDuty">
+                <div class="table-scroll"><table class="excel-table input-table" id="dahyeDutyTable"><thead><tr><th>월</th><th>평일</th><th>휴일</th><th>일요일</th><th>월·목 보조</th><th>금 보조</th><th>당직비</th></tr></thead><tbody></tbody></table></div>
+              </div>
+            </section>
 
-        <section class="accordion-card salary-card">
-          <button class="accordion-toggle" data-acc="dahyeNet"><span>📊 다혜 월별 세후 금액</span><b>보기</b></button>
-          <div class="accordion-content" id="acc-dahyeNet">
-            <div class="table-scroll"><table class="excel-table input-table" id="dahyeNetTable"><thead><tr><th>월</th><th>지급합계</th><th>세후</th></tr></thead><tbody></tbody></table></div>
+            <section class="accordion-card salary-card inner-accordion">
+              <button class="accordion-toggle" data-acc="dahyeBonus"><span>4. 월별 상여금</span><b>보기</b></button>
+              <div class="accordion-content" id="acc-dahyeBonus">
+                <div class="table-scroll"><table class="excel-table input-table" id="dahyeBonusTable"><thead><tr><th>월</th><th>상여금</th></tr></thead><tbody></tbody></table></div>
+              </div>
+            </section>
+
+            <section class="accordion-card salary-card inner-accordion">
+              <button class="accordion-toggle" data-acc="dahyeNet"><span>5. 월별 세후 금액</span><b>보기</b></button>
+              <div class="accordion-content" id="acc-dahyeNet">
+                <div class="table-scroll"><table class="excel-table input-table" id="dahyeNetTable"><thead><tr><th>월</th><th>지급합계</th><th>세후</th></tr></thead><tbody></tbody></table></div>
+              </div>
+            </section>
+            <button id="saveDahyeSalary" class="primary wide">다혜 연간 급여 저장</button>
           </div>
         </section>
-        <button id="saveDahyeSalary" class="primary wide">다혜 연간 급여 저장</button>
       </section>
 
       <section id="view-assets" class="view">
