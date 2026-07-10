@@ -15,10 +15,17 @@
       </div>
       <div class="sync-box"><div id="syncBadge" class="badge off">오프라인</div><div id="lastSyncLabel" class="last-sync">마지막 업데이트 -</div></div>
     </header>
-    <div class="year-nav" aria-label="연도 선택">
-      <button type="button" id="prevYear" aria-label="이전 연도">◀</button>
-      <strong id="selectedYearLabel">2026년</strong>
-      <button type="button" id="nextYear" aria-label="다음 연도">▶</button>
+    <div class="period-nav" aria-label="연도와 월 선택">
+      <div class="year-nav" aria-label="연도 선택">
+        <button type="button" id="prevYear" aria-label="이전 연도">◀</button>
+        <strong id="selectedYearLabel">2026년</strong>
+        <button type="button" id="nextYear" aria-label="다음 연도">▶</button>
+      </div>
+      <div class="month-nav" aria-label="월 선택">
+        <button type="button" id="prevMonth" aria-label="이전 월">◀</button>
+        <strong id="selectedMonthLabel">1월</strong>
+        <button type="button" id="nextMonth" aria-label="다음 월">▶</button>
+      </div>
     </div>
     <div id="pullRefresh" class="pull-refresh">아래로 당겨 새로고침</div>
     <div id="toast" class="toast" aria-live="polite"></div>
@@ -90,7 +97,7 @@
           </form>
         </section>
         <section class="panel excel-panel">
-          <div class="section-title"><span>📅 현재 월 지출 내역</span></div>
+          <div class="section-title"><span id="ledgerPeriodTitle">📅 선택 월 지출 내역</span></div>
           <div class="table-scroll ledger-scroll"><table class="excel-table" id="ledgerTable"><thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th><th>관리</th></tr></thead><tbody></tbody></table></div>
         </section>
       </section>

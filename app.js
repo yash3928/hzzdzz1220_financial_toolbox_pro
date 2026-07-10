@@ -1,6 +1,6 @@
 import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.2';
 const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 const MONTHLY_CATEGORIES = ['식비'];
 const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
@@ -24,12 +24,13 @@ function moneyInput(value){ const n=num(value); return n ? comma(n) : ''; }
 const ymd = d => d.toISOString().slice(0,10);
 const systemYear = () => new Date().getFullYear();
 const selectedYear = () => num(state?.settings?.selectedYear) || 2026;
+const selectedMonth = () => Math.min(12, Math.max(1, num(state?.settings?.selectedMonth) || (new Date().getMonth()+1)));
 const currentYear = () => selectedYear();
 
 function defaultState(){
   return {
     appVersion: APP_VERSION,
-    settings: { cycleStartDay: 10, householdId: DEFAULT_HOUSEHOLD, firebaseConfigText: '', selectedYear: 2026 },
+    settings: { cycleStartDay: 10, householdId: DEFAULT_HOUSEHOLD, firebaseConfigText: '', selectedYear: 2026, selectedMonth: new Date().getMonth()+1 },
     budgets: Object.fromEntries([...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES].map(c=>[c,0])),
     expenses: [],
     fixedByMonth: {},
@@ -126,40 +127,54 @@ function ensureYearBucket(year){
     dahye:{base:num(current.base),rates:{...DEFAULT_RATES,...(current.rates||{})},tax:{...DEFAULT_TAX,...(current.tax||{})},months:{}}
   };
 }
-async function switchYear(year){
-  const next=Math.max(2020,Math.min(2100,num(year)||2026));
-  if(next===selectedYear()) return;
-
-  // 현재 연도 자료를 먼저 보존한 뒤 선택 연도를 바꿉니다.
-  saveActiveYearSnapshot();
-  ensureYearBucket(next);
-  state.settings.selectedYear=next;
-
-  const bucket=state.yearData[next];
-  state.budgets={...Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),...(bucket.budgets||{})};
-  const d=bucket.dahye||{};
-  state.salary.dahye={base:num(d.base),rates:{...DEFAULT_RATES,...(d.rates||{})},tax:{...DEFAULT_TAX,...(d.tax||{})},months:{...(d.months||{})}};
-  state.ui={openAccordions:{}};
-
-  // 먼저 기기에 저장하고 즉시 화면을 전환합니다.
+async function saveSelectionToFirebase(statusText='기간 동기화 중'){
   persistLocal();
   render();
   clearExpenseForm();
-
-  // 공동 동기화가 연결되어 있으면 선택 연도도 Firebase에 즉시 저장합니다.
-  // 기존 연도 데이터는 yearData에 보존된 상태로 병합 저장됩니다.
   if(firebaseReady && !syncingRemote && remoteLoaded){
     try{
-      setBadge('연도 동기화 중','loading');
+      setBadge(statusText,'loading');
       await saveHousehold(stripRuntime(state));
       setBadge('공동 동기화','on');
       markSynced();
     }catch(e){
       console.error(e);
-      setBadge('연도 저장 오류','off');
-      showToast('연도 선택 저장 실패: '+e.message);
+      setBadge('기간 저장 오류','off');
+      showToast('기간 선택 저장 실패: '+e.message);
     }
   }
+}
+async function switchYear(year){
+  const next=Math.max(2020,Math.min(2100,num(year)||2026));
+  if(next===selectedYear()) return;
+  saveActiveYearSnapshot();
+  ensureYearBucket(next);
+  state.settings.selectedYear=next;
+  const bucket=state.yearData[next];
+  state.budgets={...Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),...(bucket.budgets||{})};
+  const d=bucket.dahye||{};
+  state.salary.dahye={base:num(d.base),rates:{...DEFAULT_RATES,...(d.rates||{})},tax:{...DEFAULT_TAX,...(d.tax||{})},months:{...(d.months||{})}};
+  state.ui={openAccordions:{}};
+  await saveSelectionToFirebase('연도 동기화 중');
+}
+async function switchMonth(month){
+  let nextYear=selectedYear();
+  let nextMonth=num(month)||selectedMonth();
+  if(nextMonth<1){ nextMonth=12; nextYear-=1; }
+  if(nextMonth>12){ nextMonth=1; nextYear+=1; }
+  nextYear=Math.max(2020,Math.min(2100,nextYear));
+  if(nextYear!==selectedYear()){
+    saveActiveYearSnapshot();
+    ensureYearBucket(nextYear);
+    state.settings.selectedYear=nextYear;
+    const bucket=state.yearData[nextYear];
+    state.budgets={...Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),...(bucket.budgets||{})};
+    const d=bucket.dahye||{};
+    state.salary.dahye={base:num(d.base),rates:{...DEFAULT_RATES,...(d.rates||{})},tax:{...DEFAULT_TAX,...(d.tax||{})},months:{...(d.months||{})}};
+  }
+  state.settings.selectedMonth=nextMonth;
+  state.ui={openAccordions:{}};
+  await saveSelectionToFirebase('월 동기화 중');
 }
 function loadLocalState(){ try { return mergeDefaults(JSON.parse(localStorage.getItem('hzzdzz_state_v08') || 'null')); } catch { return defaultState(); } }
 function persistLocal(){ localStorage.setItem('hzzdzz_state_v08', JSON.stringify(state)); localStorage.setItem('hzzdzz_sync_settings', JSON.stringify(state.settings)); }
@@ -174,12 +189,10 @@ async function persistRemote(){
   }
 }
 
-function getPeriod(date = new Date()){
+function getPeriod(){
+  const p=periodForMonth(selectedYear(), selectedMonth());
   const startDay = Math.min(Math.max(num(state.settings.cycleStartDay)||10,1),28);
-  let y=selectedYear(), m=date.getMonth(); if(date.getDate()<startDay) m-=1;
-  const start=new Date(y,m,startDay), end=new Date(y,m+1,startDay-1);
-  const key=`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}`;
-  return {start,end,key,label:`${start.getFullYear()}년 ${start.getMonth()+1}월 (${start.getMonth()+1}/${startDay}~${end.getMonth()+1}/${end.getDate()})`};
+  return {...p,label:`${selectedYear()}년 ${selectedMonth()}월 (${selectedMonth()}/${startDay}~${p.end.getMonth()+1}/${p.end.getDate()})`};
 }
 function periodForMonth(year, month){ const startDay=Math.min(Math.max(num(state.settings.cycleStartDay)||10,1),28); return {start:new Date(year,month-1,startDay), end:new Date(year,month,startDay-1), key:`${year}-${String(month).padStart(2,'0')}`}; }
 function expensesInPeriod(p){ return state.expenses.filter(e=>{ const d=new Date((e.date||'')+'T00:00:00'); return d>=new Date(p.start.toDateString()) && d<=new Date(p.end.toDateString()); }); }
@@ -244,7 +257,7 @@ function showToast(message){ const el=$('#toast'); if(!el) return; el.textConten
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function escapeAttr(s){ return escapeHtml(s).replace(/`/g,'&#96;'); }
 
-function render(){ $('#periodLabel').textContent=getPeriod().label; const yl=$('#selectedYearLabel'); if(yl) yl.textContent=`${selectedYear()}년`;  renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
+function render(){ $('#periodLabel').textContent=getPeriod().label; const yl=$('#selectedYearLabel'); if(yl) yl.textContent=`${selectedYear()}년`; const ml=$('#selectedMonthLabel'); if(ml) ml.textContent=`${selectedMonth()}월`; const lt=$('#ledgerPeriodTitle'); if(lt) lt.textContent=`📅 ${selectedYear()}년 ${selectedMonth()}월 지출 내역`; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
 function renderHome(){
   const assetRows=[
     ['현금', cashTotal(), true], ['투자금', investAssetTotal(), false], ...PURPOSE_ASSETS.map(k=>[k, state.assets.purpose[k], false])
@@ -367,13 +380,15 @@ async function connectFirebase(){
     }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
   } catch(e){ console.error(e); firebaseReady=false; setBadge('연결 실패','off'); alert(e.message); }
 }
-function selectedYearDate(){ const d=new Date(); d.setFullYear(selectedYear()); return d; }
+function selectedYearDate(){ const day=Math.min(new Date().getDate(),28); return new Date(selectedYear(), selectedMonth()-1, day); }
 function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(selectedYearDate()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
 
 function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
   $('#prevYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()-1); });
   $('#nextYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()+1); });
+  $('#prevMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()-1); });
+  $('#nextMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()+1); });
   document.addEventListener('input', e=>{ const inp=e.target.closest('input[data-money]'); if(!inp) return; const raw=String(inp.value||'').replace(/[^0-9-]/g,''); inp.value=comma(raw); });
   document.addEventListener('click', async e=>{ const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
