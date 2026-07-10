@@ -42,6 +42,9 @@ function mergeDefaults(data){
   merged.schemaVersion = SCHEMA_VERSION;
   merged.settings = {...base.settings, ...(d.settings||{})};
   merged.budgets = {...base.budgets, ...(d.budgets||{})};
+  // 기존 '부모님' 예산은 새 분류인 '가족'으로 자동 이전합니다.
+  if(num(d.budgets?.['부모님']) && !num(d.budgets?.['가족'])) merged.budgets['가족']=num(d.budgets['부모님']);
+  delete merged.budgets['부모님'];
   merged.fixedByMonth = {...base.fixedByMonth, ...(d.fixedByMonth||{})};
   merged.expenses = Array.isArray(d.expenses) ? d.expenses : [];
   merged.salary = {...base.salary, ...(d.salary||{})};
@@ -63,6 +66,12 @@ function mergeDefaults(data){
       dahye: JSON.parse(JSON.stringify(merged.salary.dahye))
     };
   }
+  Object.values(merged.yearData||{}).forEach(bucket=>{
+    if(!bucket?.budgets) return;
+    if(num(bucket.budgets['부모님']) && !num(bucket.budgets['가족'])) bucket.budgets['가족']=num(bucket.budgets['부모님']);
+    delete bucket.budgets['부모님'];
+  });
+  merged.expenses.forEach(item=>{ if(item?.category==='부모님') item.category='가족'; });
   const activeYear = num(merged.settings.selectedYear) || legacyYear;
   if(!merged.yearData[activeYear]){
     const prev = merged.yearData[legacyYear];
@@ -367,7 +376,12 @@ function renderHome(){
   $('#investAccSummary').textContent=money(investAssetTotal());
 }
 function renderLedger(){ const sel=$('#expenseCategory'); if(sel.options.length===0) sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr><td>${e.date||''}</td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
-function renderBudget(){ $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>`<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`).join(''); const list=currentFixed(); $('#fixedList').innerHTML=list.map((f,i)=>`<div class="fixed-row"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"><button class="danger" data-fixed-del="${i}">삭제</button></div>`).join('') || '<p class="hint padded">이번 월 고정지출이 없습니다.</p>'; }
+function renderBudget(){
+  $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>`<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`).join('');
+  const title=$('#fixedSectionTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
+  const list=currentFixed();
+  $('#fixedList').innerHTML=list.map((f,i)=>`<div class="fixed-row"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"><button class="danger" data-fixed-del="${i}">삭제</button></div>`).join('') || '<p class="hint padded">선택한 월의 고정지출이 없습니다.</p>';
+}
 function renderSalary(){
   const jinTable=$('#jinhyukSalaryTable tbody');
   if(jinTable){

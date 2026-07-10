@@ -176,3 +176,6 @@
 .loan-schedule-scroll::-webkit-scrollbar{height:7px;}
 .loan-schedule-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;}
 .loan-schedule-scroll::-webkit-scrollbar-track{background:#f1f5f9;}
+
+/* v1.4.8 예산 화면 보기형 구성 */
+.budget-hint{padding:12px 12px 10px}.accordion-content #fixedList{padding-top:10px}
