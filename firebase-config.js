@@ -5,4 +5,12 @@
 //   apiKey: '...', authDomain: '...', projectId: '...',
 //   storageBucket: '...', messagingSenderId: '...', appId: '...'
 // };
-export const DEFAULT_FIREBASE_CONFIG = null;
+export const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA0KYFuCgpHXltXKp1Td4RS9h5YwpE4Iq4",
+  authDomain: "dzzhzz1220.firebaseapp.com",
+  projectId: "dzzhzz1220",
+  storageBucket: "dzzhzz1220.firebasestorage.app",
+  messagingSenderId: "249413587436",
+  appId: "1:249413587436:web:e75063d28f7672a983f0c9",
+  measurementId: "G-3P5EJVGHWD"
+};
