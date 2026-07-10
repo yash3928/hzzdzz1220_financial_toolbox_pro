@@ -1,6 +1,6 @@
 import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
 
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.2.3';
 const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 const MONTHLY_CATEGORIES = ['식비'];
 const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
@@ -23,8 +23,20 @@ const comma = v => { const n = String(v ?? '').replace(/[^0-9-]/g,''); if(n===''
 function moneyInput(value){ const n=num(value); return n ? comma(n) : ''; }
 const ymd = d => d.toISOString().slice(0,10);
 const systemYear = () => new Date().getFullYear();
-const selectedYear = () => num(state?.settings?.selectedYear) || 2026;
-const selectedMonth = () => Math.min(12, Math.max(1, num(state?.settings?.selectedMonth) || (new Date().getMonth()+1)));
+const VIEW_YEAR_KEY = 'hzzdzz_view_year';
+const VIEW_MONTH_KEY = 'hzzdzz_view_month';
+const selectedYear = () => {
+  const saved = num(localStorage.getItem(VIEW_YEAR_KEY));
+  return Math.max(2020, Math.min(2100, saved || systemYear() || 2026));
+};
+const selectedMonth = () => {
+  const saved = num(localStorage.getItem(VIEW_MONTH_KEY));
+  return Math.min(12, Math.max(1, saved || (new Date().getMonth()+1)));
+};
+const saveLocalViewPeriod = (year, month) => {
+  localStorage.setItem(VIEW_YEAR_KEY, String(year));
+  localStorage.setItem(VIEW_MONTH_KEY, String(month));
+};
 const currentYear = () => selectedYear();
 
 function defaultState(){
@@ -127,35 +139,28 @@ function ensureYearBucket(year){
     dahye:{base:num(current.base),rates:{...DEFAULT_RATES,...(current.rates||{})},tax:{...DEFAULT_TAX,...(current.tax||{})},months:{}}
   };
 }
-async function saveSelectionToFirebase(statusText='기간 동기화 중'){
+
+function applyYearBucket(year){
+  ensureYearBucket(year);
+  const bucket=state.yearData[year]||{};
+  state.budgets={...Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),...(bucket.budgets||{})};
+  const d=bucket.dahye||{};
+  state.salary.dahye={base:num(d.base),rates:{...DEFAULT_RATES,...(d.rates||{})},tax:{...DEFAULT_TAX,...(d.tax||{})},months:{...(d.months||{})}};
+}
+
+async function saveSelectionToFirebase(){
   persistLocal();
   render();
   clearExpenseForm();
-  if(firebaseReady && !syncingRemote && remoteLoaded){
-    try{
-      setBadge(statusText,'loading');
-      await saveHousehold(stripRuntime(state));
-      setBadge('공동 동기화','on');
-      markSynced();
-    }catch(e){
-      console.error(e);
-      setBadge('기간 저장 오류','off');
-      showToast('기간 선택 저장 실패: '+e.message);
-    }
-  }
 }
 async function switchYear(year){
   const next=Math.max(2020,Math.min(2100,num(year)||2026));
   if(next===selectedYear()) return;
   saveActiveYearSnapshot();
-  ensureYearBucket(next);
-  state.settings.selectedYear=next;
-  const bucket=state.yearData[next];
-  state.budgets={...Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),...(bucket.budgets||{})};
-  const d=bucket.dahye||{};
-  state.salary.dahye={base:num(d.base),rates:{...DEFAULT_RATES,...(d.rates||{})},tax:{...DEFAULT_TAX,...(d.tax||{})},months:{...(d.months||{})}};
+  saveLocalViewPeriod(next, selectedMonth());
+  applyYearBucket(next);
   state.ui={openAccordions:{}};
-  await saveSelectionToFirebase('연도 동기화 중');
+  await saveSelectionToFirebase();
 }
 async function switchMonth(month){
   let nextYear=selectedYear();
@@ -165,20 +170,24 @@ async function switchMonth(month){
   nextYear=Math.max(2020,Math.min(2100,nextYear));
   if(nextYear!==selectedYear()){
     saveActiveYearSnapshot();
-    ensureYearBucket(nextYear);
-    state.settings.selectedYear=nextYear;
-    const bucket=state.yearData[nextYear];
-    state.budgets={...Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),...(bucket.budgets||{})};
-    const d=bucket.dahye||{};
-    state.salary.dahye={base:num(d.base),rates:{...DEFAULT_RATES,...(d.rates||{})},tax:{...DEFAULT_TAX,...(d.tax||{})},months:{...(d.months||{})}};
+    applyYearBucket(nextYear);
   }
-  state.settings.selectedMonth=nextMonth;
+  saveLocalViewPeriod(nextYear, nextMonth);
   state.ui={openAccordions:{}};
-  await saveSelectionToFirebase('월 동기화 중');
+  await saveSelectionToFirebase();
 }
 function loadLocalState(){ try { return mergeDefaults(JSON.parse(localStorage.getItem('hzzdzz_state_v08') || 'null')); } catch { return defaultState(); } }
 function persistLocal(){ localStorage.setItem('hzzdzz_state_v08', JSON.stringify(state)); localStorage.setItem('hzzdzz_sync_settings', JSON.stringify(state.settings)); }
-function stripRuntime(s){ const copy=JSON.parse(JSON.stringify(s)); delete copy.updatedAt; delete copy.ui; return copy; }
+function stripRuntime(s){
+  const copy=JSON.parse(JSON.stringify(s));
+  delete copy.updatedAt;
+  delete copy.ui;
+  if(copy.settings){
+    delete copy.settings.selectedYear;
+    delete copy.settings.selectedMonth;
+  }
+  return copy;
+}
 async function persistRemote(){
   saveActiveYearSnapshot();
   persistLocal(); render();
@@ -366,6 +375,7 @@ async function connectFirebase(){
       syncingRemote=true;
       if(remote){
         state=mergeDefaults({...state,...remote,settings:{...state.settings,...(remote.settings||{})}});
+        applyYearBucket(selectedYear());
         state.ui={openAccordions:{}};
         remoteLoaded=true;
       } else {
@@ -432,6 +442,8 @@ function bindEvents(){
   window.addEventListener('online', ()=>refreshFromFirebase(false));
 }
 
+saveLocalViewPeriod(selectedYear(), selectedMonth());
+applyYearBucket(selectedYear());
 bindEvents(); setupPullToRefresh(); render();
 try{
   const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null');
