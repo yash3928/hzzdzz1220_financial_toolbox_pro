@@ -7,7 +7,7 @@ const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경�
 const EXPENSE_CATEGORIES = [...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES];
 const PURPOSE_ASSETS = ['여행비','연금','청약','코인','기타'];
 const DEFAULT_RATES = {weekday:77330, holiday:284470, sunday:163640, monThu:10000, friday:20000};
-const DEFAULT_TAX = {pension:215220, taxHealth:0, taxCare:0, taxEmployment:0, incomeTax:58750, taxLocal:5870, otherDeduct:0, vehicleAllowance:0, memoDeduct:0};
+const DEFAULT_TAX = {pensionRate:4.75, taxHealthRate:3.595, taxCareRate:13.14, taxEmploymentRate:0.9, incomeTax:58750, taxLocal:5870, otherDeduct:0, vehicleAllowance:0, memoDeduct:0};
 
 let state = loadLocalState();
 let firebaseReady = false;
@@ -127,6 +127,15 @@ function monthlyOverride(m, key, fallback){
 function taxDefault(t, key, fallback){
   return (Object.prototype.hasOwnProperty.call(t, key) && t[key] !== '' && t[key] !== null && t[key] !== undefined) ? num(t[key]) : fallback;
 }
+function rateDefault(t, key, legacyKey, fallback){
+  if(Object.prototype.hasOwnProperty.call(t, key) && t[key] !== '' && t[key] !== null && t[key] !== undefined) return num(t[key]);
+  const legacy = t[legacyKey];
+  if(legacy !== '' && legacy !== null && legacy !== undefined && num(legacy) > 0 && num(legacy) <= 100) return num(legacy);
+  return fallback;
+}
+function monthlyRateOverride(m, key, fallback){
+  return Object.prototype.hasOwnProperty.call(m, key) && m[key] !== '' && m[key] !== null && m[key] !== undefined ? num(m[key]) : fallback;
+}
 function calcDahyeMonth(month){
   const d=state.salary.dahye, r=d.rates||DEFAULT_RATES, t={...DEFAULT_TAX,...(d.tax||{})}, m=d.months?.[month]||{};
   const duty=num(m.weekday)*num(r.weekday)+num(m.holiday)*num(r.holiday)+num(m.sunday)*num(r.sunday)+num(m.monThu)*num(r.monThu)+num(m.friday)*num(r.friday);
@@ -134,19 +143,21 @@ function calcDahyeMonth(month){
   const vehicleAllowance=monthlyOverride(m,'vehicleAllowance',num(t.vehicleAllowance));
   const paymentTotal=taxablePay+vehicleAllowance;
 
-  // v1.0.5: 세금/공제는 자동 산식으로 만들지 않습니다.
-  // 엑셀 월급표의 공제 금액을 그대로 기본값으로 보여주고, 월별 입력값이 있으면 그 값을 우선합니다.
-  const pension=monthlyOverride(m,'taxPension',taxDefault(t,'pension',0));
-  const health=monthlyOverride(m,'taxHealth',taxDefault(t,'taxHealth',0));
-  const care=monthlyOverride(m,'taxCare',taxDefault(t,'taxCare',0));
-  const employment=monthlyOverride(m,'taxEmployment',taxDefault(t,'taxEmployment',0));
+  const pensionRate=monthlyRateOverride(m,'pensionRate',rateDefault(t,'pensionRate','pension',DEFAULT_TAX.pensionRate));
+  const healthRate=monthlyRateOverride(m,'taxHealthRate',rateDefault(t,'taxHealthRate','taxHealth',DEFAULT_TAX.taxHealthRate));
+  const careRate=monthlyRateOverride(m,'taxCareRate',rateDefault(t,'taxCareRate','taxCare',DEFAULT_TAX.taxCareRate));
+  const employmentRate=monthlyRateOverride(m,'taxEmploymentRate',rateDefault(t,'taxEmploymentRate','taxEmployment',DEFAULT_TAX.taxEmploymentRate));
+  const pension=Math.round(taxablePay * pensionRate / 100);
+  const health=Math.round(taxablePay * healthRate / 100);
+  const care=Math.round(health * careRate / 100);
+  const employment=Math.round(taxablePay * employmentRate / 100);
   const incomeTax=monthlyOverride(m,'taxIncome',taxDefault(t,'incomeTax',0));
   const localTax=monthlyOverride(m,'taxLocal',taxDefault(t,'taxLocal',0));
   const otherDeduct=monthlyOverride(m,'taxOther',taxDefault(t,'otherDeduct',0));
   const deductions=Math.round(pension)+Math.round(health)+Math.round(care)+Math.round(employment)+Math.round(incomeTax)+Math.round(localTax)+Math.round(otherDeduct);
   const net=Math.round(paymentTotal)-deductions;
   const memoAfter=net-num(t.memoDeduct);
-  return {duty,taxablePay,paymentTotal,gross:paymentTotal,vehicleAllowance,pension,health,care,employment,incomeTax,localTax,otherDeduct,deductions,deduct:deductions,net:Math.round(net),memoAfter:Math.round(memoAfter)};
+  return {duty,taxablePay,paymentTotal,gross:paymentTotal,vehicleAllowance,pensionRate,healthRate,careRate,employmentRate,pension,health,care,employment,incomeTax,localTax,otherDeduct,deductions,deduct:deductions,net:Math.round(net),memoAfter:Math.round(memoAfter)};
 }
 function yearExpenseSummary(month){ const p=periodForMonth(currentYear(), month), ex=expensesInPeriod(p), total=ex.reduce((a,e)=>a+num(e.amount),0), jin=ex.filter(e=>e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0), dah=ex.filter(e=>e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0), half=total/2; let settle='-'; if(jin>half) settle=`다혜→진혁 ${money(jin-half)}`; else if(dah>half) settle=`진혁→다혜 ${money(dah-half)}`; return {total,jin,dah,settle}; }
 function setBadge(text, cls){ const el=$('#syncBadge'); el.textContent=text; el.className='badge '+cls; }
@@ -200,10 +211,10 @@ function renderSalary(){
   $('#rateMonThu').value=comma(d.rates.monThu);
   $('#rateFriday').value=comma(d.rates.friday);
   $('#taxVehicle').value=comma(tax.vehicleAllowance);
-  $('#taxPension').value=comma(tax.pension);
-  $('#taxHealth').value=tax.taxHealth === '' ? '' : comma(tax.taxHealth);
-  $('#taxCare').value=tax.taxCare === '' ? '' : comma(tax.taxCare);
-  $('#taxEmployment').value=tax.taxEmployment === '' ? '' : comma(tax.taxEmployment);
+  $('#taxPension').value=rateDefault(tax,'pensionRate','pension',DEFAULT_TAX.pensionRate);
+  $('#taxHealth').value=rateDefault(tax,'taxHealthRate','taxHealth',DEFAULT_TAX.taxHealthRate);
+  $('#taxCare').value=rateDefault(tax,'taxCareRate','taxCare',DEFAULT_TAX.taxCareRate);
+  $('#taxEmployment').value=rateDefault(tax,'taxEmploymentRate','taxEmployment',DEFAULT_TAX.taxEmploymentRate);
   $('#taxIncome').value=comma(tax.incomeTax);
   $('#taxLocal').value=tax.taxLocal === '' ? '' : comma(tax.taxLocal);
   $('#taxOther').value=comma(tax.otherDeduct);
@@ -218,7 +229,7 @@ function renderSalary(){
   if(taxTable){
     taxTable.innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
       const c=calcDahyeMonth(m);
-      return `<tr><td>${m}월</td><td><input data-money data-tax-month="${m}" data-tax-key="taxPension" type="text" inputmode="numeric" value="${comma(Math.round(c.pension))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxHealth" type="text" inputmode="numeric" value="${comma(Math.round(c.health))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxCare" type="text" inputmode="numeric" value="${comma(Math.round(c.care))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxEmployment" type="text" inputmode="numeric" value="${comma(Math.round(c.employment))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxIncome" type="text" inputmode="numeric" value="${comma(Math.round(c.incomeTax))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxLocal" type="text" inputmode="numeric" value="${comma(Math.round(c.localTax))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxOther" type="text" inputmode="numeric" value="${comma(Math.round(c.otherDeduct))}"></td><td>${money(c.deductions)}</td></tr>`;
+      return `<tr><td>${m}월</td><td><input data-tax-month="${m}" data-tax-key="pensionRate" type="number" step="0.001" value="${c.pensionRate}"></td><td><input data-tax-month="${m}" data-tax-key="taxHealthRate" type="number" step="0.001" value="${c.healthRate}"></td><td><input data-tax-month="${m}" data-tax-key="taxCareRate" type="number" step="0.001" value="${c.careRate}"></td><td><input data-tax-month="${m}" data-tax-key="taxEmploymentRate" type="number" step="0.001" value="${c.employmentRate}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxIncome" type="text" inputmode="numeric" value="${comma(Math.round(c.incomeTax))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxLocal" type="text" inputmode="numeric" value="${comma(Math.round(c.localTax))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxOther" type="text" inputmode="numeric" value="${comma(Math.round(c.otherDeduct))}"></td><td>${money(c.deductions)}</td></tr>`;
     }).join('');
   }
 
@@ -295,7 +306,7 @@ function bindEvents(){
   $('#cashItemList').addEventListener('input', e=>{ const i=num(e.target.dataset.cashName ?? e.target.dataset.cashAmount); const arr=state.assets.cashItems; if(e.target.dataset.cashName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.cashAmount!==undefined) arr[i].amount=num(e.target.value); });
   $('#cashItemList').addEventListener('change', persistRemote);
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ $$('[data-jinhyuk-month]').forEach(inp=>{ state.salary.jinhyuk[inp.dataset.jinhyukMonth]=num(inp.value); }); await persistRemote(); });
-  $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={pension:num($('#taxPension').value),taxHealth:$('#taxHealth').value===''?'':num($('#taxHealth').value),taxCare:$('#taxCare').value===''?'':num($('#taxCare').value),taxEmployment:$('#taxEmployment').value===''?'':num($('#taxEmployment').value),incomeTax:num($('#taxIncome').value),taxLocal:$('#taxLocal').value===''?'':num($('#taxLocal').value),otherDeduct:num($('#taxOther').value),vehicleAllowance:num($('#taxVehicle').value),memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
+  $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={pensionRate:num($('#taxPension').value),taxHealthRate:num($('#taxHealth').value),taxCareRate:num($('#taxCare').value),taxEmploymentRate:num($('#taxEmployment').value),incomeTax:num($('#taxIncome').value),taxLocal:num($('#taxLocal').value),otherDeduct:num($('#taxOther').value),vehicleAllowance:num($('#taxVehicle').value),memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
   $('#saveAssetsBtn').addEventListener('click', async()=>{ $$('[data-purpose-asset]').forEach(i=>state.assets.purpose[i.dataset.purposeAsset]=num(i.value)); await persistRemote(); });
   $('#saveInvestBtn').addEventListener('click', async()=>{ ['domestic','overseas','cma'].forEach(k=>{ state.investmentSummary[k].amount=num($(`[data-invest-amount="${k}"]`)?.value); if(k!=='cma') state.investmentSummary[k].rate=num($(`[data-invest-rate="${k}"]`)?.value); }); await persistRemote(); });
   $('#connectBtn').addEventListener('click', connectFirebase);
