@@ -49,7 +49,8 @@ function hasMeaningfulValue(v){
 }
 function deepPreserve(existing, incoming){
   if(Array.isArray(incoming)){
-    if(incoming.length === 0 && Array.isArray(existing) && existing.length > 0) return existing;
+    // 배열은 사용자가 항목을 삭제한 결과일 수 있으므로 빈 배열도 그대로 저장합니다.
+    // 기존 로직은 마지막 지출을 삭제했을 때 Firebase의 이전 배열을 되살리는 문제가 있었습니다.
     return incoming;
   }
   if(isPlainObject(incoming)){
@@ -65,7 +66,7 @@ export async function saveHousehold(data, options = {}){
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
   const existingSnap = await getDoc(activeRef);
   const existing = existingSnap.exists() ? existingSnap.data() : {};
-  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.4.0', schemaVersion:1};
+  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.4.3', schemaVersion:1};
 
   // forceRestore일 때만 백업 파일 내용으로 덮어씁니다.
   // 일반 저장/업데이트에서는 빈 기본값이 기존 Firebase 데이터를 덮지 못하도록 전역 보호합니다.
