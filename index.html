@@ -12,6 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=144" />
   <link rel="manifest" href="manifest.webmanifest?v=144" />
   <link rel="stylesheet" href="style.css" />
+  <meta name="apple-mobile-web-app-title" content="가계부">
 </head>
 <body>
   <div class="app">
@@ -270,7 +271,7 @@
         </section>
       </section>
 
-      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">복원</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">v1.0 데이터 보호 모드: 일반 업데이트 저장은 기존 Firebase 데이터를 빈 값으로 덮어쓰지 않습니다. 복원 버튼은 백업 파일을 선택했을 때만 강제 복원합니다.</p></section></section>
+      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">파일 복원</button><button id="cloudRestoreBtn" class="ghost">클라우드 이전 백업 복구</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">v1.4.5 데이터 보호 모드: 일반 업데이트 저장은 기존 Firebase 데이터를 빈 값으로 덮어쓰지 않습니다. 복원 버튼은 백업 파일을 선택했을 때만 강제 복원합니다.</p></section></section>
     </main>
 
     <nav class="bottom-nav">

@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import { getFirestore, doc, onSnapshot, setDoc, getDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, serverTimestamp, collection, addDoc, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
 let app = null;
 let db = null;
@@ -7,6 +7,7 @@ let unsub = null;
 let activeRef = null;
 
 export function parseFirebaseConfig(input){
+  if(input && typeof input === 'object') return input;
   const text = (input || '').trim();
   if(!text) throw new Error('Firebase 설정값이 비어 있습니다.');
   const match = text.match(/firebaseConfig\s*=\s*({[\s\S]*?})\s*;?/);
@@ -62,11 +63,22 @@ function deepPreserve(existing, incoming){
   return incoming;
 }
 
+async function saveCloudBackup(existing){
+  if(!activeRef || !existing || !hasMeaningfulValue(existing)) return;
+  try{
+    const backupsRef = collection(activeRef, 'backups');
+    const clean = JSON.parse(JSON.stringify(existing));
+    delete clean.updatedAt;
+    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.4.5' });
+  }catch(e){ console.warn('클라우드 자동 백업 실패', e); }
+}
+
 export async function saveHousehold(data, options = {}){
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
   const existingSnap = await getDoc(activeRef);
   const existing = existingSnap.exists() ? existingSnap.data() : {};
-  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.4.4', schemaVersion:1};
+  if(existingSnap.exists() && !options.skipBackup) await saveCloudBackup(existing);
+  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.4.5', schemaVersion:1};
 
   // forceRestore일 때만 백업 파일 내용으로 덮어씁니다.
   // 일반 저장/업데이트에서는 빈 기본값이 기존 Firebase 데이터를 덮지 못하도록 전역 보호합니다.
@@ -87,4 +99,12 @@ export function disconnectFirebase(){
   if(unsub) unsub();
   unsub = null;
   activeRef = null;
+}
+
+export async function fetchLatestCloudBackup(){
+  if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
+  const q=query(collection(activeRef,'backups'), orderBy('savedAt','desc'), limit(1));
+  const snap=await getDocs(q);
+  if(snap.empty) return null;
+  return snap.docs[0].data()?.data || null;
 }

@@ -1,4 +1,5 @@
-import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
+import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup } from './firebase.js';
+import { DEFAULT_FIREBASE_CONFIG } from './firebase-config.js';
 import {
   APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
   MONTHLY_CATEGORIES, YEARLY_CATEGORIES, EXPENSE_CATEGORIES,
@@ -482,7 +483,7 @@ async function connectFirebase(){
     state.settings.householdId = householdInput || DEFAULT_HOUSEHOLD;
     state.settings.cycleStartDay = cycleInput;
     persistLocal();
-    const cfg=parseFirebaseConfig(state.settings.firebaseConfigText);
+    const cfg=parseFirebaseConfig(state.settings.firebaseConfigText || DEFAULT_FIREBASE_CONFIG);
     initFirebase(cfg);
     firebaseReady=true;
     subscribeHousehold(state.settings.householdId, async remote=>{
@@ -565,6 +566,19 @@ function bindEvents(){
   });
   $('#connectBtn').addEventListener('click', connectFirebase);
   $('#cycleStartDay').addEventListener('change', async()=>{ state.settings.cycleStartDay=num($('#cycleStartDay').value)||10; await persistRemote(); });
+  $('#cloudRestoreBtn')?.addEventListener('click', async()=>{
+    if(!firebaseReady){ alert('먼저 공동 동기화를 연결해주세요.'); return; }
+    if(!confirm('클라우드의 가장 최근 자동 백업으로 복구하시겠습니까? 현재 상태는 복구 전에 다시 백업됩니다.')) return;
+    try{
+      saveRecoverySnapshot('클라우드 복구 전');
+      const backup=await fetchLatestCloudBackup();
+      if(!backup){ alert('사용 가능한 클라우드 백업이 없습니다.'); return; }
+      state=mergeDefaults(backup);
+      persistLocal(); render();
+      await saveHousehold(stripRuntime(state), {forceRestore:true});
+      alert('클라우드 백업 복구가 완료되었습니다.');
+    }catch(e){ console.error(e); alert('클라우드 복구 실패: '+e.message); }
+  });
   $('#backupBtn').addEventListener('click',()=>{ saveActiveYearSnapshot(); saveRecoverySnapshot('수동 백업'); const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
   $('#restoreBtn').addEventListener('click',()=>$('#restoreFile').click());
   $('#restoreFile').addEventListener('change', async e=>{
@@ -589,6 +603,9 @@ bindEvents(); setupPullToRefresh(); render();
 try{
   const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null');
   const savedConfig = sync?.firebaseConfigText || state.settings?.firebaseConfigText;
-  if(savedConfig){ state.settings={...state.settings,...(sync||{}), firebaseConfigText:savedConfig}; persistLocal(); connectFirebase(); }
-  else setBadge('오프라인','off');
+  if(savedConfig || DEFAULT_FIREBASE_CONFIG){
+    state.settings={...state.settings,...(sync||{}), firebaseConfigText:savedConfig||''};
+    persistLocal();
+    connectFirebase();
+  } else setBadge('오프라인','off');
 } catch { setBadge('오프라인','off'); }
