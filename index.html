@@ -37,6 +37,8 @@
           <div class="asset-grid" id="assetSummaryGrid"></div>
           <div id="cashDetailHome" class="detail-box hidden"></div>
           <div class="total-line"><span>총자산</span><strong id="homeTotalAssets">0원</strong></div>
+          <div class="debt-line"><span>대출잔액</span><strong id="homeLoanOutstanding">0원</strong></div>
+          <div class="net-asset-line"><span>순자산</span><strong id="homeNetAssets">0원</strong></div>
         </section>
 
         <section class="accordion-card">
@@ -65,6 +67,19 @@
           <button class="accordion-toggle" data-acc="invest"><span>📈 투자 현황</span><b id="investAccSummary">보기</b></button>
           <div class="accordion-content" id="acc-invest">
             <div class="table-scroll"><table class="excel-table" id="homeInvestTable"><thead><tr><th>구분</th><th>현재금액</th><th>수익률</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
+
+
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="loanHome"><span>🏦 대출 현황</span><b id="loanHomeSummary">보기</b></button>
+          <div class="accordion-content" id="acc-loanHome">
+            <div class="loan-home-grid">
+              <div><span>선택 월 납부액</span><strong id="homeLoanPayment">0원</strong></div>
+              <div><span>원금</span><strong id="homeLoanPrincipal">0원</strong></div>
+              <div><span>이자</span><strong id="homeLoanInterest">0원</strong></div>
+              <div><span>납부 후 잔액</span><strong id="homeLoanBalance">0원</strong></div>
+            </div>
           </div>
         </section>
 
@@ -183,6 +198,67 @@
         <section class="panel excel-panel"><div class="section-title"><span>📈 투자 현황 입력</span></div><p class="hint">증권앱에서 확인한 총 평가금액과 수익률만 입력합니다. 매수·매도 내역은 관리하지 않습니다.</p><div class="table-scroll"><table class="excel-table input-table" id="investmentTable"><thead><tr><th>구분</th><th>현재금액</th><th>수익률</th></tr></thead><tbody></tbody></table></div><button id="saveInvestBtn" class="primary wide">투자 저장</button></section>
       </section>
 
+
+      <section id="view-loan" class="view">
+        <section class="panel loan-summary-panel">
+          <div class="section-title"><span>🏦 대출 관리</span></div>
+          <div class="loan-title" id="loanNameTitle">신한은행 주택담보대출</div>
+          <div class="loan-summary-grid">
+            <div><span>최초 대출금</span><strong id="loanOriginal">0원</strong></div>
+            <div><span>현재 기준 잔액</span><strong id="loanCurrentBalance">0원</strong></div>
+            <div><span>금리</span><strong id="loanRate">0%</strong></div>
+            <div><span>상환 방식</span><strong>체증식</strong></div>
+            <div><span>상환 회차</span><strong id="loanPaidCount">0 / 0</strong></div>
+            <div><span>만기일</span><strong id="loanMaturity">-</strong></div>
+          </div>
+          <div class="loan-progress"><div id="loanProgressBar"></div></div>
+          <p class="loan-progress-text" id="loanProgressText"></p>
+        </section>
+
+        <section class="panel loan-month-panel">
+          <div class="section-title"><span id="loanSelectedMonthTitle">선택 월 상환 예정</span></div>
+          <div class="loan-payment-big" id="loanSelectedPayment">0원</div>
+          <div class="loan-breakdown">
+            <div><span>원금</span><strong id="loanSelectedPrincipal">0원</strong></div>
+            <div><span>이자</span><strong id="loanSelectedInterest">0원</strong></div>
+            <div><span>납부 후 잔액</span><strong id="loanSelectedBalance">0원</strong></div>
+            <div><span>회차</span><strong id="loanSelectedInstallment">-</strong></div>
+          </div>
+        </section>
+
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="loanSettings"><span>⚙️ 대출 기준 설정</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-loanSettings">
+            <div class="loan-settings-grid">
+              <label>대출명<input type="text" id="loanName" /></label>
+              <label>최초 대출금<input type="text" inputmode="numeric" data-money id="loanOriginalPrincipal" /></label>
+              <label>고정금리(%)<input type="number" step="0.001" id="loanAnnualRate" /></label>
+              <label>상환 시작일<input type="date" id="loanRepaymentStart" /></label>
+              <label>만기일<input type="date" id="loanMaturityDate" /></label>
+              <label>총 상환횟수<input type="number" id="loanTotalInstallments" /></label>
+              <label>월 납입액 증가분<input type="text" inputmode="numeric" data-money id="loanMonthlyIncrease" /></label>
+              <label>현재 납부 완료 회차<input type="number" id="loanPaidInstallments" /></label>
+              <label>현재 대출잔액<input type="text" inputmode="numeric" data-money id="loanCurrentBalanceInput" /></label>
+              <label>최근 납부 원금<input type="text" inputmode="numeric" data-money id="loanLastPaidPrincipal" /></label>
+            </div>
+            <p class="hint padded">신한은행 일정표의 현재 잔액·납부 완료 회차·최근 원금을 기준으로 이후 체증식 상환액을 계산합니다.</p>
+            <button id="saveLoanBtn" class="primary wide">대출 설정 저장</button>
+          </div>
+        </section>
+
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="loanSchedule"><span>📅 전체 상환 일정</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-loanSchedule">
+            <div class="table-scroll loan-schedule-scroll">
+              <table class="excel-table loan-table" id="loanScheduleTable">
+                <thead><tr><th>회차</th><th>상환일</th><th>원금</th><th>이자</th><th>총 납부</th><th>잔액</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </section>
+
       <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">복원</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">v1.0 데이터 보호 모드: 일반 업데이트 저장은 기존 Firebase 데이터를 빈 값으로 덮어쓰지 않습니다. 복원 버튼은 백업 파일을 선택했을 때만 강제 복원합니다.</p></section></section>
     </main>
 
@@ -193,6 +269,7 @@
       <button data-view="salary">💵<span>급여</span></button>
       <button data-view="assets">💰<span>자산</span></button>
       <button data-view="invest">📈<span>투자</span></button>
+      <button data-view="loan">🏦<span>대출</span></button>
       <button data-view="settings">⚙️<span>설정</span></button>
     </nav>
   </div>

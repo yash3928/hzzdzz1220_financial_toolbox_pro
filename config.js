@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 export const SCHEMA_VERSION = 1;
 export const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 export const MONTHLY_CATEGORIES = ['식비'];
@@ -16,4 +16,17 @@ export const DEFAULT_TAX = {
   otherDeduct:0,
   vehicleAllowance:0,
   memoDeduct:0
+};
+
+export const DEFAULT_LOAN = {
+  name:'신한은행 주택담보대출',
+  originalPrincipal:340000000,
+  annualRate:2.85,
+  repaymentStart:'2025-09-30',
+  maturityDate:'2054-08-30',
+  totalInstallments:348,
+  monthlyPaymentIncrease:4200,
+  paidInstallments:10,
+  currentBalance:339809795,
+  lastPaidPrincipal:38162
 };

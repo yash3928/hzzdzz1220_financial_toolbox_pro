@@ -2,7 +2,7 @@ import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, f
 import {
   APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
   MONTHLY_CATEGORIES, YEARLY_CATEGORIES, EXPENSE_CATEGORIES,
-  PURPOSE_ASSETS, DEFAULT_RATES, DEFAULT_TAX
+  PURPOSE_ASSETS, DEFAULT_RATES, DEFAULT_TAX, DEFAULT_LOAN
 } from './config.js';
 import { $, $$, money, num, comma, moneyInput, ymd, escapeHtml, escapeAttr } from './utils.js';
 import { selectedYear, selectedMonth, saveLocalViewPeriod } from './view-period.js';
@@ -28,6 +28,7 @@ function defaultState(){
     investmentSummary: { domestic:{amount:0, rate:0}, overseas:{amount:0, rate:0}, cma:{amount:0, rate:0} },
     investments: [],
     jaturi: { balance:0, history:[] },
+    loan: {...DEFAULT_LOAN},
     yearData: {},
     ui: { openAccordions:{} }
   };
@@ -52,6 +53,7 @@ function mergeDefaults(data){
   merged.assets = migrateAssets(d.assets || {});
   merged.investmentSummary = migrateInvestSummary(d.investmentSummary, merged.investments, d.assets || {});
   merged.jaturi = {...base.jaturi, ...(d.jaturi||{})};
+  merged.loan = {...base.loan, ...(d.loan||{})};
   merged.yearData = {...(d.yearData||{})};
   const legacyYear = 2026;
   if(!merged.yearData[legacyYear]){
@@ -211,6 +213,66 @@ function rateDefault(t, key, legacyKey, fallback){
 function monthlyRateOverride(m, key, fallback){
   return Object.prototype.hasOwnProperty.call(m, key) && m[key] !== '' && m[key] !== null && m[key] !== undefined ? num(m[key]) : fallback;
 }
+
+function loanDueDate(startDate, installment){
+  const start=new Date(`${startDate}T00:00:00`);
+  const targetMonth=start.getMonth()+(installment-1);
+  const y=start.getFullYear()+Math.floor(targetMonth/12);
+  const m=((targetMonth%12)+12)%12;
+  const day=Math.min(start.getDate(),new Date(y,m+1,0).getDate());
+  return new Date(y,m,day);
+}
+function loanDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function buildLoanSchedule(){
+  const l={...DEFAULT_LOAN,...(state.loan||{})};
+  const rate=num(l.annualRate)/100/12;
+  const total=Math.max(1,num(l.totalInstallments)||348);
+  const paid=Math.max(0,Math.min(total,num(l.paidInstallments)));
+  const increase=num(l.monthlyPaymentIncrease);
+  const rows=[];
+  let rawPrincipal=0;
+  let balance=num(l.originalPrincipal);
+  // 과거 회차는 동일한 체증 규칙으로 재구성합니다.
+  for(let n=1;n<=paid;n++){
+    if(n===1) rawPrincipal=0;
+    else rawPrincipal=rawPrincipal*(1+rate)+increase;
+    let principal=Math.floor(rawPrincipal);
+    if(n===paid && num(l.lastPaidPrincipal)>0) principal=num(l.lastPaidPrincipal);
+    const interest=Math.floor(balance*rate);
+    balance=Math.max(0,balance-principal);
+    rows.push({installment:n,date:loanDueDate(l.repaymentStart,n),principal,interest,payment:principal+interest,balance});
+  }
+  // 은행 앱에서 확인한 현재 잔액을 기준점으로 사용합니다.
+  if(paid>0 && num(l.currentBalance)>0){
+    balance=num(l.currentBalance);
+    rows[paid-1].balance=balance;
+    rawPrincipal=num(l.lastPaidPrincipal)||rawPrincipal;
+  }
+  for(let n=paid+1;n<=total;n++){
+    rawPrincipal=rawPrincipal*(1+rate)+increase;
+    let principal=Math.floor(rawPrincipal);
+    if(n===total || principal>balance) principal=balance;
+    const interest=Math.floor(balance*rate);
+    balance=Math.max(0,balance-principal);
+    rows.push({installment:n,date:loanDueDate(l.repaymentStart,n),principal,interest,payment:principal+interest,balance});
+  }
+  return rows;
+}
+function selectedLoanRow(){
+  const key=`${selectedYear()}-${String(selectedMonth()).padStart(2,'0')}`;
+  return buildLoanSchedule().find(r=>loanDateKey(r.date)===key) || null;
+}
+function loanBalanceForSelectedMonth(){
+  const row=selectedLoanRow();
+  if(row) return row.balance;
+  const schedule=buildLoanSchedule();
+  const selectedKey=`${selectedYear()}-${String(selectedMonth()).padStart(2,'0')}`;
+  const first=schedule[0], last=schedule[schedule.length-1];
+  if(first && selectedKey<loanDateKey(first.date)) return num(state.loan?.originalPrincipal);
+  if(last && selectedKey>loanDateKey(last.date)) return 0;
+  return num(state.loan?.currentBalance);
+}
+
 function calcDahyeMonth(month){
   const d=state.salary.dahye, r=d.rates||DEFAULT_RATES, t={...DEFAULT_TAX,...(d.tax||{})}, m=d.months?.[month]||{};
   const duty=num(m.weekday)*num(r.weekday)+num(m.holiday)*num(r.holiday)+num(m.sunday)*num(r.sunday)+num(m.monThu)*num(r.monThu)+num(m.friday)*num(r.friday);
@@ -242,7 +304,7 @@ function updateLastSyncLabel(){ const saved=localStorage.getItem('hzzdzz_last_sy
 function markSynced(){ localStorage.setItem('hzzdzz_last_sync_at', new Date().toISOString()); updateLastSyncLabel(); }
 function showToast(message){ const el=$('#toast'); if(!el) return; el.textContent=message; el.classList.add('show'); clearTimeout(showToast._timer); showToast._timer=setTimeout(()=>el.classList.remove('show'),1800); }
 
-function render(){ $('#periodLabel').textContent=getPeriod().label; const yl=$('#selectedYearLabel'); if(yl) yl.textContent=`${selectedYear()}년`; const ml=$('#selectedMonthLabel'); if(ml) ml.textContent=`${selectedMonth()}월`; const lt=$('#ledgerPeriodTitle'); if(lt) lt.textContent=`📅 ${selectedYear()}년 ${selectedMonth()}월 지출 내역`; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
+function render(){ $('#periodLabel').textContent=getPeriod().label; const yl=$('#selectedYearLabel'); if(yl) yl.textContent=`${selectedYear()}년`; const ml=$('#selectedMonthLabel'); if(ml) ml.textContent=`${selectedMonth()}월`; const lt=$('#ledgerPeriodTitle'); if(lt) lt.textContent=`📅 ${selectedYear()}년 ${selectedMonth()}월 지출 내역`; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderLoan(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
 function renderHome(){
   const assetRows=[
     ['현금', cashTotal(), true], ['투자금', investAssetTotal(), false], ...PURPOSE_ASSETS.map(k=>[k, state.assets.purpose[k], false])
@@ -250,6 +312,16 @@ function renderHome(){
   $('#assetSummaryGrid').innerHTML=assetRows.map(([k,v,click])=>`<button class="asset-chip ${click?'clickable':''}" ${click?'id="cashChip"':''}><span>${k}</span><strong>${money(v)}</strong></button>`).join('');
   $('#cashDetailHome').innerHTML=(state.assets.cashItems||[]).map(it=>`<div><span>${escapeHtml(it.name||'미입력')}</span><strong>${money(it.amount)}</strong></div>`).join('') || '<p class="hint">현금 세부 분류가 없습니다.</p>';
   $('#homeTotalAssets').textContent=money(totalAssets());
+  const loanRow=selectedLoanRow();
+  const selectedLoanBalance=loanBalanceForSelectedMonth();
+  $('#homeLoanOutstanding').textContent=money(selectedLoanBalance);
+  $('#homeNetAssets').textContent=money(totalAssets()-selectedLoanBalance);
+  $('#homeNetAssets').className=(totalAssets()-selectedLoanBalance)>=0?'plus':'minus';
+  $('#homeLoanPayment').textContent=money(loanRow?.payment||0);
+  $('#homeLoanPrincipal').textContent=money(loanRow?.principal||0);
+  $('#homeLoanInterest').textContent=money(loanRow?.interest||0);
+  $('#homeLoanBalance').textContent=money(selectedLoanBalance);
+  $('#loanHomeSummary').textContent=loanRow?money(loanRow.payment):money(selectedLoanBalance);
 
   const j=currentJinhyukSalary(), d=currentDahyeSalary(), income=j+d, fixed=fixedTotal(), spent=totalBudgetSpent(), surplus=income-fixed-spent;
   $('#homeJinhyukSalary').textContent=money(j); $('#homeDahyeSalary').textContent=money(d); $('#homeIncome').textContent=money(income); $('#homeFixed').textContent=money(fixed); $('#homeBudgetSpent').textContent=money(spent); $('#homeSurplus').textContent=money(surplus); $('#homeSurplus').className=surplus>=0?'plus':'minus';
@@ -327,6 +399,45 @@ function renderSalary(){
 
 function renderAssets(){ $('#cashItemList').innerHTML=(state.assets.cashItems||[]).map((it,i)=>`<div class="fixed-row"><input placeholder="분류명" data-cash-name="${i}" value="${escapeAttr(it.name||'')}"><input type="text" inputmode="numeric" data-money placeholder="금액" data-cash-amount="${i}" value="${comma(it.amount)}"><button class="danger" data-cash-del="${i}">삭제</button></div>`).join('') || '<p class="hint padded">현금 세부 분류를 추가해주세요.</p>'; $('#assetInputTable tbody').innerHTML=PURPOSE_ASSETS.map(c=>`<tr><td>${c}</td><td><input data-money data-purpose-asset="${c}" type="text" inputmode="numeric" value="${comma(state.assets.purpose[c])}"></td></tr>`).join(''); }
 function renderInvest(){ const s=state.investmentSummary; $('#investmentTable tbody').innerHTML=`<tr><td>국내주식</td><td><input data-money data-invest-amount="domestic" type="text" inputmode="numeric" value="${comma(s.domestic.amount)}"></td><td><input data-invest-rate="domestic" type="number" step="0.1" value="${num(s.domestic.rate)}"></td></tr><tr><td>해외주식</td><td><input data-money data-invest-amount="overseas" type="text" inputmode="numeric" value="${comma(s.overseas.amount)}"></td><td><input data-invest-rate="overseas" type="number" step="0.1" value="${num(s.overseas.rate)}"></td></tr><tr><td>CMA</td><td><input data-money data-invest-amount="cma" type="text" inputmode="numeric" value="${comma(s.cma.amount)}"></td><td class="muted">-</td></tr>`; }
+
+function renderLoan(){
+  const l={...DEFAULT_LOAN,...(state.loan||{})};
+  const schedule=buildLoanSchedule();
+  const selected=selectedLoanRow();
+  const paid=Math.max(0,Math.min(num(l.totalInstallments),num(l.paidInstallments)));
+  const progress=num(l.totalInstallments)?paid/num(l.totalInstallments)*100:0;
+  $('#loanNameTitle').textContent=l.name||'주택담보대출';
+  $('#loanOriginal').textContent=money(l.originalPrincipal);
+  $('#loanCurrentBalance').textContent=money(l.currentBalance);
+  $('#loanRate').textContent=`${num(l.annualRate).toFixed(2)}%`;
+  $('#loanPaidCount').textContent=`${paid} / ${num(l.totalInstallments)}`;
+  $('#loanMaturity').textContent=l.maturityDate||'-';
+  $('#loanProgressBar').style.width=`${Math.min(100,Math.max(0,progress))}%`;
+  $('#loanProgressText').textContent=`상환 회차 기준 ${progress.toFixed(1)}% · 남은 ${Math.max(0,num(l.totalInstallments)-paid)}개월`;
+  $('#loanSelectedMonthTitle').textContent=`${selectedYear()}년 ${selectedMonth()}월 상환 예정`;
+  $('#loanSelectedPayment').textContent=money(selected?.payment||0);
+  $('#loanSelectedPrincipal').textContent=money(selected?.principal||0);
+  $('#loanSelectedInterest').textContent=money(selected?.interest||0);
+  $('#loanSelectedBalance').textContent=money(selected?selected.balance:loanBalanceForSelectedMonth());
+  $('#loanSelectedInstallment').textContent=selected?`${selected.installment}회차`:'해당 없음';
+
+  $('#loanName').value=l.name||'';
+  $('#loanOriginalPrincipal').value=comma(l.originalPrincipal);
+  $('#loanAnnualRate').value=num(l.annualRate);
+  $('#loanRepaymentStart').value=l.repaymentStart||'';
+  $('#loanMaturityDate').value=l.maturityDate||'';
+  $('#loanTotalInstallments').value=num(l.totalInstallments);
+  $('#loanMonthlyIncrease').value=comma(l.monthlyPaymentIncrease);
+  $('#loanPaidInstallments').value=num(l.paidInstallments);
+  $('#loanCurrentBalanceInput').value=comma(l.currentBalance);
+  $('#loanLastPaidPrincipal').value=comma(l.lastPaidPrincipal);
+
+  $('#loanScheduleTable tbody').innerHTML=schedule.map(r=>{
+    const selectedClass=(r.date.getFullYear()===selectedYear()&&r.date.getMonth()+1===selectedMonth())?' class="selected-loan-row"':'';
+    return `<tr${selectedClass}><td>${r.installment}</td><td>${r.date.getFullYear()}.${String(r.date.getMonth()+1).padStart(2,'0')}.${String(r.date.getDate()).padStart(2,'0')}</td><td>${money(r.principal)}</td><td>${money(r.interest)}</td><td>${money(r.payment)}</td><td>${money(r.balance)}</td></tr>`;
+  }).join('');
+}
+
 function renderSettings(){ $('#firebaseConfigText').value=state.settings.firebaseConfigText||''; $('#householdId').value=state.settings.householdId||DEFAULT_HOUSEHOLD; $('#cycleStartDay').value=state.settings.cycleStartDay||10; }
 function applyAccordionState(){ $$('.accordion-content').forEach(el=>el.classList.remove('open')); $$('.accordion-toggle').forEach(btn=>btn.classList.remove('open')); Object.entries(state.ui.openAccordions||{}).forEach(([key,open])=>{ const el=$(`#acc-${key}`); const btn=document.querySelector(`[data-acc="${key}"]`); if(el){ el.classList.toggle('open',!!open); } if(btn){ btn.classList.toggle('open',!!open); }}); }
 
@@ -398,6 +509,23 @@ function bindEvents(){
   $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={pensionRate:num($('#taxPension').value),taxHealthRate:num($('#taxHealth').value),taxCareRate:num($('#taxCare').value),taxEmploymentRate:num($('#taxEmployment').value),incomeTax:num($('#taxIncome').value),taxLocal:num($('#taxLocal').value),otherDeduct:num($('#taxOther').value),vehicleAllowance:num($('#taxVehicle').value),memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); $$('[data-bonus-month]').forEach(inp=>{ const m=inp.dataset.bonusMonth; d.months[m]=d.months[m]||{}; d.months[m].bonus=num(inp.value); }); $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
   $('#saveAssetsBtn').addEventListener('click', async()=>{ $$('[data-purpose-asset]').forEach(i=>state.assets.purpose[i.dataset.purposeAsset]=num(i.value)); await persistRemote(); });
   $('#saveInvestBtn').addEventListener('click', async()=>{ ['domestic','overseas','cma'].forEach(k=>{ state.investmentSummary[k].amount=num($(`[data-invest-amount="${k}"]`)?.value); if(k!=='cma') state.investmentSummary[k].rate=num($(`[data-invest-rate="${k}"]`)?.value); }); await persistRemote(); });
+  $('#saveLoanBtn').addEventListener('click', async()=>{
+    state.loan={
+      ...state.loan,
+      name:$('#loanName').value.trim()||'신한은행 주택담보대출',
+      originalPrincipal:num($('#loanOriginalPrincipal').value),
+      annualRate:num($('#loanAnnualRate').value),
+      repaymentStart:$('#loanRepaymentStart').value,
+      maturityDate:$('#loanMaturityDate').value,
+      totalInstallments:num($('#loanTotalInstallments').value),
+      monthlyPaymentIncrease:num($('#loanMonthlyIncrease').value),
+      paidInstallments:num($('#loanPaidInstallments').value),
+      currentBalance:num($('#loanCurrentBalanceInput').value),
+      lastPaidPrincipal:num($('#loanLastPaidPrincipal').value)
+    };
+    await persistRemote();
+    showToast('대출 설정을 저장했습니다.');
+  });
   $('#connectBtn').addEventListener('click', connectFirebase);
   $('#cycleStartDay').addEventListener('change', async()=>{ state.settings.cycleStartDay=num($('#cycleStartDay').value)||10; await persistRemote(); });
   $('#backupBtn').addEventListener('click',()=>{ saveActiveYearSnapshot(); const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
