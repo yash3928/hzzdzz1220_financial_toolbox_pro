@@ -479,9 +479,18 @@ async function connectFirebase(){
 }
 function selectedYearDate(){ const day=Math.min(new Date().getDate(),28); return new Date(selectedYear(), selectedMonth()-1, day); }
 function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(selectedYearDate()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
+function setExpenseFormOpen(open){
+  const toggle=$('#expenseFormToggle'), wrap=$('#expenseFormWrap');
+  if(!toggle||!wrap) return;
+  toggle.classList.toggle('open', open);
+  toggle.setAttribute('aria-expanded', String(open));
+  const label=toggle.querySelector('b'); if(label) label.textContent=open?'닫기':'보기';
+  wrap.hidden=!open;
+}
 
 function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
+  $('#expenseFormToggle')?.addEventListener('click',()=>setExpenseFormOpen($('#expenseFormWrap')?.hidden));
   $('#prevYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()-1); });
   $('#nextYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()+1); });
   $('#prevMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()-1); });
@@ -490,7 +499,7 @@ function bindEvents(){
   document.addEventListener('click', async e=>{ const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
-    if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); window.scrollTo({top:0,behavior:'smooth'}); }}
+    if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); setExpenseFormOpen(true); window.scrollTo({top:0,behavior:'smooth'}); }}
     if(t.dataset.delExp){ if(confirm('이 지출내역을 삭제하시겠습니까?')){ state.expenses=state.expenses.filter(x=>x.id!==t.dataset.delExp); await persistRemote(); }}
     if(t.id==='addFixedBtn'){ const key=getPeriod().key; state.fixedByMonth[key]=currentFixed().concat([{name:'',amount:0}]); renderBudget(); }
     if(t.dataset.fixedDel!==undefined){ const key=getPeriod().key, arr=currentFixed(); arr.splice(num(t.dataset.fixedDel),1); state.fixedByMonth[key]=arr; await persistRemote(); }
@@ -498,8 +507,8 @@ function bindEvents(){
     if(t.dataset.cashDel!==undefined){ state.assets.cashItems.splice(num(t.dataset.cashDel),1); await persistRemote(); }
   });
   $('#expenseDate').value=ymd(selectedYearDate());
-  $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); await persistRemote(); });
-  $('#expenseCancel').addEventListener('click', clearExpenseForm);
+  $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(false); await persistRemote(); });
+  $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
   $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget]').forEach(i=>state.budgets[i.dataset.budget]=num(i.value)); await persistRemote(); });
   $('#fixedList').addEventListener('input', e=>{ const key=getPeriod().key, arr=currentFixed(), i=num(e.target.dataset.fixedName ?? e.target.dataset.fixedAmount); if(e.target.dataset.fixedName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.fixedAmount!==undefined) arr[i].amount=num(e.target.value); state.fixedByMonth[key]=arr; });
   $('#fixedList').addEventListener('change', persistRemote);

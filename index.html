@@ -99,8 +99,11 @@
       </section>
 
       <section id="view-ledger" class="view">
-        <section class="panel">
-          <div class="section-title"><span>🧾 공동지출 입력</span></div>
+        <section class="panel expense-entry-panel">
+          <button type="button" id="expenseFormToggle" class="section-toggle" aria-expanded="false" aria-controls="expenseFormWrap">
+            <span>🧾 공동지출 입력</span><b>보기</b>
+          </button>
+          <div id="expenseFormWrap" class="expense-form-wrap" hidden>
           <form id="expenseForm" class="form-grid">
             <input type="hidden" id="expenseId" />
             <label>날짜<input type="date" id="expenseDate" required /></label>
@@ -110,6 +113,7 @@
             <label class="full">내용<input type="text" id="expenseMemo" placeholder="예: 이마트, 병원, 경조사" /></label>
             <div class="button-row full"><button type="submit" class="primary">저장</button><button type="button" id="expenseCancel" class="ghost">취소</button></div>
           </form>
+          </div>
         </section>
         <section class="panel excel-panel">
           <div class="section-title"><span id="ledgerPeriodTitle">📅 선택 월 지출 내역</span></div>

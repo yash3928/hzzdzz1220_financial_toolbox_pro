@@ -134,3 +134,24 @@
   .bottom-nav button{font-size:18px;padding:8px 1px 7px}
   .bottom-nav button span{font-size:9px}
 }
+
+
+/* v1.4.1 모바일 내역 화면 개선 */
+.app{padding-bottom:calc(84px + env(safe-area-inset-bottom));}
+.bottom-nav{grid-template-columns:repeat(8,minmax(0,1fr));padding:5px 2px calc(5px + env(safe-area-inset-bottom));}
+.bottom-nav button{min-width:0;font-size:17px;padding:6px 0 5px;gap:1px;}
+.bottom-nav button span{font-size:9px;white-space:nowrap;}
+.view{padding-bottom:18px;}
+.ledger-scroll{max-height:none;overflow:visible;}
+.expense-entry-panel{padding:0;}
+.section-toggle{width:100%;background:#fff;color:var(--text);border:0;border-radius:0;padding:14px;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:900;text-align:left;}
+.section-toggle:after{content:'›';color:var(--muted);font-size:22px;line-height:1;transition:transform .18s;}
+.section-toggle.open:after{transform:rotate(90deg);}
+.section-toggle b{margin-left:auto;margin-right:8px;color:var(--muted);font-size:12px;}
+.expense-form-wrap{border-top:1px solid var(--line);padding:14px;}
+.expense-form-wrap[hidden]{display:none;}
+@media(max-width:420px){
+  .app{padding-bottom:calc(78px + env(safe-area-inset-bottom));}
+  .bottom-nav button{font-size:16px;padding:6px 0 5px;}
+  .bottom-nav button span{font-size:8px;}
+}
