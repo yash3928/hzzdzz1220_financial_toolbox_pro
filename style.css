@@ -155,3 +155,24 @@
   .bottom-nav button{font-size:16px;padding:6px 0 5px;}
   .bottom-nav button span{font-size:8px;}
 }
+
+/* v1.4.2 대출 상환 일정 가로 스크롤 */
+.loan-schedule-scroll{
+  display:block;
+  width:100%;
+  max-width:100%;
+  max-height:62vh;
+  overflow-x:auto;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  touch-action:pan-x pan-y;
+}
+.loan-schedule-scroll .loan-table{
+  width:690px;
+  min-width:690px;
+  table-layout:fixed;
+}
+.loan-schedule-scroll::-webkit-scrollbar{height:7px;}
+.loan-schedule-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;}
+.loan-schedule-scroll::-webkit-scrollbar-track{background:#f1f5f9;}
