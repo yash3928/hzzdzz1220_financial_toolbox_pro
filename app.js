@@ -158,6 +158,32 @@ async function switchMonth(month){
 }
 function loadLocalState(){ try { return mergeDefaults(JSON.parse(localStorage.getItem('hzzdzz_state_v08') || 'null')); } catch { return defaultState(); } }
 function persistLocal(){ localStorage.setItem('hzzdzz_state_v08', JSON.stringify(state)); localStorage.setItem('hzzdzz_sync_settings', JSON.stringify(state.settings)); }
+
+function saveRecoverySnapshot(label='자동복구'){
+  try{
+    const key='hzzdzz_recovery_snapshots_v1';
+    const list=JSON.parse(localStorage.getItem(key)||'[]');
+    list.unshift({savedAt:new Date().toISOString(),label,data:stripRuntime(state)});
+    localStorage.setItem(key,JSON.stringify(list.slice(0,5)));
+  } catch(e){ console.warn('복구 스냅샷 저장 실패',e); }
+}
+function assetHasValue(a){
+  if(!a) return false;
+  const cash=Array.isArray(a.cashItems)&&a.cashItems.some(x=>num(x?.amount)!==0 || String(x?.name||'').trim());
+  const purpose=Object.values(a.purpose||{}).some(v=>num(v)!==0);
+  return cash||purpose;
+}
+function investHasValue(v){
+  return ['domestic','overseas','cma'].some(k=>num(v?.[k]?.amount)!==0 || num(v?.[k]?.rate)!==0);
+}
+function mergeRemoteSafely(local,remote){
+  const incoming={...local,...remote,settings:{...local.settings,...(remote?.settings||{})}};
+  // 구버전/빈 Firebase 값이 기입된 자산을 지우는 것을 방지합니다.
+  if(assetHasValue(local?.assets) && !assetHasValue(remote?.assets)) incoming.assets=local.assets;
+  if(investHasValue(local?.investmentSummary) && !investHasValue(remote?.investmentSummary)) incoming.investmentSummary=local.investmentSummary;
+  return mergeDefaults(incoming);
+}
+
 function stripRuntime(s){
   const copy=JSON.parse(JSON.stringify(s));
   delete copy.updatedAt;
@@ -441,7 +467,8 @@ function renderLoan(){
 function renderSettings(){ $('#firebaseConfigText').value=state.settings.firebaseConfigText||''; $('#householdId').value=state.settings.householdId||DEFAULT_HOUSEHOLD; $('#cycleStartDay').value=state.settings.cycleStartDay||10; }
 function applyAccordionState(){ $$('.accordion-content').forEach(el=>el.classList.remove('open')); $$('.accordion-toggle').forEach(btn=>btn.classList.remove('open')); Object.entries(state.ui.openAccordions||{}).forEach(([key,open])=>{ const el=$(`#acc-${key}`); const btn=document.querySelector(`[data-acc="${key}"]`); if(el){ el.classList.toggle('open',!!open); } if(btn){ btn.classList.toggle('open',!!open); }}); }
 
-async function refreshFromFirebase(showDone=true){ if(refreshing) return; if(!firebaseReady){ const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null'); if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; await connectFirebase(); return; } showToast('공동 동기화 설정이 필요합니다.'); return; } try{ refreshing=true; setBadge('새로고침 중','loading'); setPullStatus('동기화 중...'); const remote=await fetchHousehold(); if(remote){ state=mergeDefaults({...state,...remote,settings:{...state.settings,...(remote.settings||{})}}); state.ui={openAccordions:{}}; remoteLoaded=true; persistLocal(); render(); } markSynced(); setBadge('공동 동기화','on'); if(showDone) showToast('최신 데이터로 업데이트되었습니다.'); } catch(e){ console.error(e); setBadge('새로고침 오류','off'); showToast('새로고침 실패: '+e.message); } finally{ refreshing=false; resetPullIndicator(); } }
+async function refreshFromFirebase(showDone=true){ if(refreshing) return; if(!firebaseReady){ const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null'); if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; await connectFirebase(); return; } showToast('공동 동기화 설정이 필요합니다.'); return; } try{ refreshing=true; setBadge('새로고침 중','loading'); setPullStatus('동기화 중...'); const remote=await fetchHousehold(); if(remote){ saveRecoverySnapshot('Firebase 새로고침 전');
+      state=mergeRemoteSafely(state,remote); state.ui={openAccordions:{}}; remoteLoaded=true; persistLocal(); render(); } markSynced(); setBadge('공동 동기화','on'); if(showDone) showToast('최신 데이터로 업데이트되었습니다.'); } catch(e){ console.error(e); setBadge('새로고침 오류','off'); showToast('새로고침 실패: '+e.message); } finally{ refreshing=false; resetPullIndicator(); } }
 function setPullStatus(text){ const el=$('#pullRefresh'); if(el) el.textContent=text; }
 function resetPullIndicator(){ const el=$('#pullRefresh'); if(!el) return; el.classList.remove('visible','ready','loading'); el.style.transform='translate(-50%, -120%)'; el.textContent='아래로 당겨 새로고침'; }
 function setupPullToRefresh(){ const el=$('#pullRefresh'); if(!el) return; let startY=0, tracking=false, distance=0; const threshold=76; document.addEventListener('touchstart',e=>{ if(window.scrollY<=0&&!refreshing){ startY=e.touches[0].clientY; tracking=true; distance=0; }},{passive:true}); document.addEventListener('touchmove',e=>{ if(!tracking||refreshing) return; distance=e.touches[0].clientY-startY; if(distance<=0) return; if(window.scrollY>0){ tracking=false; return; } const shown=Math.min(distance*0.55,92); el.classList.add('visible'); el.classList.toggle('ready',distance>threshold); el.textContent=distance>threshold?'놓으면 새로고침':'아래로 당겨 새로고침'; el.style.transform=`translate(-50%, ${shown-120}%)`; if(distance>18) e.preventDefault(); },{passive:false}); document.addEventListener('touchend',()=>{ if(!tracking) return; tracking=false; if(distance>threshold){ el.classList.add('loading'); el.textContent='동기화 중...'; el.style.transform='translate(-50%, 8px)'; refreshFromFirebase(true); } else resetPullIndicator(); },{passive:true}); }
@@ -461,7 +488,8 @@ async function connectFirebase(){
     subscribeHousehold(state.settings.householdId, async remote=>{
       syncingRemote=true;
       if(remote){
-        state=mergeDefaults({...state,...remote,settings:{...state.settings,...(remote.settings||{})}});
+        saveRecoverySnapshot('Firebase 새로고침 전');
+      state=mergeRemoteSafely(state,remote);
         applyYearBucket(selectedYear());
         state.ui={openAccordions:{}};
         remoteLoaded=true;
@@ -537,7 +565,7 @@ function bindEvents(){
   });
   $('#connectBtn').addEventListener('click', connectFirebase);
   $('#cycleStartDay').addEventListener('change', async()=>{ state.settings.cycleStartDay=num($('#cycleStartDay').value)||10; await persistRemote(); });
-  $('#backupBtn').addEventListener('click',()=>{ saveActiveYearSnapshot(); const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
+  $('#backupBtn').addEventListener('click',()=>{ saveActiveYearSnapshot(); saveRecoverySnapshot('수동 백업'); const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
   $('#restoreBtn').addEventListener('click',()=>$('#restoreFile').click());
   $('#restoreFile').addEventListener('change', async e=>{
     const file=e.target.files[0]; if(!file) return;
