@@ -23,3 +23,17 @@
   .excel-table th,.excel-table td{padding:6px 2px;}
   .input-table input,.input-table select{font-size:10.5px;padding:5px 1px;}
 }
+
+
+/* v1.1.9 급여 인물별 그룹 UI */
+.salary-person-card{margin-bottom:14px}
+.person-toggle{font-size:17px;padding:17px 16px;background:#fff}
+.person-content{padding:12px;background:#f8fafc}
+.person-content>.section-subtitle{margin:2px 4px 12px;font-size:14px}
+.inner-accordion{margin:0 0 10px;border-radius:13px;box-shadow:none}
+.inner-accordion:last-of-type{margin-bottom:0}
+.inner-accordion .accordion-toggle{font-size:14px;padding:13px 14px}
+.inner-accordion .accordion-content{background:#fff}
+.person-content>.wide{width:100%;margin-left:0;margin-right:0}
+#dahyeBonusTable th,#dahyeBonusTable td{text-align:center}
+#dahyeBonusTable input{text-align:center;min-width:0}
