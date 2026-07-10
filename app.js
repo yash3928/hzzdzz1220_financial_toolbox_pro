@@ -45,6 +45,9 @@ function mergeDefaults(data){
   // 기존 '부모님' 예산은 새 분류인 '가족'으로 자동 이전합니다.
   if(num(d.budgets?.['부모님']) && !num(d.budgets?.['가족'])) merged.budgets['가족']=num(d.budgets['부모님']);
   delete merged.budgets['부모님'];
+  // 기존 통합 쇼핑비 예산은 진혁 예산으로 우선 이전하여 총액을 보존합니다.
+  if(num(d.budgets?.['쇼핑비']) && !num(d.budgets?.['쇼핑비(진혁)']) && !num(d.budgets?.['쇼핑비(다혜)'])) merged.budgets['쇼핑비(진혁)']=num(d.budgets['쇼핑비']);
+  delete merged.budgets['쇼핑비'];
   merged.fixedByMonth = {...base.fixedByMonth, ...(d.fixedByMonth||{})};
   merged.expenses = Array.isArray(d.expenses) ? d.expenses : [];
   merged.salary = {...base.salary, ...(d.salary||{})};
@@ -70,8 +73,14 @@ function mergeDefaults(data){
     if(!bucket?.budgets) return;
     if(num(bucket.budgets['부모님']) && !num(bucket.budgets['가족'])) bucket.budgets['가족']=num(bucket.budgets['부모님']);
     delete bucket.budgets['부모님'];
+    if(num(bucket.budgets['쇼핑비']) && !num(bucket.budgets['쇼핑비(진혁)']) && !num(bucket.budgets['쇼핑비(다혜)'])) bucket.budgets['쇼핑비(진혁)']=num(bucket.budgets['쇼핑비']);
+    delete bucket.budgets['쇼핑비'];
   });
-  merged.expenses.forEach(item=>{ if(item?.category==='부모님') item.category='가족'; });
+  merged.expenses.forEach(item=>{
+    if(item?.category==='부모님') item.category='가족';
+    if(item?.category==='쇼핑비(진혁)'){ item.category='쇼핑비'; item.payer='진혁'; }
+    if(item?.category==='쇼핑비(다혜)'){ item.category='쇼핑비'; item.payer='다혜'; }
+  });
   const activeYear = num(merged.settings.selectedYear) || legacyYear;
   if(!merged.yearData[activeYear]){
     const prev = merged.yearData[legacyYear];
@@ -222,7 +231,12 @@ function getPeriod(){
 function periodForMonth(year, month){ const startDay=Math.min(Math.max(num(state.settings.cycleStartDay)||10,1),28); return {start:new Date(year,month-1,startDay), end:new Date(year,month,startDay-1), key:`${year}-${String(month).padStart(2,'0')}`}; }
 function expensesInPeriod(p){ return state.expenses.filter(e=>{ const d=new Date((e.date||'')+'T00:00:00'); return d>=new Date(p.start.toDateString()) && d<=new Date(p.end.toDateString()); }); }
 function currentExpenses(){ return expensesInPeriod(getPeriod()); }
-function catSpent(cat, ex=currentExpenses()){ const cats=cat==='쇼핑비'?['쇼핑비','쇼핑비(진혁)','쇼핑비(다혜)']:[cat]; return ex.filter(e=>cats.includes(e.category)).reduce((a,e)=>a+num(e.amount),0); }
+function catSpent(cat, ex=currentExpenses()){
+  if(cat==='쇼핑비') return ex.filter(e=>['쇼핑비','쇼핑비(진혁)','쇼핑비(다혜)'].includes(e.category)).reduce((a,e)=>a+num(e.amount),0);
+  if(cat==='쇼핑비(진혁)') return ex.filter(e=>(e.category==='쇼핑비' && e.payer==='진혁') || e.category==='쇼핑비(진혁)').reduce((a,e)=>a+num(e.amount),0);
+  if(cat==='쇼핑비(다혜)') return ex.filter(e=>(e.category==='쇼핑비' && e.payer==='다혜') || e.category==='쇼핑비(다혜)').reduce((a,e)=>a+num(e.amount),0);
+  return ex.filter(e=>e.category===cat).reduce((a,e)=>a+num(e.amount),0);
+}
 function currentFixed(){ return state.fixedByMonth[getPeriod().key] || []; }
 function fixedTotal(key=getPeriod().key){ return (state.fixedByMonth[key]||[]).reduce((a,f)=>a+num(f.amount),0); }
 function currentJinhyukSalary(){ return num(state.salary.jinhyuk[getPeriod().key]); }
@@ -333,7 +347,7 @@ function calcDahyeMonth(month){
   const memoAfter=net-num(t.memoDeduct);
   return {duty,bonus,taxablePay,paymentTotal,gross:paymentTotal,vehicleAllowance,pensionRate,healthRate,careRate,employmentRate,pension,health,care,employment,incomeTax,localTax,otherDeduct,deductions,deduct:deductions,net:Math.round(net),memoAfter:Math.round(memoAfter)};
 }
-function yearExpenseSummary(month){ const p=periodForMonth(currentYear(), month), ex=expensesInPeriod(p), total=ex.reduce((a,e)=>a+num(e.amount),0), jin=ex.filter(e=>e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0), dah=ex.filter(e=>e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0), half=total/2; let settle='-'; if(jin>half) settle=`다혜→진혁 ${money(jin-half)}`; else if(dah>half) settle=`진혁→다혜 ${money(dah-half)}`; return {total,jin,dah,settle}; }
+function yearExpenseSummary(month){ const p=periodForMonth(currentYear(), month), ex=expensesInPeriod(p), total=ex.reduce((a,e)=>a+num(e.amount),0), jin=ex.filter(e=>e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0), dah=ex.filter(e=>e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0); return {total,jin,dah}; }
 function setBadge(text, cls){ const el=$('#syncBadge'); el.textContent=text; el.className='badge '+cls; }
 function formatSyncTime(date=new Date()){ return date.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 function updateLastSyncLabel(){ const saved=localStorage.getItem('hzzdzz_last_sync_at'); const el=$('#lastSyncLabel'); if(el) el.textContent=saved?`마지막 업데이트 ${formatSyncTime(new Date(saved))}`:'마지막 업데이트 -'; }
@@ -363,10 +377,21 @@ function renderHome(){
   $('#homeJinhyukSalary').textContent=money(j); $('#homeDahyeSalary').textContent=money(d); $('#homeIncome').textContent=money(income); $('#homeFixed').textContent=money(fixed); $('#homeBudgetSpent').textContent=money(spent); $('#homeSurplus').textContent=money(surplus); $('#homeSurplus').className=surplus>=0?'plus':'minus';
   $('#incomeAccSummary').textContent=`잉여 ${money(surplus)}`;
 
-  $('#homeBudgetTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const b=num(state.budgets[c]), s=catSpent(c), bal=b-s; return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td>${money(b)}</td><td>${money(s)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`; }).join('');
+  const standardBudgetRows=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].filter(c=>!c.startsWith('쇼핑비(')).map(c=>{
+    const b=num(state.budgets[c]), s=catSpent(c), bal=b-s;
+    return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td>${money(b)}</td><td>${money(s)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`;
+  });
+  const shoppingJBudget=num(state.budgets['쇼핑비(진혁)']), shoppingDBudget=num(state.budgets['쇼핑비(다혜)']);
+  const shoppingJSpent=catSpent('쇼핑비(진혁)'), shoppingDSpent=catSpent('쇼핑비(다혜)');
+  const shoppingBudget=shoppingJBudget+shoppingDBudget, shoppingSpent=shoppingJSpent+shoppingDSpent, shoppingBalance=shoppingBudget-shoppingSpent;
+  const shoppingRow=`<tr class="shopping-summary-row"><td><button type="button" class="shopping-budget-toggle" data-shopping-toggle>쇼핑비 <span>${state.ui.shoppingDetailOpen?'▲':'▼'}</span></button></td><td>연도별</td><td>${money(shoppingBudget)}</td><td>${money(shoppingSpent)}</td><td class="${shoppingBalance<0?'minus':'plus'}">${money(shoppingBalance)}</td></tr>`;
+  const shoppingDetail=state.ui.shoppingDetailOpen?`<tr class="shopping-detail-row"><td colspan="5"><div class="shopping-detail-grid"><div><b>진혁</b><span>예산 ${money(shoppingJBudget)}</span><span>지출 ${money(shoppingJSpent)}</span><strong class="${shoppingJBudget-shoppingJSpent<0?'minus':'plus'}">잔액 ${money(shoppingJBudget-shoppingJSpent)}</strong></div><div><b>다혜</b><span>예산 ${money(shoppingDBudget)}</span><span>지출 ${money(shoppingDSpent)}</span><strong class="${shoppingDBudget-shoppingDSpent<0?'minus':'plus'}">잔액 ${money(shoppingDBudget-shoppingDSpent)}</strong></div></div></td></tr>`:'';
+  const insertAt=Math.min(3,standardBudgetRows.length);
+  standardBudgetRows.splice(insertAt,0,shoppingRow+shoppingDetail);
+  $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
   $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
 
-  $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const r=yearExpenseSummary(m); return `<tr><td>${m}월</td><td>${money(r.total)}</td><td>${money(r.jin)}</td><td>${money(r.dah)}</td><td>${r.settle}</td></tr>`; }).join('');
+  $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const r=yearExpenseSummary(m); return `<tr><td>${m}월</td><td>${money(r.total)}</td><td>${money(r.jin)}</td><td>${money(r.dah)}</td></tr>`; }).join('');
   $('#expenseAccSummary').textContent=`올해 ${money(Array.from({length:12},(_,i)=>yearExpenseSummary(i+1).total).reduce((a,b)=>a+b,0))}`;
 
   $('#yearSalaryTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const key=`${currentYear()}-${String(m).padStart(2,'0')}`, jin=num(state.salary.jinhyuk[key]), dah=calcDahyeMonth(m).net; return `<tr><td>${m}월</td><td>${money(jin)}</td><td>${money(dah)}</td><td>${money(jin+dah)}</td></tr>`; }).join('');
@@ -377,7 +402,7 @@ function renderHome(){
 }
 function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); if(EXPENSE_CATEGORIES.includes(selected)) sel.value=selected; const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr><td>${e.date||''}</td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
 function renderBudget(){
-  $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>`<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`).join('');
+  $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`; }).join('');
   const title=$('#fixedSectionTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
   const list=currentFixed();
   $('#fixedList').innerHTML=list.map((f,i)=>`<div class="fixed-item"><div class="fixed-row"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"><button class="ghost memo-btn" data-fixed-memo-toggle="${i}" title="메모 보기">📝</button><button class="danger" data-fixed-del="${i}">삭제</button></div><div class="fixed-memo hidden" data-fixed-memo-wrap="${i}"><textarea rows="3" placeholder="이 고정지출에 대한 메모를 입력하세요." data-fixed-memo="${i}">${escapeHtml(f.memo||'')}</textarea></div></div>`).join('') || '<p class="hint padded">선택한 월의 고정지출이 없습니다.</p>';
@@ -539,7 +564,10 @@ function bindEvents(){
   $('#prevMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()-1); });
   $('#nextMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()+1); });
   document.addEventListener('input', e=>{ const inp=e.target.closest('input[data-money]'); if(!inp) return; const raw=String(inp.value||'').replace(/[^0-9-]/g,''); inp.value=comma(raw); });
-  document.addEventListener('click', async e=>{ const t=e.target.closest('button'); if(!t) return;
+  document.addEventListener('click', async e=>{
+    const shoppingToggle=e.target.closest('[data-shopping-toggle]');
+    if(shoppingToggle){ state.ui.shoppingDetailOpen=!state.ui.shoppingDetailOpen; renderHome(); return; }
+    const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
     if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); setExpenseFormOpen(true); window.scrollTo({top:0,behavior:'smooth'}); }}
