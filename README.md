@@ -3,11 +3,12 @@
 ## 정리된 구조
 - `index.html`: 화면 구조
 - `css/style.css`: 화면 스타일
-- `js/app.js`: 앱 시작, 화면 렌더링, 이벤트 연결
-- `js/config.js`: 고정 분류와 기본값
-- `js/utils.js`: 금액·문자열 공통 함수
-- `js/view-period.js`: 각 기기의 연도·월 선택
-- `js/firebase.js`: 공동 Firebase 읽기·저장
+- `app.js`: 앱 시작, 화면 렌더링, 이벤트 연결
+- `config.js`: 고정 분류와 기본값
+- `utils.js`: 금액·문자열 공통 함수
+- `view-period.js`: 각 기기의 연도·월 선택
+- `firebase.js`: 공동 Firebase 읽기·저장
+- `style.css`: 화면 스타일
 
 ## 데이터 호환
 - 기존 Firestore 경로 `households/{가계부 ID}` 유지
