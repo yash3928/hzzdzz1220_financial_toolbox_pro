@@ -5,11 +5,4 @@
 //   apiKey: '...', authDomain: '...', projectId: '...',
 //   storageBucket: '...', messagingSenderId: '...', appId: '...'
 // };
-export const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "현재 값",
-  authDomain: "현재 값",
-  projectId: "현재 값",
-  storageBucket: "현재 값",
-  messagingSenderId: "현재 값",
-  appId: "현재 값"
-};
+export const DEFAULT_FIREBASE_CONFIG = null;
