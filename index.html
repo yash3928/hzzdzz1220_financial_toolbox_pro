@@ -130,7 +130,6 @@
         <section class="accordion-card salary-card">
           <button class="accordion-toggle" data-acc="dahyeNet"><span>📊 다혜 월별 세후 금액</span><b>보기</b></button>
           <div class="accordion-content" id="acc-dahyeNet">
-            <p class="note">세부 공제항목은 다혜 공제항목에서 수정하고, 여기서는 지급합계와 세후만 확인합니다.</p>
             <div class="table-scroll"><table class="excel-table input-table" id="dahyeNetTable"><thead><tr><th>월</th><th>지급합계</th><th>세후</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
@@ -138,8 +137,21 @@
       </section>
 
       <section id="view-assets" class="view">
-        <section class="panel excel-panel"><div class="section-title"><span>💰 현금 세부 분류</span></div><p class="hint">우리은행, 국민은행, CMA 통장처럼 사용자가 원하는 이름으로 추가합니다.</p><div id="cashItemList"></div><button id="addCashItemBtn" class="ghost wide">+ 현금 분류 추가</button></section>
-        <section class="panel excel-panel"><div class="section-title"><span>🎯 기타 자산</span></div><div class="table-scroll"><table class="excel-table input-table" id="assetInputTable"><thead><tr><th>자산</th><th>금액</th></tr></thead><tbody></tbody></table></div><button id="saveAssetsBtn" class="primary wide">자산 저장</button></section>
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="cashAssets"><span>💰 현금 세부 분류</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-cashAssets">
+            <p class="hint">우리은행, 국민은행, CMA 통장처럼 사용자가 원하는 이름으로 추가합니다.</p>
+            <div id="cashItemList"></div>
+            <button id="addCashItemBtn" class="ghost wide">+ 현금 분류 추가</button>
+          </div>
+        </section>
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="otherAssets"><span>🎯 기타 자산</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-otherAssets">
+            <div class="table-scroll"><table class="excel-table input-table" id="assetInputTable"><thead><tr><th>자산</th><th>금액</th></tr></thead><tbody></tbody></table></div>
+            <button id="saveAssetsBtn" class="primary wide">자산 저장</button>
+          </div>
+        </section>
       </section>
 
       <section id="view-invest" class="view">

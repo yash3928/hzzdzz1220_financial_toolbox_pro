@@ -171,7 +171,7 @@ function escapeAttr(s){ return escapeHtml(s).replace(/`/g,'&#96;'); }
 function render(){ $('#periodLabel').textContent=getPeriod().label; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
 function renderHome(){
   const assetRows=[
-    ['현금', cashTotal(), true], ['국내주식', state.investmentSummary.domestic.amount, false], ['해외주식', state.investmentSummary.overseas.amount, false], ['CMA', state.investmentSummary.cma.amount, false], ...PURPOSE_ASSETS.map(k=>[k, state.assets.purpose[k], false])
+    ['현금', cashTotal(), true], ['투자금', investAssetTotal(), false], ...PURPOSE_ASSETS.map(k=>[k, state.assets.purpose[k], false])
   ];
   $('#assetSummaryGrid').innerHTML=assetRows.map(([k,v,click])=>`<button class="asset-chip ${click?'clickable':''}" ${click?'id="cashChip"':''}><span>${k}</span><strong>${money(v)}</strong></button>`).join('');
   $('#cashDetailHome').innerHTML=(state.assets.cashItems||[]).map(it=>`<div><span>${escapeHtml(it.name||'미입력')}</span><strong>${money(it.amount)}</strong></div>`).join('') || '<p class="hint">현금 세부 분류가 없습니다.</p>';
@@ -222,7 +222,7 @@ function renderSalary(){
 
   $('#dahyeDutyTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
     const v=d.months[m]||{}, calc=calcDahyeMonth(m);
-    return `<tr><td>${m}월 : 당직비</td><td><input data-duty-month="${m}" data-duty-key="weekday" type="number" value="${num(v.weekday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="holiday" type="number" value="${num(v.holiday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="sunday" type="number" value="${num(v.sunday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="monThu" type="number" value="${num(v.monThu)||''}"></td><td><input data-duty-month="${m}" data-duty-key="friday" type="number" value="${num(v.friday)||''}"></td><td>${money(calc.duty)}</td></tr>`;
+    return `<tr><td>${m}월</td><td><input data-duty-month="${m}" data-duty-key="weekday" type="number" value="${num(v.weekday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="holiday" type="number" value="${num(v.holiday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="sunday" type="number" value="${num(v.sunday)||''}"></td><td><input data-duty-month="${m}" data-duty-key="monThu" type="number" value="${num(v.monThu)||''}"></td><td><input data-duty-month="${m}" data-duty-key="friday" type="number" value="${num(v.friday)||''}"></td><td>${money(calc.duty)}</td></tr>`;
   }).join('');
 
   const taxTable=$('#dahyeTaxTable tbody');
