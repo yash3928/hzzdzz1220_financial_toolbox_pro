@@ -1,6 +1,6 @@
 import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
 
-const APP_VERSION = '1.1.9';
+const APP_VERSION = '1.2.0';
 const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 const MONTHLY_CATEGORIES = ['식비'];
 const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
@@ -22,12 +22,14 @@ const num = v => Number(String(v ?? '').replace(/,/g,'')) || 0;
 const comma = v => { const n = String(v ?? '').replace(/[^0-9-]/g,''); if(n==='' || n==='-') return ''; return Number(n).toLocaleString('ko-KR'); };
 function moneyInput(value){ const n=num(value); return n ? comma(n) : ''; }
 const ymd = d => d.toISOString().slice(0,10);
-const currentYear = () => new Date().getFullYear();
+const systemYear = () => new Date().getFullYear();
+const selectedYear = () => num(state?.settings?.selectedYear) || 2026;
+const currentYear = () => selectedYear();
 
 function defaultState(){
   return {
     appVersion: APP_VERSION,
-    settings: { cycleStartDay: 10, householdId: DEFAULT_HOUSEHOLD, firebaseConfigText: '' },
+    settings: { cycleStartDay: 10, householdId: DEFAULT_HOUSEHOLD, firebaseConfigText: '', selectedYear: 2026 },
     budgets: Object.fromEntries([...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES].map(c=>[c,0])),
     expenses: [],
     fixedByMonth: {},
@@ -36,6 +38,7 @@ function defaultState(){
     investmentSummary: { domestic:{amount:0, rate:0}, overseas:{amount:0, rate:0}, cma:{amount:0, rate:0} },
     investments: [],
     jaturi: { balance:0, history:[] },
+    yearData: {},
     ui: { openAccordions:{} }
   };
 }
@@ -58,6 +61,25 @@ function mergeDefaults(data){
   merged.assets = migrateAssets(d.assets || {});
   merged.investmentSummary = migrateInvestSummary(d.investmentSummary, merged.investments, d.assets || {});
   merged.jaturi = {...base.jaturi, ...(d.jaturi||{})};
+  merged.yearData = {...(d.yearData||{})};
+  const legacyYear = 2026;
+  if(!merged.yearData[legacyYear]){
+    merged.yearData[legacyYear] = {
+      budgets: JSON.parse(JSON.stringify(merged.budgets)),
+      dahye: JSON.parse(JSON.stringify(merged.salary.dahye))
+    };
+  }
+  const activeYear = num(merged.settings.selectedYear) || legacyYear;
+  if(!merged.yearData[activeYear]){
+    const prev = merged.yearData[legacyYear];
+    merged.yearData[activeYear] = {
+      budgets: {...base.budgets},
+      dahye: {base:num(prev?.dahye?.base), rates:{...base.salary.dahye.rates,...(prev?.dahye?.rates||{})}, tax:{...base.salary.dahye.tax,...(prev?.dahye?.tax||{})}, months:{}}
+    };
+  }
+  merged.budgets = {...base.budgets, ...(merged.yearData[activeYear].budgets||{})};
+  const yd = merged.yearData[activeYear].dahye || {};
+  merged.salary.dahye = {...base.salary.dahye, ...yd, rates:{...base.salary.dahye.rates,...(yd.rates||{})}, tax:{...base.salary.dahye.tax,...(yd.tax||{})}, months:{...(yd.months||{})}};
   // UI 펼침 상태는 데이터가 아니므로 저장/복원하지 않습니다. 새로고침 시 항상 닫힘.
   merged.ui = {openAccordions:{}};
   return merged;
@@ -87,10 +109,63 @@ function migrateInvestSummary(existing, investments, oldAssets){
   if(!summary.cma.amount && num(oldAssets?.['CMA'])) summary.cma.amount = num(oldAssets['CMA']);
   return summary;
 }
+function saveActiveYearSnapshot(){
+  const year=selectedYear();
+  state.yearData=state.yearData||{};
+  state.yearData[year]={
+    budgets:JSON.parse(JSON.stringify(state.budgets||{})),
+    dahye:JSON.parse(JSON.stringify(state.salary?.dahye||{}))
+  };
+}
+function ensureYearBucket(year){
+  state.yearData=state.yearData||{};
+  if(state.yearData[year]) return;
+  const current=state.salary?.dahye||{};
+  state.yearData[year]={
+    budgets:Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),
+    dahye:{base:num(current.base),rates:{...DEFAULT_RATES,...(current.rates||{})},tax:{...DEFAULT_TAX,...(current.tax||{})},months:{}}
+  };
+}
+async function switchYear(year){
+  const next=Math.max(2020,Math.min(2100,num(year)||2026));
+  if(next===selectedYear()) return;
+
+  // 현재 연도 자료를 먼저 보존한 뒤 선택 연도를 바꿉니다.
+  saveActiveYearSnapshot();
+  ensureYearBucket(next);
+  state.settings.selectedYear=next;
+
+  const bucket=state.yearData[next];
+  state.budgets={...Object.fromEntries([...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>[c,0])),...(bucket.budgets||{})};
+  const d=bucket.dahye||{};
+  state.salary.dahye={base:num(d.base),rates:{...DEFAULT_RATES,...(d.rates||{})},tax:{...DEFAULT_TAX,...(d.tax||{})},months:{...(d.months||{})}};
+  state.ui={openAccordions:{}};
+
+  // 먼저 기기에 저장하고 즉시 화면을 전환합니다.
+  persistLocal();
+  render();
+  clearExpenseForm();
+
+  // 공동 동기화가 연결되어 있으면 선택 연도도 Firebase에 즉시 저장합니다.
+  // 기존 연도 데이터는 yearData에 보존된 상태로 병합 저장됩니다.
+  if(firebaseReady && !syncingRemote && remoteLoaded){
+    try{
+      setBadge('연도 동기화 중','loading');
+      await saveHousehold(stripRuntime(state));
+      setBadge('공동 동기화','on');
+      markSynced();
+    }catch(e){
+      console.error(e);
+      setBadge('연도 저장 오류','off');
+      showToast('연도 선택 저장 실패: '+e.message);
+    }
+  }
+}
 function loadLocalState(){ try { return mergeDefaults(JSON.parse(localStorage.getItem('hzzdzz_state_v08') || 'null')); } catch { return defaultState(); } }
 function persistLocal(){ localStorage.setItem('hzzdzz_state_v08', JSON.stringify(state)); localStorage.setItem('hzzdzz_sync_settings', JSON.stringify(state.settings)); }
 function stripRuntime(s){ const copy=JSON.parse(JSON.stringify(s)); delete copy.updatedAt; delete copy.ui; return copy; }
 async function persistRemote(){
+  saveActiveYearSnapshot();
   persistLocal(); render();
   if(firebaseReady && !syncingRemote){
     if(!remoteLoaded){ setBadge('동기화 확인 중','loading'); return; }
@@ -101,7 +176,7 @@ async function persistRemote(){
 
 function getPeriod(date = new Date()){
   const startDay = Math.min(Math.max(num(state.settings.cycleStartDay)||10,1),28);
-  let y=date.getFullYear(), m=date.getMonth(); if(date.getDate()<startDay) m-=1;
+  let y=selectedYear(), m=date.getMonth(); if(date.getDate()<startDay) m-=1;
   const start=new Date(y,m,startDay), end=new Date(y,m+1,startDay-1);
   const key=`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}`;
   return {start,end,key,label:`${start.getFullYear()}년 ${start.getMonth()+1}월 (${start.getMonth()+1}/${startDay}~${end.getMonth()+1}/${end.getDate()})`};
@@ -169,7 +244,7 @@ function showToast(message){ const el=$('#toast'); if(!el) return; el.textConten
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function escapeAttr(s){ return escapeHtml(s).replace(/`/g,'&#96;'); }
 
-function render(){ $('#periodLabel').textContent=getPeriod().label; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
+function render(){ $('#periodLabel').textContent=getPeriod().label; const yl=$('#selectedYearLabel'); if(yl) yl.textContent=`${selectedYear()}년`;  renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
 function renderHome(){
   const assetRows=[
     ['현금', cashTotal(), true], ['투자금', investAssetTotal(), false], ...PURPOSE_ASSETS.map(k=>[k, state.assets.purpose[k], false])
@@ -292,10 +367,13 @@ async function connectFirebase(){
     }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
   } catch(e){ console.error(e); firebaseReady=false; setBadge('연결 실패','off'); alert(e.message); }
 }
-function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(new Date()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
+function selectedYearDate(){ const d=new Date(); d.setFullYear(selectedYear()); return d; }
+function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(selectedYearDate()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
 
 function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
+  $('#prevYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()-1); });
+  $('#nextYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()+1); });
   document.addEventListener('input', e=>{ const inp=e.target.closest('input[data-money]'); if(!inp) return; const raw=String(inp.value||'').replace(/[^0-9-]/g,''); inp.value=comma(raw); });
   document.addEventListener('click', async e=>{ const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
@@ -307,7 +385,7 @@ function bindEvents(){
     if(t.id==='addCashItemBtn'){ state.assets.cashItems.push({id:crypto.randomUUID(),name:'',amount:0}); renderAssets(); }
     if(t.dataset.cashDel!==undefined){ state.assets.cashItems.splice(num(t.dataset.cashDel),1); await persistRemote(); }
   });
-  $('#expenseDate').value=ymd(new Date());
+  $('#expenseDate').value=ymd(selectedYearDate());
   $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); await persistRemote(); });
   $('#expenseCancel').addEventListener('click', clearExpenseForm);
   $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget]').forEach(i=>state.budgets[i.dataset.budget]=num(i.value)); await persistRemote(); });
@@ -321,7 +399,7 @@ function bindEvents(){
   $('#saveInvestBtn').addEventListener('click', async()=>{ ['domestic','overseas','cma'].forEach(k=>{ state.investmentSummary[k].amount=num($(`[data-invest-amount="${k}"]`)?.value); if(k!=='cma') state.investmentSummary[k].rate=num($(`[data-invest-rate="${k}"]`)?.value); }); await persistRemote(); });
   $('#connectBtn').addEventListener('click', connectFirebase);
   $('#cycleStartDay').addEventListener('change', async()=>{ state.settings.cycleStartDay=num($('#cycleStartDay').value)||10; await persistRemote(); });
-  $('#backupBtn').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
+  $('#backupBtn').addEventListener('click',()=>{ saveActiveYearSnapshot(); const blob=new Blob([JSON.stringify(stripRuntime(state),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hzzdzz-backup-${ymd(new Date())}.json`; a.click(); URL.revokeObjectURL(a.href); });
   $('#restoreBtn').addEventListener('click',()=>$('#restoreFile').click());
   $('#restoreFile').addEventListener('change', async e=>{
     const file=e.target.files[0]; if(!file) return;
