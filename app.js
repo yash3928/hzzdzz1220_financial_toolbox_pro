@@ -1,13 +1,11 @@
 import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold } from './firebase.js';
-
-const APP_VERSION = '1.2.3';
-const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
-const MONTHLY_CATEGORIES = ['식비'];
-const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비','부모님','경조사비','육아'];
-const EXPENSE_CATEGORIES = [...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES];
-const PURPOSE_ASSETS = ['여행비','연금','청약','코인','기타'];
-const DEFAULT_RATES = {weekday:77330, holiday:284470, sunday:163640, monThu:10000, friday:20000};
-const DEFAULT_TAX = {pensionRate:4.75, taxHealthRate:3.595, taxCareRate:13.14, taxEmploymentRate:0.9, incomeTax:58750, taxLocal:5870, otherDeduct:0, vehicleAllowance:0, memoDeduct:0};
+import {
+  APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
+  MONTHLY_CATEGORIES, YEARLY_CATEGORIES, EXPENSE_CATEGORIES,
+  PURPOSE_ASSETS, DEFAULT_RATES, DEFAULT_TAX
+} from './config.js';
+import { $, $$, money, num, comma, moneyInput, ymd, escapeHtml, escapeAttr } from './utils.js';
+import { selectedYear, selectedMonth, saveLocalViewPeriod } from './view-period.js';
 
 let state = loadLocalState();
 let firebaseReady = false;
@@ -15,33 +13,12 @@ let syncingRemote = false;
 let refreshing = false;
 let remoteLoaded = false;
 
-const $ = sel => document.querySelector(sel);
-const $$ = sel => Array.from(document.querySelectorAll(sel));
-const money = n => `${Math.round(Number(n)||0).toLocaleString('ko-KR')}원`;
-const num = v => Number(String(v ?? '').replace(/,/g,'')) || 0;
-const comma = v => { const n = String(v ?? '').replace(/[^0-9-]/g,''); if(n==='' || n==='-') return ''; return Number(n).toLocaleString('ko-KR'); };
-function moneyInput(value){ const n=num(value); return n ? comma(n) : ''; }
-const ymd = d => d.toISOString().slice(0,10);
-const systemYear = () => new Date().getFullYear();
-const VIEW_YEAR_KEY = 'hzzdzz_view_year';
-const VIEW_MONTH_KEY = 'hzzdzz_view_month';
-const selectedYear = () => {
-  const saved = num(localStorage.getItem(VIEW_YEAR_KEY));
-  return Math.max(2020, Math.min(2100, saved || systemYear() || 2026));
-};
-const selectedMonth = () => {
-  const saved = num(localStorage.getItem(VIEW_MONTH_KEY));
-  return Math.min(12, Math.max(1, saved || (new Date().getMonth()+1)));
-};
-const saveLocalViewPeriod = (year, month) => {
-  localStorage.setItem(VIEW_YEAR_KEY, String(year));
-  localStorage.setItem(VIEW_MONTH_KEY, String(month));
-};
 const currentYear = () => selectedYear();
 
 function defaultState(){
   return {
     appVersion: APP_VERSION,
+    schemaVersion: SCHEMA_VERSION,
     settings: { cycleStartDay: 10, householdId: DEFAULT_HOUSEHOLD, firebaseConfigText: '', selectedYear: 2026, selectedMonth: new Date().getMonth()+1 },
     budgets: Object.fromEntries([...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES].map(c=>[c,0])),
     expenses: [],
@@ -60,6 +37,7 @@ function mergeDefaults(data){
   const d = data || {};
   const merged = {...base, ...d};
   merged.appVersion = APP_VERSION;
+  merged.schemaVersion = SCHEMA_VERSION;
   merged.settings = {...base.settings, ...(d.settings||{})};
   merged.budgets = {...base.budgets, ...(d.budgets||{})};
   merged.fixedByMonth = {...base.fixedByMonth, ...(d.fixedByMonth||{})};
@@ -263,8 +241,6 @@ function formatSyncTime(date=new Date()){ return date.toLocaleString('ko-KR',{mo
 function updateLastSyncLabel(){ const saved=localStorage.getItem('hzzdzz_last_sync_at'); const el=$('#lastSyncLabel'); if(el) el.textContent=saved?`마지막 업데이트 ${formatSyncTime(new Date(saved))}`:'마지막 업데이트 -'; }
 function markSynced(){ localStorage.setItem('hzzdzz_last_sync_at', new Date().toISOString()); updateLastSyncLabel(); }
 function showToast(message){ const el=$('#toast'); if(!el) return; el.textContent=message; el.classList.add('show'); clearTimeout(showToast._timer); showToast._timer=setTimeout(()=>el.classList.remove('show'),1800); }
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-function escapeAttr(s){ return escapeHtml(s).replace(/`/g,'&#96;'); }
 
 function render(){ $('#periodLabel').textContent=getPeriod().label; const yl=$('#selectedYearLabel'); if(yl) yl.textContent=`${selectedYear()}년`; const ml=$('#selectedMonthLabel'); if(ml) ml.textContent=`${selectedMonth()}월`; const lt=$('#ledgerPeriodTitle'); if(lt) lt.textContent=`📅 ${selectedYear()}년 ${selectedMonth()}월 지출 내역`; renderHome(); renderLedger(); renderBudget(); renderSalary(); renderAssets(); renderInvest(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
 function renderHome(){
