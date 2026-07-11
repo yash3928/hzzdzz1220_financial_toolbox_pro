@@ -23,13 +23,24 @@ export function parseFirebaseConfig(input){
   }
 }
 
-export function initFirebase(config){
+export async function initFirebase(config){
   if(!config || !config.projectId) throw new Error('projectId가 없습니다.');
   app = getApps().length ? getApps()[0] : initializeApp(config);
   db = getFirestore(app);
   auth = getAuth(app);
-  setPersistence(auth, browserLocalPersistence).catch(err=>console.warn('로그인 유지 설정 실패', err));
+  try{
+    await setPersistence(auth, browserLocalPersistence);
+  }catch(err){
+    console.warn('로그인 유지 설정 실패', err);
+  }
   return db;
+}
+
+export function waitForInitialAuth(){
+  if(!auth) throw new Error('Firebase가 초기화되지 않았습니다.');
+  return new Promise(resolve=>{
+    const stop=onAuthStateChanged(auth, user=>{ stop(); resolve(user||null); }, ()=>{ stop(); resolve(null); });
+  });
 }
 
 export function getCurrentUser(){

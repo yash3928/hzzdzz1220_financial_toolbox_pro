@@ -1,4 +1,4 @@
-import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup, getCurrentUser, observeAuth, loginWithEmail, logoutFirebase } from './firebase.js';
+import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup, getCurrentUser, observeAuth, waitForInitialAuth, loginWithEmail, logoutFirebase } from './firebase.js';
 import { DEFAULT_FIREBASE_CONFIG } from './firebase-config.js';
 import {
   APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
@@ -407,7 +407,7 @@ function renderBudget(){
   $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`; }).join('');
   const title=$('#fixedSectionTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
   const list=currentFixed();
-  $('#fixedList').innerHTML=list.map((f,i)=>`<div class="fixed-item"><div class="fixed-row"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"><button class="ghost memo-btn" data-fixed-memo-toggle="${i}" title="메모 보기">📝</button><button class="danger" data-fixed-del="${i}">삭제</button></div><div class="fixed-memo hidden" data-fixed-memo-wrap="${i}"><textarea rows="3" placeholder="이 고정지출에 대한 메모를 입력하세요." data-fixed-memo="${i}">${escapeHtml(f.memo||'')}</textarea></div></div>`).join('') || '<p class="hint padded">선택한 월의 고정지출이 없습니다.</p>';
+  $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th>항목</th><th>금액</th><th>메모</th><th>관리</th></tr></thead><tbody>${list.map((f,i)=>`<tr><td><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"></td><td><input placeholder="메모" data-fixed-memo="${i}" value="${escapeAttr(f.memo||'')}"></td><td><button class="danger small" data-fixed-del="${i}">삭제</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">선택한 월의 고정지출이 없습니다.</td></tr>'}</tbody></table></div>`;
 }
 function renderSalary(){
   const jinTable=$('#jinhyukSalaryTable tbody');
@@ -549,9 +549,10 @@ async function connectFirebase(){
     state.settings.cycleStartDay = cycleInput;
     persistLocal();
     const cfg=parseFirebaseConfig(state.settings.firebaseConfigText || DEFAULT_FIREBASE_CONFIG);
-    initFirebase(cfg);
+    await initFirebase(cfg);
     ensureAuthObserver();
-    if(!getCurrentUser()){ firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); return; }
+    const restoredUser = getCurrentUser() || await waitForInitialAuth();
+    if(!restoredUser){ firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); return; }
     firebaseReady=true;
     subscribeHousehold(state.settings.householdId, async remote=>{
       syncingRemote=true;
@@ -612,7 +613,7 @@ function bindEvents(){
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
   $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget]').forEach(i=>state.budgets[i.dataset.budget]=num(i.value)); await persistRemote(); });
   $('#fixedList').addEventListener('input', e=>{ const key=getPeriod().key, arr=currentFixed(), i=num(e.target.dataset.fixedName ?? e.target.dataset.fixedAmount ?? e.target.dataset.fixedMemo); if(e.target.dataset.fixedName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.fixedAmount!==undefined) arr[i].amount=num(e.target.value); if(e.target.dataset.fixedMemo!==undefined) arr[i].memo=e.target.value; state.fixedByMonth[key]=arr; });
-  $('#fixedList').addEventListener('change', persistRemote);
+  $('#saveFixedBtn')?.addEventListener('click', async()=>{ await persistRemote(); showToast('고정지출을 저장했습니다.'); });
   $('#cashItemList').addEventListener('input', e=>{ const i=num(e.target.dataset.cashName ?? e.target.dataset.cashAmount); const arr=state.assets.cashItems; if(e.target.dataset.cashName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.cashAmount!==undefined) arr[i].amount=num(e.target.value); });
   $('#cashItemList').addEventListener('change', persistRemote);
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ $$('[data-jinhyuk-month]').forEach(inp=>{ state.salary.jinhyuk[inp.dataset.jinhyukMonth]=num(inp.value); }); await persistRemote(); });
@@ -643,7 +644,7 @@ function bindEvents(){
     if(err) err.textContent='';
     try{
       const cfg=parseFirebaseConfig(state.settings.firebaseConfigText || DEFAULT_FIREBASE_CONFIG);
-      initFirebase(cfg); ensureAuthObserver();
+      await initFirebase(cfg); ensureAuthObserver();
       await loginWithEmail($('#loginEmail').value, $('#loginPassword').value);
       $('#loginPassword').value='';
       setAuthGate(false);
