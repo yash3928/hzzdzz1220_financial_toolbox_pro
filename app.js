@@ -407,7 +407,7 @@ function renderBudget(){
   $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`; }).join('');
   const title=$('#fixedSectionTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
   const list=currentFixed();
-  $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th>항목</th><th>금액</th><th>메모</th><th>관리</th></tr></thead><tbody>${list.map((f,i)=>`<tr><td><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"></td><td><button type="button" class="fixed-memo-cell ${f.memo?'has-memo':''}" data-fixed-memo-open="${i}" title="${escapeAttr(f.memo||'메모를 입력하려면 누르세요')}">${escapeHtml(f.memo||'메모')}</button></td><td><button class="danger small" data-fixed-del="${i}">삭제</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">선택한 월의 고정지출이 없습니다.</td></tr>'}</tbody></table></div>`;
+  $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th>항목</th><th>금액</th><th>관리</th></tr></thead><tbody>${list.map((f,i)=>`<tr><td><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td><button type="button" class="fixed-amount-cell ${f.memo?'has-memo':''}" data-fixed-memo-open="${i}" title="금액 및 메모 보기">${comma(f.amount)}</button></td><td><button class="danger small" data-fixed-del="${i}">삭제</button></td></tr>`).join('') || '<tr><td colspan="3" class="muted">선택한 월의 고정지출이 없습니다.</td></tr>'}</tbody></table></div>`;
 }
 function renderSalary(){
   const jinTable=$('#jinhyukSalaryTable tbody');
@@ -591,12 +591,13 @@ function openFixedMemoEditor(index){
   activeFixedMemoIndex=num(index);
   const item=currentFixed()[activeFixedMemoIndex];
   if(!item) return;
-  const modal=$('#fixedMemoModal'), textarea=$('#fixedMemoEditor'), title=$('#fixedMemoTitle');
+  const modal=$('#fixedMemoModal'), textarea=$('#fixedMemoEditor'), amount=$('#fixedMemoAmount'), title=$('#fixedMemoTitle');
   if(title) title.textContent=(item.name||'고정지출')+' 메모';
+  if(amount) amount.value=comma(item.amount);
   if(textarea) textarea.value=item.memo||'';
   modal?.classList.add('open');
   modal?.setAttribute('aria-hidden','false');
-  setTimeout(()=>textarea?.focus(),50);
+  setTimeout(()=>amount?.focus(),50);
 }
 function closeFixedMemoEditor(){
   activeFixedMemoIndex=null;
@@ -608,6 +609,7 @@ function saveFixedMemoEditor(){
   if(activeFixedMemoIndex===null) return;
   const arr=currentFixed(), item=arr[activeFixedMemoIndex];
   if(!item) return closeFixedMemoEditor();
+  item.amount=num($('#fixedMemoAmount')?.value);
   item.memo=$('#fixedMemoEditor')?.value.trim()||'';
   state.fixedByMonth[getPeriod().key]=arr;
   closeFixedMemoEditor();

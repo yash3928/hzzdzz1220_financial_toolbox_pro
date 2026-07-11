@@ -293,26 +293,25 @@
 .auth-logo{font-size:42px;text-align:center;margin-bottom:8px}.auth-card h2{margin:0 0 7px;text-align:center;font-size:22px}.auth-card>p{margin:0 0 20px;color:var(--muted);font-size:13px;text-align:center;line-height:1.5}.auth-card .primary{width:100%;font-size:16px;padding:13px}.auth-error{min-height:20px;margin-top:10px;color:var(--danger);font-size:12px;font-weight:800;text-align:center}.account-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.account-row div{min-width:0;display:flex;flex-direction:column;gap:3px}.account-row span{font-weight:900}.account-row small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-row button{flex:0 0 auto}
 
 
-/* v1.4.15 자동 로그인 유지 및 고정지출 표 관리 */
-.fixed-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.fixed-table{min-width:620px;table-layout:fixed}
-.fixed-table th:nth-child(1){width:25%}.fixed-table th:nth-child(2){width:22%}.fixed-table th:nth-child(3){width:38%}.fixed-table th:nth-child(4){width:15%}
-.fixed-table input{min-width:0;text-align:left}
-.fixed-table td:nth-child(2) input{text-align:right}
+/* v1.4.17 고정지출 가운데 정렬 · 금액 클릭 메모 */
+.fixed-table-scroll{overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.fixed-table{width:100%;min-width:0;table-layout:fixed}
+.fixed-table th:nth-child(1){width:42%}.fixed-table th:nth-child(2){width:38%}.fixed-table th:nth-child(3){width:20%}
+.fixed-table th,.fixed-table td{text-align:center!important;vertical-align:middle}
+.fixed-table input{min-width:0;text-align:center!important;background:transparent}
+.fixed-amount-cell{width:100%;display:block;text-align:center;background:transparent;border:0;border-radius:7px;padding:8px 6px;color:var(--text);font-weight:800;font-size:12px}
+.fixed-amount-cell.has-memo::after{content:'📝';font-size:10px;margin-left:5px}
+.fixed-amount-cell:focus,.fixed-amount-cell:active{outline:2px solid #bfdbfe;background:#eff6ff}
 .fixed-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 12px 12px}
 .fixed-actions button{width:100%}
-@media(max-width:420px){.fixed-table{min-width:560px}.fixed-actions{grid-template-columns:1fr 1fr}}
-
-/* v1.4.16 고정지출 메모 셀 팝업 */
-.fixed-memo-cell{width:100%;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;background:transparent;border:0;border-radius:6px;padding:7px 6px;color:var(--muted);font-weight:700;font-size:12px}
-.fixed-memo-cell.has-memo{color:var(--text)}
-.fixed-memo-cell:focus,.fixed-memo-cell:active{outline:2px solid #bfdbfe;background:#eff6ff}
 .memo-modal{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.45);backdrop-filter:blur(3px)}
 .memo-modal.open{display:flex}
 .memo-dialog{width:min(520px,100%);background:#fff;border-radius:18px;padding:16px;box-shadow:0 24px 70px rgba(15,23,42,.28)}
 .memo-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:16px}
 .memo-close{width:36px;height:36px;padding:0;border-radius:999px;background:#f3f4f6;font-size:24px;line-height:1}
+.memo-amount-label{margin:0 0 10px;color:var(--muted);font-size:12px;font-weight:800}
+.memo-amount-label input{text-align:right;font-size:17px;font-weight:800}
 .memo-dialog textarea{min-height:180px;resize:vertical;font-family:inherit;font-size:16px;line-height:1.5}
 .memo-dialog .hint{margin-top:8px}
 .memo-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
-@media(max-width:420px){.memo-modal{align-items:flex-end;padding:10px 10px calc(10px + env(safe-area-inset-bottom))}.memo-dialog{border-radius:18px 18px 14px 14px}.memo-dialog textarea{min-height:220px}}
+@media(max-width:420px){.fixed-table th,.fixed-table td{padding:8px 5px}.fixed-actions{grid-template-columns:1fr 1fr}.memo-modal{align-items:flex-end;padding:10px 10px calc(10px + env(safe-area-inset-bottom))}.memo-dialog{border-radius:18px 18px 14px 14px}.memo-dialog textarea{min-height:220px}}
