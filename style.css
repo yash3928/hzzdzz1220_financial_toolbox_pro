@@ -217,3 +217,31 @@
 .shopping-detail-grid b{font-size:12px;}
 .shopping-detail-grid span,.shopping-detail-grid strong{font-size:11px;}
 @media(max-width:420px){.shopping-detail-grid{grid-template-columns:1fr 1fr;gap:6px}.shopping-detail-grid>div{padding:7px 6px}}
+
+/* v1.4.12 급여·내역 카드 외곽 정렬 통일
+   예산 화면의 직접 자식 아코디언 카드를 기준으로 좌우 폭과 여백을 동일하게 고정합니다. */
+#view-salary > .salary-person-card,
+#view-ledger > .ledger-history-card {
+  display:block;
+  width:100%;
+  max-width:none;
+  margin-left:0;
+  margin-right:0;
+}
+
+#view-salary > .salary-person-card > .accordion-toggle,
+#view-ledger > .ledger-history-card > .accordion-toggle {
+  width:100%;
+  margin:0;
+  padding-left:14px !important;
+  padding-right:14px !important;
+}
+
+@media(max-width:420px){
+  #view-salary > .salary-person-card,
+  #view-ledger > .ledger-history-card {
+    width:100%;
+    margin-left:0;
+    margin-right:0;
+  }
+}
