@@ -1,0 +1,28 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Firebase Authentication 사용자 목록에서 진혁·다혜 UID를 확인한 뒤
+    // 아래 두 자리의 실제 UID로 바꾸세요.
+    function isAllowedUser() {
+      return request.auth != null
+        && request.auth.uid in [
+          'JINHYUK_UID_HERE',
+          'DAHYE_UID_HERE'
+        ];
+    }
+
+    match /households/{householdId} {
+      allow read, write: if isAllowedUser();
+
+      match /backups/{backupId} {
+        allow read, write: if isAllowedUser();
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

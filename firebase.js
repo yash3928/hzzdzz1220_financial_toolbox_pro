@@ -1,8 +1,10 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
 import { getFirestore, doc, onSnapshot, setDoc, getDoc, serverTimestamp, collection, addDoc, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 
 let app = null;
 let db = null;
+let auth = null;
 let unsub = null;
 let activeRef = null;
 
@@ -25,7 +27,29 @@ export function initFirebase(config){
   if(!config || !config.projectId) throw new Error('projectId가 없습니다.');
   app = getApps().length ? getApps()[0] : initializeApp(config);
   db = getFirestore(app);
+  auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(err=>console.warn('로그인 유지 설정 실패', err));
   return db;
+}
+
+export function getCurrentUser(){
+  return auth?.currentUser || null;
+}
+
+export function observeAuth(callback){
+  if(!auth) throw new Error('Firebase가 초기화되지 않았습니다.');
+  return onAuthStateChanged(auth, callback);
+}
+
+export async function loginWithEmail(email, password){
+  if(!auth) throw new Error('Firebase가 초기화되지 않았습니다.');
+  const result = await signInWithEmailAndPassword(auth, String(email||'').trim(), String(password||''));
+  return result.user;
+}
+
+export async function logoutFirebase(){
+  if(!auth) return;
+  await signOut(auth);
 }
 
 export function subscribeHousehold(householdId, callback, errorCallback){

@@ -12,10 +12,21 @@
   <link rel="apple-touch-icon-precomposed" href="./apple-touch-icon.png?v=147" />
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=147" />
   <link rel="manifest" href="./manifest.webmanifest?v=147" />
-  <link rel="stylesheet" href="style.css?v=1412" />
+  <link rel="stylesheet" href="style.css?v=1414" />
   <meta name="apple-mobile-web-app-title" content="dzzhzz" />
 </head>
 <body>
+  <div id="authGate" class="auth-gate" hidden>
+    <form id="loginForm" class="auth-card">
+      <div class="auth-logo">💰</div>
+      <h2>공동 가계부 로그인</h2>
+      <p>Firebase에 등록한 진혁·다혜 계정으로 로그인하세요.</p>
+      <label>이메일<input id="loginEmail" type="email" autocomplete="username" required /></label>
+      <label>비밀번호<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+      <button id="loginBtn" class="primary" type="submit">로그인</button>
+      <div id="loginError" class="auth-error" aria-live="polite"></div>
+    </form>
+  </div>
   <div class="app">
     <header class="topbar">
       <div>
@@ -287,7 +298,7 @@
         </section>
       </section>
 
-      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">파일 복원</button><button id="cloudRestoreBtn" class="ghost">클라우드 이전 백업 복구</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">v1.4.5 데이터 보호 모드: 일반 업데이트 저장은 기존 Firebase 데이터를 빈 값으로 덮어쓰지 않습니다. 복원 버튼은 백업 파일을 선택했을 때만 강제 복원합니다.</p></section></section>
+      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>🔐 로그인 계정</span></div><div class="account-row"><div><span id="authStatusText">로그인 확인 중</span><small id="authEmailText">-</small></div><button id="logoutBtn" class="ghost" type="button">로그아웃</button></div></section><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">파일 복원</button><button id="cloudRestoreBtn" class="ghost">클라우드 이전 백업 복구</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">v1.4.5 데이터 보호 모드: 일반 업데이트 저장은 기존 Firebase 데이터를 빈 값으로 덮어쓰지 않습니다. 복원 버튼은 백업 파일을 선택했을 때만 강제 복원합니다.</p></section></section>
     </main>
 
     <nav class="bottom-nav">
@@ -301,6 +312,6 @@
       <button data-view="settings">⚙️<span>설정</span></button>
     </nav>
   </div>
-  <script type="module" src="app.js?v=1412"></script>
+  <script type="module" src="app.js?v=1414"></script>
 </body>
 </html>

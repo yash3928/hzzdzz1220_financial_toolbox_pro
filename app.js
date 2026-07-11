@@ -1,4 +1,4 @@
-import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup } from './firebase.js';
+import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup, getCurrentUser, observeAuth, loginWithEmail, logoutFirebase } from './firebase.js';
 import { DEFAULT_FIREBASE_CONFIG } from './firebase-config.js';
 import {
   APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
@@ -13,6 +13,8 @@ let firebaseReady = false;
 let syncingRemote = false;
 let refreshing = false;
 let remoteLoaded = false;
+let authObserverStarted = false;
+let connectionInProgress = false;
 
 const currentYear = () => selectedYear();
 
@@ -504,7 +506,29 @@ function renderLoan(){
   }).join('');
 }
 
-function renderSettings(){ $('#firebaseConfigText').value=state.settings.firebaseConfigText||''; $('#householdId').value=state.settings.householdId||DEFAULT_HOUSEHOLD; $('#cycleStartDay').value=state.settings.cycleStartDay||10; }
+function setAuthGate(open, message=''){
+  const gate=$('#authGate'); if(!gate) return;
+  gate.hidden=!open;
+  const err=$('#loginError'); if(err) err.textContent=message;
+  if(open) setTimeout(()=>$('#loginEmail')?.focus(),50);
+}
+function renderAuthStatus(){
+  const user=getCurrentUser();
+  const status=$('#authStatusText'), email=$('#authEmailText'), logout=$('#logoutBtn');
+  if(status) status.textContent=user?'로그인됨':'로그인 필요';
+  if(email) email.textContent=user?.email||'-';
+  if(logout) logout.disabled=!user;
+}
+function ensureAuthObserver(){
+  if(authObserverStarted) return;
+  authObserverStarted=true;
+  observeAuth(user=>{
+    renderAuthStatus();
+    if(user){ setAuthGate(false); if(!firebaseReady && !connectionInProgress) setTimeout(()=>connectFirebase(),0); }
+    else { firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); }
+  });
+}
+function renderSettings(){ $('#firebaseConfigText').value=state.settings.firebaseConfigText||''; $('#householdId').value=state.settings.householdId||DEFAULT_HOUSEHOLD; $('#cycleStartDay').value=state.settings.cycleStartDay||10; renderAuthStatus(); }
 function applyAccordionState(){ $$('.accordion-content').forEach(el=>el.classList.remove('open')); $$('.accordion-toggle').forEach(btn=>btn.classList.remove('open')); Object.entries(state.ui.openAccordions||{}).forEach(([key,open])=>{ const el=$(`#acc-${key}`); const btn=document.querySelector(`[data-acc="${key}"]`); if(el){ el.classList.toggle('open',!!open); } if(btn){ btn.classList.toggle('open',!!open); }}); }
 
 async function refreshFromFirebase(showDone=true){ if(refreshing) return; if(!firebaseReady){ const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null'); if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; await connectFirebase(); return; } showToast('공동 동기화 설정이 필요합니다.'); return; } try{ refreshing=true; setBadge('새로고침 중','loading'); setPullStatus('동기화 중...'); const remote=await fetchHousehold(); if(remote){ saveRecoverySnapshot('Firebase 새로고침 전');
@@ -513,6 +537,8 @@ function setPullStatus(text){ const el=$('#pullRefresh'); if(el) el.textContent=
 function resetPullIndicator(){ const el=$('#pullRefresh'); if(!el) return; el.classList.remove('visible','ready','loading'); el.style.transform='translate(-50%, -120%)'; el.textContent='아래로 당겨 새로고침'; }
 function setupPullToRefresh(){ const el=$('#pullRefresh'); if(!el) return; let startY=0, tracking=false, distance=0; const threshold=76; document.addEventListener('touchstart',e=>{ if(window.scrollY<=0&&!refreshing){ startY=e.touches[0].clientY; tracking=true; distance=0; }},{passive:true}); document.addEventListener('touchmove',e=>{ if(!tracking||refreshing) return; distance=e.touches[0].clientY-startY; if(distance<=0) return; if(window.scrollY>0){ tracking=false; return; } const shown=Math.min(distance*0.55,92); el.classList.add('visible'); el.classList.toggle('ready',distance>threshold); el.textContent=distance>threshold?'놓으면 새로고침':'아래로 당겨 새로고침'; el.style.transform=`translate(-50%, ${shown-120}%)`; if(distance>18) e.preventDefault(); },{passive:false}); document.addEventListener('touchend',()=>{ if(!tracking) return; tracking=false; if(distance>threshold){ el.classList.add('loading'); el.textContent='동기화 중...'; el.style.transform='translate(-50%, 8px)'; refreshFromFirebase(true); } else resetPullIndicator(); },{passive:true}); }
 async function connectFirebase(){
+  if(connectionInProgress) return;
+  connectionInProgress=true;
   try{
     setBadge('연결 중','loading');
     const configInput = ($('#firebaseConfigText')?.value || state.settings.firebaseConfigText || '').trim();
@@ -524,6 +550,8 @@ async function connectFirebase(){
     persistLocal();
     const cfg=parseFirebaseConfig(state.settings.firebaseConfigText || DEFAULT_FIREBASE_CONFIG);
     initFirebase(cfg);
+    ensureAuthObserver();
+    if(!getCurrentUser()){ firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); return; }
     firebaseReady=true;
     subscribeHousehold(state.settings.householdId, async remote=>{
       syncingRemote=true;
@@ -544,6 +572,7 @@ async function connectFirebase(){
       setBadge('공동 동기화','on');
     }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
   } catch(e){ console.error(e); firebaseReady=false; setBadge('연결 실패','off'); alert(e.message); }
+  finally{ connectionInProgress=false; }
 }
 function selectedYearDate(){ const day=Math.min(new Date().getDate(),28); return new Date(selectedYear(), selectedMonth()-1, day); }
 function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(selectedYearDate()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
@@ -606,6 +635,26 @@ function bindEvents(){
     };
     await persistRemote();
     showToast('대출 설정을 저장했습니다.');
+  });
+  $('#loginForm')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const btn=$('#loginBtn'), err=$('#loginError');
+    if(btn){ btn.disabled=true; btn.textContent='로그인 중...'; }
+    if(err) err.textContent='';
+    try{
+      const cfg=parseFirebaseConfig(state.settings.firebaseConfigText || DEFAULT_FIREBASE_CONFIG);
+      initFirebase(cfg); ensureAuthObserver();
+      await loginWithEmail($('#loginEmail').value, $('#loginPassword').value);
+      $('#loginPassword').value='';
+      setAuthGate(false);
+      await connectFirebase();
+    }catch(ex){ console.error(ex); if(err) err.textContent=ex.code==='auth/invalid-credential'?'이메일 또는 비밀번호가 맞지 않습니다.':('로그인 실패: '+ex.message); }
+    finally{ if(btn){ btn.disabled=false; btn.textContent='로그인'; } }
+  });
+  $('#logoutBtn')?.addEventListener('click', async()=>{
+    if(!confirm('로그아웃하시겠습니까? 공동 동기화가 중지됩니다.')) return;
+    try{ await logoutFirebase(); firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); }
+    catch(ex){ alert('로그아웃 실패: '+ex.message); }
   });
   $('#connectBtn').addEventListener('click', connectFirebase);
   $('#cycleStartDay').addEventListener('change', async()=>{ state.settings.cycleStartDay=num($('#cycleStartDay').value)||10; await persistRemote(); });
