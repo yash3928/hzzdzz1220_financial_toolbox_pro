@@ -245,3 +245,42 @@
     margin-right:0;
   }
 }
+
+/* v1.4.13 내역 화면 기준 카드 밸런스 통일
+   내역 화면의 공동지출/지출내역 카드를 기준으로 예산·급여 카드의
+   폭, 높이, 간격과 제목 정렬을 동일하게 맞춥니다. */
+#view-ledger > .expense-entry-panel,
+#view-ledger > .ledger-history-card,
+#view-budget > .accordion-card,
+#view-salary > .salary-person-card {
+  width:100%;
+  max-width:none;
+  margin-left:0;
+  margin-right:0;
+  margin-bottom:12px;
+}
+
+#view-ledger > .expense-entry-panel > .section-toggle,
+#view-ledger > .ledger-history-card > .accordion-toggle,
+#view-budget > .accordion-card > .accordion-toggle,
+#view-salary > .salary-person-card > .accordion-toggle {
+  width:100%;
+  min-height:52px;
+  margin:0;
+  padding:14px !important;
+  grid-template-columns:minmax(0,1fr) auto 20px;
+  column-gap:8px;
+  align-items:center;
+}
+
+@media(max-width:420px){
+  #view-ledger > .expense-entry-panel,
+  #view-ledger > .ledger-history-card,
+  #view-budget > .accordion-card,
+  #view-salary > .salary-person-card {
+    width:100%;
+    margin-left:0;
+    margin-right:0;
+    margin-bottom:12px;
+  }
+}
