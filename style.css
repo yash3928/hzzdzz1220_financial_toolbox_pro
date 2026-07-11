@@ -302,3 +302,17 @@
 .fixed-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 12px 12px}
 .fixed-actions button{width:100%}
 @media(max-width:420px){.fixed-table{min-width:560px}.fixed-actions{grid-template-columns:1fr 1fr}}
+
+/* v1.4.16 고정지출 메모 셀 팝업 */
+.fixed-memo-cell{width:100%;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;background:transparent;border:0;border-radius:6px;padding:7px 6px;color:var(--muted);font-weight:700;font-size:12px}
+.fixed-memo-cell.has-memo{color:var(--text)}
+.fixed-memo-cell:focus,.fixed-memo-cell:active{outline:2px solid #bfdbfe;background:#eff6ff}
+.memo-modal{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.45);backdrop-filter:blur(3px)}
+.memo-modal.open{display:flex}
+.memo-dialog{width:min(520px,100%);background:#fff;border-radius:18px;padding:16px;box-shadow:0 24px 70px rgba(15,23,42,.28)}
+.memo-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:16px}
+.memo-close{width:36px;height:36px;padding:0;border-radius:999px;background:#f3f4f6;font-size:24px;line-height:1}
+.memo-dialog textarea{min-height:180px;resize:vertical;font-family:inherit;font-size:16px;line-height:1.5}
+.memo-dialog .hint{margin-top:8px}
+.memo-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+@media(max-width:420px){.memo-modal{align-items:flex-end;padding:10px 10px calc(10px + env(safe-area-inset-bottom))}.memo-dialog{border-radius:18px 18px 14px 14px}.memo-dialog textarea{min-height:220px}}

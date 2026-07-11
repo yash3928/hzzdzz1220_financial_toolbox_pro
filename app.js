@@ -407,7 +407,7 @@ function renderBudget(){
   $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td><input data-money data-budget="${c}" type="text" inputmode="numeric" value="${comma(state.budgets[c])}"></td></tr>`; }).join('');
   const title=$('#fixedSectionTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
   const list=currentFixed();
-  $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th>항목</th><th>금액</th><th>메모</th><th>관리</th></tr></thead><tbody>${list.map((f,i)=>`<tr><td><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"></td><td><input placeholder="메모" data-fixed-memo="${i}" value="${escapeAttr(f.memo||'')}"></td><td><button class="danger small" data-fixed-del="${i}">삭제</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">선택한 월의 고정지출이 없습니다.</td></tr>'}</tbody></table></div>`;
+  $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th>항목</th><th>금액</th><th>메모</th><th>관리</th></tr></thead><tbody>${list.map((f,i)=>`<tr><td><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td><input type="text" inputmode="numeric" data-money placeholder="금액" data-fixed-amount="${i}" value="${comma(f.amount)}"></td><td><button type="button" class="fixed-memo-cell ${f.memo?'has-memo':''}" data-fixed-memo-open="${i}" title="${escapeAttr(f.memo||'메모를 입력하려면 누르세요')}">${escapeHtml(f.memo||'메모')}</button></td><td><button class="danger small" data-fixed-del="${i}">삭제</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">선택한 월의 고정지출이 없습니다.</td></tr>'}</tbody></table></div>`;
 }
 function renderSalary(){
   const jinTable=$('#jinhyukSalaryTable tbody');
@@ -586,6 +586,34 @@ function setExpenseFormOpen(open){
   wrap.hidden=!open;
 }
 
+let activeFixedMemoIndex = null;
+function openFixedMemoEditor(index){
+  activeFixedMemoIndex=num(index);
+  const item=currentFixed()[activeFixedMemoIndex];
+  if(!item) return;
+  const modal=$('#fixedMemoModal'), textarea=$('#fixedMemoEditor'), title=$('#fixedMemoTitle');
+  if(title) title.textContent=(item.name||'고정지출')+' 메모';
+  if(textarea) textarea.value=item.memo||'';
+  modal?.classList.add('open');
+  modal?.setAttribute('aria-hidden','false');
+  setTimeout(()=>textarea?.focus(),50);
+}
+function closeFixedMemoEditor(){
+  activeFixedMemoIndex=null;
+  const modal=$('#fixedMemoModal');
+  modal?.classList.remove('open');
+  modal?.setAttribute('aria-hidden','true');
+}
+function saveFixedMemoEditor(){
+  if(activeFixedMemoIndex===null) return;
+  const arr=currentFixed(), item=arr[activeFixedMemoIndex];
+  if(!item) return closeFixedMemoEditor();
+  item.memo=$('#fixedMemoEditor')?.value.trim()||'';
+  state.fixedByMonth[getPeriod().key]=arr;
+  closeFixedMemoEditor();
+  renderBudget();
+}
+
 function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
   $('#expenseFormToggle')?.addEventListener('click',()=>setExpenseFormOpen($('#expenseFormWrap')?.hidden));
@@ -597,6 +625,8 @@ function bindEvents(){
   document.addEventListener('click', async e=>{
     const shoppingToggle=e.target.closest('[data-shopping-toggle]');
     if(shoppingToggle){ state.ui.shoppingDetailOpen=!state.ui.shoppingDetailOpen; renderHome(); return; }
+    const memoCell=e.target.closest('[data-fixed-memo-open]');
+    if(memoCell){ openFixedMemoEditor(memoCell.dataset.fixedMemoOpen); return; }
     const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
@@ -614,6 +644,10 @@ function bindEvents(){
   $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget]').forEach(i=>state.budgets[i.dataset.budget]=num(i.value)); await persistRemote(); });
   $('#fixedList').addEventListener('input', e=>{ const key=getPeriod().key, arr=currentFixed(), i=num(e.target.dataset.fixedName ?? e.target.dataset.fixedAmount ?? e.target.dataset.fixedMemo); if(e.target.dataset.fixedName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.fixedAmount!==undefined) arr[i].amount=num(e.target.value); if(e.target.dataset.fixedMemo!==undefined) arr[i].memo=e.target.value; state.fixedByMonth[key]=arr; });
   $('#saveFixedBtn')?.addEventListener('click', async()=>{ await persistRemote(); showToast('고정지출을 저장했습니다.'); });
+  $('#fixedMemoSave')?.addEventListener('click', saveFixedMemoEditor);
+  $('#fixedMemoCancel')?.addEventListener('click', closeFixedMemoEditor);
+  $('#fixedMemoModal')?.addEventListener('click', e=>{ if(e.target.id==='fixedMemoModal') closeFixedMemoEditor(); });
+  $('#fixedMemoEditor')?.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); saveFixedMemoEditor(); } if(e.key==='Escape') closeFixedMemoEditor(); });
   $('#cashItemList').addEventListener('input', e=>{ const i=num(e.target.dataset.cashName ?? e.target.dataset.cashAmount); const arr=state.assets.cashItems; if(e.target.dataset.cashName!==undefined) arr[i].name=e.target.value; if(e.target.dataset.cashAmount!==undefined) arr[i].amount=num(e.target.value); });
   $('#cashItemList').addEventListener('change', persistRemote);
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ $$('[data-jinhyuk-month]').forEach(inp=>{ state.salary.jinhyuk[inp.dataset.jinhyukMonth]=num(inp.value); }); await persistRemote(); });

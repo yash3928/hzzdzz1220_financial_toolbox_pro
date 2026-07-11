@@ -312,6 +312,15 @@
       <button data-view="settings">⚙️<span>설정</span></button>
     </nav>
   </div>
-  <script type="module" src="app.js?v=1415"></script>
+
+  <div id="fixedMemoModal" class="memo-modal" aria-hidden="true">
+    <div class="memo-dialog" role="dialog" aria-modal="true" aria-labelledby="fixedMemoTitle">
+      <div class="memo-dialog-head"><strong id="fixedMemoTitle">고정지출 메모</strong><button type="button" id="fixedMemoCancel" class="memo-close" aria-label="닫기">×</button></div>
+      <textarea id="fixedMemoEditor" rows="8" placeholder="긴 메모를 입력하세요."></textarea>
+      <p class="hint">셀을 누르면 언제든지 전체 메모를 확인하고 수정할 수 있습니다.</p>
+      <div class="memo-dialog-actions"><button type="button" id="fixedMemoCancelBottom" class="ghost" onclick="document.getElementById('fixedMemoCancel').click()">취소</button><button type="button" id="fixedMemoSave" class="primary">메모 적용</button></div>
+    </div>
+  </div>
+  <script type="module" src="app.js?v=1416"></script>
 </body>
 </html>
