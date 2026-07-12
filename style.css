@@ -315,3 +315,18 @@
 .memo-dialog .hint{margin-top:8px}
 .memo-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
 @media(max-width:420px){.fixed-table th,.fixed-table td{padding:8px 5px}.fixed-actions{grid-template-columns:1fr 1fr}.memo-modal{align-items:flex-end;padding:10px 10px calc(10px + env(safe-area-inset-bottom))}.memo-dialog{border-radius:18px 18px 14px 14px}.memo-dialog textarea{min-height:220px}}
+
+/* v1.4.18 자산 관리 표 형식 통일 */
+.asset-table-hint{padding:12px 12px 10px}
+.asset-table-scroll{overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.asset-manage-table{width:100%;min-width:0;table-layout:fixed}
+.asset-manage-table th,.asset-manage-table td{text-align:center!important;vertical-align:middle}
+.asset-manage-table input{min-width:0;text-align:center!important;background:transparent}
+.cash-manage-table th:nth-child(1){width:42%}.cash-manage-table th:nth-child(2){width:38%}.cash-manage-table th:nth-child(3){width:20%}
+#assetInputTable th:nth-child(1){width:46%}#assetInputTable th:nth-child(2){width:54%}
+.investment-manage-table th:nth-child(1){width:30%}.investment-manage-table th:nth-child(2){width:42%}.investment-manage-table th:nth-child(3){width:28%}
+.asset-total-row th{background:#f3f4f6!important;border-top:2px solid #94a3b8!important;font-weight:900!important;color:#111827}
+.asset-table-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 12px 12px}
+.asset-table-actions button,.asset-single-action button{width:100%}
+.asset-single-action{margin:10px 12px 12px}
+@media(max-width:420px){.asset-manage-table th,.asset-manage-table td{padding:8px 5px}.asset-table-actions{grid-template-columns:1fr 1fr}}
