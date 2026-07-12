@@ -234,7 +234,14 @@
       </section>
 
       <section id="view-invest" class="view">
-        <section class="panel excel-panel"><div class="section-title"><span>📈 투자 현황 입력</span></div><p class="hint asset-table-hint">증권앱에서 확인한 총 평가금액과 수익률만 입력합니다. 매수·매도 내역은 관리하지 않습니다.</p><div class="table-scroll asset-table-scroll"><table class="excel-table input-table asset-manage-table investment-manage-table" id="investmentTable"><thead><tr><th>항목</th><th>현재금액</th><th>수익률</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div><div class="asset-single-action"><button id="saveInvestBtn" class="primary">투자 저장</button></div></section>
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="investmentInput"><span>📈 투자 현황 입력</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-investmentInput">
+            <p class="hint asset-table-hint">증권앱에서 확인한 총 평가금액과 수익률만 입력합니다. 매수·매도 내역은 관리하지 않습니다.</p>
+            <div class="table-scroll asset-table-scroll"><table class="excel-table input-table asset-manage-table investment-manage-table" id="investmentTable"><thead><tr><th>항목</th><th>현재금액</th><th>수익률</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            <div class="asset-single-action"><button id="saveInvestBtn" class="primary">투자 저장</button></div>
+          </div>
+        </section>
       </section>
 
 
@@ -315,13 +322,13 @@
 
   <div id="fixedMemoModal" class="memo-modal" aria-hidden="true">
     <div class="memo-dialog" role="dialog" aria-modal="true" aria-labelledby="fixedMemoTitle">
-      <div class="memo-dialog-head"><strong id="fixedMemoTitle">고정지출 메모</strong><button type="button" id="fixedMemoCancel" class="memo-close" aria-label="닫기">×</button></div>
+      <div class="memo-dialog-head"><strong id="fixedMemoTitle">금액 메모</strong><button type="button" id="fixedMemoCancel" class="memo-close" aria-label="닫기">×</button></div>
       <label class="memo-amount-label">금액<input id="fixedMemoAmount" type="text" inputmode="numeric" data-money placeholder="금액"></label>
       <textarea id="fixedMemoEditor" rows="8" placeholder="긴 메모를 입력하세요."></textarea>
       <p class="hint">금액을 누르면 금액과 전체 메모를 확인하고 수정할 수 있습니다.</p>
       <div class="memo-dialog-actions"><button type="button" id="fixedMemoCancelBottom" class="ghost" onclick="document.getElementById('fixedMemoCancel').click()">취소</button><button type="button" id="fixedMemoSave" class="primary">메모 적용</button></div>
     </div>
   </div>
-  <script type="module" src="app.js?v=1417"></script>
+  <script type="module" src="app.js?v=1419"></script>
 </body>
 </html>
