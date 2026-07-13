@@ -1092,7 +1092,7 @@ function bindEvents(){
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ $$('[data-jinhyuk-month]').forEach(inp=>{ state.salary.jinhyuk[inp.dataset.jinhyukMonth]=num(inp.value); }); await persistRemote(); });
   $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={...(d.tax||{}),pensionAmount:num($('#taxPension').value),taxHealthRate:num($('#taxHealth').value),taxCareRate:num($('#taxCare').value),taxEmploymentRate:num($('#taxEmployment').value),incomeTax:num($('#taxIncome').value),taxLocal:num($('#taxLocal').value),otherDeduct:num($('#taxOther').value),vehicleAllowance:num($('#taxVehicle').value),memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); $$('[data-bonus-month]').forEach(inp=>{ const m=inp.dataset.bonusMonth; d.months[m]=d.months[m]||{}; d.months[m].bonus=num(inp.value); }); $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
   $('#saveCashAssetsBtn')?.addEventListener('click', async()=>{ await persistRemote(); showToast('현금 세부분류를 저장했습니다.'); });
-  $('#addPurposeItemBtn')?.addEventListener('click', ()=>{
+  $('#addPurposeItemBtn')?.addEventListener('click', async()=>{
     const name=prompt('추가할 기타 자산 항목명을 입력하세요.','');
     if(name===null) return;
     const clean=name.trim();
@@ -1100,6 +1100,8 @@ function bindEvents(){
     state.assets.purposeItems=state.assets.purposeItems||[];
     state.assets.purposeItems.push({id:crypto.randomUUID(),name:clean,amount:0,memo:''});
     renderAssets();
+    await persistRemote();
+    showToast('기타 자산 항목을 추가했습니다.');
   });
   $('#assetInputTable').addEventListener('click', async e=>{
     const edit=e.target.closest('[data-purpose-edit]');
