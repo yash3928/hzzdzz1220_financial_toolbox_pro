@@ -330,3 +330,5 @@
 .asset-table-actions button,.asset-single-action button{width:100%}
 .asset-single-action{margin:10px 12px 12px}
 @media(max-width:420px){.asset-manage-table th,.asset-manage-table td{padding:8px 5px}.asset-table-actions{grid-template-columns:1fr 1fr}}
+
+.budget-adjust-note{display:block;font-size:9px;color:var(--danger);margin-top:3px;white-space:normal}.jaturi-box strong{font-size:15px;color:var(--ok)}
