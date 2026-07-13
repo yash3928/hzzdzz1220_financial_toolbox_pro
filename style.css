@@ -524,4 +524,4 @@
   .fixed-ai-detail-card li strong{grid-column:1/-1;text-align:right}
 }
 
-.sync-diagnostic{margin-top:10px;padding:10px 12px;border:1px solid #fecaca;background:#fff1f2;color:#991b1b;border-radius:12px;font-size:12px;line-height:1.5;overflow-wrap:anywhere;word-break:break-word}.sync-diagnostic strong{font-size:13px}.bottom-nav{grid-template-columns:repeat(8,1fr)}
+.sync-diagnostic{margin-top:10px;padding:10px 12px;border:1px solid #fecaca;background:#fff1f2;color:#991b1b;border-radius:12px;font-size:12px;line-height:1.5;overflow-wrap:anywhere;word-break:break-word}.sync-diagnostic strong{font-size:13px}

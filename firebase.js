@@ -56,6 +56,14 @@ export function getCurrentUser(){
   return auth?.currentUser || null;
 }
 
+export function prepareHousehold(householdId){
+  if(!db) throw new Error('Firebase가 초기화되지 않았습니다.');
+  const id=String(householdId||'').trim();
+  if(!id) throw new Error('가계부 ID가 비어 있습니다.');
+  activeRef=doc(db,'households',id);
+  return activeRef;
+}
+
 export function observeAuth(callback){
   if(!auth) throw new Error('Firebase가 초기화되지 않았습니다.');
   return onAuthStateChanged(auth, callback);
@@ -103,7 +111,7 @@ async function saveCloudBackup(existing){
     const backupsRef = collection(activeRef, 'backups');
     const clean = cleanForFirestore(existing);
     delete clean.updatedAt;
-    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.6.2' });
+    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.6.3' });
   }catch(e){ console.warn('클라우드 자동 백업 실패', e); }
 }
 
@@ -119,7 +127,7 @@ export async function saveHousehold(data, options = {}){
     // 백업용 선행 읽기가 실패해도 실제 저장은 계속 시도합니다.
     console.warn('기존 문서 읽기 실패, 백업 없이 저장 진행', err);
   }
-  const payload={...clean,updatedAt:serverTimestamp(),appVersion:'1.6.2',schemaVersion:3};
+  const payload={...clean,updatedAt:serverTimestamp(),appVersion:'1.6.3',schemaVersion:3};
   // 전체 교체 저장으로 삭제된 필드와 빈 배열이 서버에 되살아나는 것을 방지합니다.
   await setDoc(activeRef,payload,{merge:false});
   if(backupData && !options.skipBackup) await saveCloudBackup(backupData);

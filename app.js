@@ -1,4 +1,4 @@
-import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup, getCurrentUser, observeAuth, waitForInitialAuth, loginWithEmail, logoutFirebase } from './firebase.js';
+import { parseFirebaseConfig, initFirebase, prepareHousehold, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup, getCurrentUser, observeAuth, waitForInitialAuth, loginWithEmail, logoutFirebase } from './firebase.js';
 import { DEFAULT_FIREBASE_CONFIG } from './firebase-config.js';
 import {
   APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
@@ -869,6 +869,7 @@ async function connectFirebase(){
     const restoredUser = getCurrentUser() || await waitForInitialAuth();
     if(!restoredUser){ firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); return; }
     firebaseReady=true;
+    prepareHousehold(state.settings.householdId);
     // 연결 버튼을 눌렀을 때 문서 읽기 권한과 네트워크를 먼저 검증합니다.
     try{
       const firstRemote=await fetchHousehold();
@@ -977,7 +978,18 @@ function bindEvents(){
     const memoCell=e.target.closest('[data-fixed-memo-open],[data-money-memo-type]');
     if(memoCell){ openMoneyMemoEditor(memoCell.dataset.moneyMemoType||'fixed', memoCell.dataset.moneyMemoKey ?? memoCell.dataset.fixedMemoOpen); return; }
     const t=e.target.closest('button'); if(!t) return;
-    if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
+    if(t.dataset.acc){
+      const key=t.dataset.acc;
+      const content=document.getElementById(`acc-${key}`);
+      const open=!(content?.classList.contains('open'));
+      state.ui.openAccordions[key]=open;
+      t.classList.toggle('open',open);
+      t.setAttribute('aria-expanded',String(open));
+      const label=t.querySelector('b'); if(label) label.textContent=open?'닫기':'보기';
+      if(content) content.classList.toggle('open',open);
+      persistLocal();
+      return;
+    }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
     if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); setExpenseFormOpen(true); window.scrollTo({top:0,behavior:'smooth'}); }}
     if(t.dataset.delExp){ if(confirm('이 지출내역을 삭제하시겠습니까?')){ state.expenses=state.expenses.filter(x=>x.id!==t.dataset.delExp); await persistRemote(); }}
