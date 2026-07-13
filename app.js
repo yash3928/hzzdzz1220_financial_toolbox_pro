@@ -15,6 +15,8 @@ let refreshing = false;
 let remoteLoaded = false;
 let authObserverStarted = false;
 let connectionInProgress = false;
+let remoteSavePending = false;
+let remoteSaveRunning = false;
 
 const currentYear = () => selectedYear();
 
@@ -229,14 +231,36 @@ function stripRuntime(s){
   }
   return copy;
 }
+async function flushRemoteSave(){
+  if(remoteSaveRunning || syncingRemote || !remoteSavePending) return;
+  if(!firebaseReady){ return; }
+  if(!remoteLoaded){ setBadge('동기화 확인 중','loading'); return; }
+  remoteSaveRunning=true;
+  remoteSavePending=false;
+  const payload=stripRuntime(state);
+  try {
+    setBadge('전송 중','loading');
+    await saveHousehold(payload);
+    setBadge('공동 동기화','on');
+    markSynced();
+  } catch(e){
+    console.error(e);
+    remoteSavePending=true;
+    setBadge('저장 오류','off');
+    alert('Firebase 저장 오류: '+e.message);
+  } finally {
+    remoteSaveRunning=false;
+    // 저장 중에 추가 변경이 생겼다면 최신 상태를 한 번 더 전송합니다.
+    if(remoteSavePending && !syncingRemote) setTimeout(()=>flushRemoteSave(),0);
+  }
+}
 async function persistRemote(){
   saveActiveYearSnapshot();
-  persistLocal(); render();
-  if(firebaseReady && !syncingRemote){
-    if(!remoteLoaded){ setBadge('동기화 확인 중','loading'); return; }
-    try { await saveHousehold(stripRuntime(state)); setBadge('공동 동기화','on'); markSynced(); }
-    catch(e){ console.error(e); setBadge('저장 오류','off'); alert('Firebase 저장 오류: '+e.message); }
-  }
+  persistLocal();
+  render();
+  // 원격 수신 처리 중 입력해도 저장 요청을 버리지 않고 대기시킵니다.
+  remoteSavePending=true;
+  await flushRemoteSave();
 }
 
 function getPeriod(){
@@ -678,6 +702,8 @@ async function connectFirebase(){
       render();
       markSynced();
       setBadge('공동 동기화','on');
+      // 원격 데이터 수신 도중 사용자가 저장한 변경이 있으면 즉시 이어서 전송합니다.
+      if(remoteSavePending) setTimeout(()=>flushRemoteSave(),0);
     }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
   } catch(e){ console.error(e); firebaseReady=false; setBadge('연결 실패','off'); alert(e.message); }
   finally{ connectionInProgress=false; }
