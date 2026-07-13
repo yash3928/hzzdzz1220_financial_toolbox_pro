@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.6.1';
+export const APP_VERSION = '1.6.2';
 export const SCHEMA_VERSION = 3;
 export const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 export const MONTHLY_CATEGORIES = ['식비','관리비'];
