@@ -387,11 +387,43 @@ function previousPeriodKey(key){
   const [y,m]=String(key).split('-').map(Number); const d=new Date(y,m-2,1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
-function foodOverageFromPrevious(key=getPeriod().key){
-  const prev=state.jaturi?.settlements?.[previousPeriodKey(key)];
-  return prev && num(prev.foodDifference)<0 ? Math.abs(num(prev.foodDifference)) : 0;
+function nextPeriodKey(key){
+  const [y,m]=String(key).split('-').map(Number); const d=new Date(y,m,1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
-function effectiveFoodBudget(key=getPeriod().key){ return Math.max(0,foodBaseBudget(key)-foodOverageFromPrevious(key)); }
+function expensePeriodKey(dateText){
+  const d=new Date(String(dateText||'')+'T00:00:00');
+  if(Number.isNaN(d.getTime())) return '';
+  const startDay=Math.min(Math.max(num(state.settings.cycleStartDay)||10,1),28);
+  let y=d.getFullYear(), m=d.getMonth()+1;
+  if(d.getDate()<startDay){
+    const prev=new Date(y,m-2,1); y=prev.getFullYear(); m=prev.getMonth()+1;
+  }
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+function foodBudgetStatus(targetKey=getPeriod().key){
+  const candidates=[targetKey,...Object.keys(state.monthlyBudgets||{})];
+  (state.expenses||[]).forEach(e=>{ const key=expensePeriodKey(e?.date); if(key) candidates.push(key); });
+  const valid=candidates.filter(k=>/^\d{4}-\d{2}$/.test(String(k)) && k<=targetKey).sort();
+  let key=valid[0]||targetKey;
+  // carryIn은 이전 달까지 남은 식비 잔액입니다.
+  // 양수면 다음 달 예산에 더하고, 음수면 다음 달 예산에서 차감합니다.
+  let carryIn=0, status={base:foodBaseBudget(targetKey),carryIn:0,effective:foodBaseBudget(targetKey),spent:foodSpentForKey(targetKey),carryOut:0};
+  let guard=0;
+  while(key<=targetKey && guard<240){
+    const base=foodBaseBudget(key);
+    const spent=foodSpentForKey(key);
+    const effective=Math.max(0,base+carryIn);
+    const carryOut=carryIn+base-spent;
+    if(key===targetKey) status={base,carryIn,effective,spent,carryOut};
+    carryIn=carryOut;
+    key=nextPeriodKey(key);
+    guard++;
+  }
+  return status;
+}
+function foodOverageFromPrevious(key=getPeriod().key){ return Math.max(0,-foodBudgetStatus(key).carryIn); }
+function effectiveFoodBudget(key=getPeriod().key){ return foodBudgetStatus(key).effective; }
 function dahyeNetForYearMonth(year, month){
   const source=(state.yearData?.[year]?.dahye)||((year===selectedYear())?state.salary.dahye:null);
   if(!source) return 0;
