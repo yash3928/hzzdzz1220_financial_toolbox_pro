@@ -652,14 +652,16 @@ function calcDahyeMonth(month){
   const careRate=monthlyRateOverride(m,'taxCareRate',rateDefault(t,'taxCareRate','taxCare',DEFAULT_TAX.taxCareRate));
   const employmentRate=monthlyRateOverride(m,'taxEmploymentRate',rateDefault(t,'taxEmploymentRate','taxEmployment',DEFAULT_TAX.taxEmploymentRate));
   const pension=Math.round(pensionAmount);
-  const health=Math.round(taxablePay * healthRate / 100);
-  const care=Math.round(health * careRate / 100);
-  const employment=Math.round(taxablePay * employmentRate / 100);
+  // 엑셀 계산식과 동일하게 건강보험은 소수값을 유지하고,
+  // 요양보험·고용보험은 각각 10원 단위 절사한 뒤 최종 세후금액만 반올림합니다.
+  const health=taxablePay * healthRate / 100;
+  const care=Math.floor((health * careRate / 100) / 10) * 10;
+  const employment=Math.floor((taxablePay * employmentRate / 100) / 10) * 10;
   const incomeTax=monthlyOverride(m,'taxIncome',taxDefault(t,'incomeTax',0));
   const localTax=monthlyOverride(m,'taxLocal',taxDefault(t,'taxLocal',0));
   const otherDeduct=monthlyOverride(m,'taxOther',taxDefault(t,'otherDeduct',0));
-  const deductions=Math.round(pension)+Math.round(health)+Math.round(care)+Math.round(employment)+Math.round(incomeTax)+Math.round(localTax)+Math.round(otherDeduct);
-  const net=Math.round(paymentTotal)-deductions;
+  const deductions=pension+health+care+employment+Math.round(incomeTax)+Math.round(localTax)+Math.round(otherDeduct);
+  const net=Math.round(paymentTotal-deductions);
   const memoAfter=net-num(t.memoDeduct);
   return {duty,bonus,taxablePay,paymentTotal,gross:paymentTotal,vehicleAllowance,pensionAmount,healthRate,careRate,employmentRate,pension,health,care,employment,incomeTax,localTax,otherDeduct,deductions,deduct:deductions,net:Math.round(net),memoAfter:Math.round(memoAfter)};
 }
@@ -801,8 +803,12 @@ function renderSalary(){
   const taxTable=$('#dahyeTaxTable tbody');
   if(taxTable){
     taxTable.innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
+      const monthData=d.months[m]||{};
+      const pensionValue=Object.prototype.hasOwnProperty.call(monthData,'pensionAmount')
+        ? num(monthData.pensionAmount)
+        : taxDefault(tax,'pensionAmount',0);
       const c=calcDahyeMonth(m);
-      return `<tr><td>${m}월</td><td>${money(c.deductions)}</td></tr>`;
+      return `<tr><td>${m}월</td><td><input data-money data-tax-month="${m}" data-tax-key="pensionAmount" type="text" inputmode="numeric" value="${moneyInput(pensionValue)}"></td><td>${money(c.deductions)}</td></tr>`;
     }).join('');
   }
 

@@ -703,3 +703,10 @@
   .year-expense-matrix th,.year-expense-matrix td{min-width:88px;padding:8px 6px;}
   .year-expense-matrix th:first-child,.year-expense-matrix td:first-child{min-width:64px;}
 }
+
+/* v1.6.20 monthly pension */
+.deduction-summary-table th,.deduction-summary-table td{text-align:center!important;padding-left:6px!important;padding-right:6px!important;}
+.deduction-summary-table th:nth-child(1),.deduction-summary-table td:nth-child(1){width:20%!important;}
+.deduction-summary-table th:nth-child(2),.deduction-summary-table td:nth-child(2){width:40%!important;}
+.deduction-summary-table th:nth-child(3),.deduction-summary-table td:nth-child(3){width:40%!important;}
+.deduction-summary-table input{width:100%;min-width:0;text-align:center;}
