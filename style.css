@@ -604,3 +604,23 @@
   }
   #fixedAiSummary .fixed-ai-detail-card li strong{grid-column:2!important;justify-self:start!important}
 }
+
+
+/* v1.6.2 예산 추가·삭감 입력 및 모바일 폭 안정화 */
+.budget-table-scroll{width:100%;max-width:100%;overflow-x:hidden;}
+#budgetInputTable{width:100%;max-width:100%;table-layout:fixed;}
+#budgetInputTable th,#budgetInputTable td{padding:8px 3px;text-align:center;overflow:hidden;}
+#budgetInputTable th:nth-child(1),#budgetInputTable td:nth-child(1){width:25%;}
+#budgetInputTable th:nth-child(2),#budgetInputTable td:nth-child(2){width:18%;}
+#budgetInputTable th:nth-child(3),#budgetInputTable td:nth-child(3){width:25%;}
+#budgetInputTable th:nth-child(4),#budgetInputTable td:nth-child(4),
+#budgetInputTable th:nth-child(5),#budgetInputTable td:nth-child(5){width:16%;}
+#budgetInputTable .fixed-amount-cell{width:100%;max-width:100%;padding:6px 1px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#budgetInputTable input{min-width:0;width:100%;padding:6px 1px;font-size:11px;text-align:center;}
+@media(max-width:420px){
+  #budgetInputTable{font-size:10px;}
+  #budgetInputTable th,#budgetInputTable td{padding:7px 1px;}
+  #budgetInputTable .fixed-amount-cell{font-size:10.5px;padding:6px 0;}
+  #budgetInputTable input{font-size:10px;padding:6px 0;}
+  #budgetInputTable input::placeholder{font-size:9px;}
+}

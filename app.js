@@ -372,6 +372,16 @@ function managementFeeResult(key=getPeriod().key){
   const actual=rows.reduce((sum,f)=>sum+num(fixedMonthValue(f,key).amount),0);
   return {budget:managementBudget(key),actual};
 }
+function jaturiBalanceForPeriod(targetKey=getPeriod().key){
+  const keys=new Set(Object.keys(state.monthlyBudgets||{}));
+  (state.fixedMaster||[]).forEach(f=>Object.keys(f.monthly||{}).forEach(k=>keys.add(k)));
+  let running=num(state.jaturi?.openingBalance);
+  [...keys].filter(k=>k<=targetKey).sort().forEach(key=>{
+    const management=managementFeeResult(key);
+    running+=management.budget-management.actual;
+  });
+  return running;
+}
 function foodBaseBudget(key=getPeriod().key){ return monthlyBudgetValue('식비',key); }
 function previousPeriodKey(key){
   const [y,m]=String(key).split('-').map(Number); const d=new Date(y,m-2,1);
@@ -610,7 +620,8 @@ function renderHome(){
   const insertAt=Math.min(3,standardBudgetRows.length);
   standardBudgetRows.splice(insertAt,0,shoppingRow+shoppingDetail);
   recalculateJaturi();
-  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>누적</td><td>-</td><td>-</td><td class="${state.jaturi.balance<0?'minus':'plus'}">${money(state.jaturi.balance)}</td></tr>`);
+  const selectedJaturiBalance=jaturiBalanceForPeriod(getPeriod().key);
+  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>${selectedMonth()}월 누적</td><td>-</td><td>-</td><td class="${selectedJaturiBalance<0?'minus':'plus'}">${money(selectedJaturiBalance)}</td></tr>`);
   $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
   $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
 
@@ -626,7 +637,7 @@ function renderHome(){
 function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); if(EXPENSE_CATEGORIES.includes(selected)) sel.value=selected; const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr><td>${e.date||''}</td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
 function renderBudget(){
   recalculateJaturi();
-  $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=MONTHLY_CATEGORIES.includes(c)?monthlyBudgetValue(c):num(state.budgets[c]); return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${state.budgetMemos?.[c]?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가 금액"></td></tr>`; }).join('');
+  $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=MONTHLY_CATEGORIES.includes(c)?monthlyBudgetValue(c):num(state.budgets[c]); return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${state.budgetMemos?.[c]?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가"></td><td><input data-money data-budget-cut="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="삭감"></td></tr>`; }).join('');
 }
 function renderFixed(){
   const title=$('#fixedPageTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
@@ -889,7 +900,7 @@ function bindEvents(){
   $('#expenseDate').value=ymd(selectedYearDate());
   $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(false); await persistRemote(); });
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
-  $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget-add]').forEach(inp=>{ const c=inp.dataset.budgetAdd, add=num(inp.value); if(!add) return; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),[c]:monthlyBudgetValue(c,pk)+add}; } else state.budgets[c]=num(state.budgets[c])+add; inp.value=''; }); recalculateJaturi(); await persistRemote(); showToast('예산을 저장하고 추가 금액을 반영했습니다.'); });
+  $('#saveBudgetBtn').addEventListener('click', async()=>{ const adjustments={}; $$('[data-budget-add]').forEach(inp=>{ const c=inp.dataset.budgetAdd; adjustments[c]=(adjustments[c]||0)+num(inp.value); inp.value=''; }); $$('[data-budget-cut]').forEach(inp=>{ const c=inp.dataset.budgetCut; adjustments[c]=(adjustments[c]||0)-num(inp.value); inp.value=''; }); Object.entries(adjustments).forEach(([c,change])=>{ if(!change) return; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),[c]:Math.max(0,monthlyBudgetValue(c,pk)+change)}; } else state.budgets[c]=Math.max(0,num(state.budgets[c])+change); }); recalculateJaturi(); await persistRemote(); showToast('예산의 추가·삭감 금액을 반영했습니다.'); });
   $('#fixedList').addEventListener('input', e=>{ const pk=getPeriod().key, i=num(e.target.dataset.fixedName); const item=state.fixedMaster[i]; if(!item) return; if(e.target.dataset.fixedName!==undefined){ item.name=e.target.value; item.category=fixedCategory(item,pk); } item.updatedAt=new Date().toISOString(); });
   $('#saveFixedBtn')?.addEventListener('click', async()=>{ state.fixedMaster.forEach(f=>f.category=fixedCategory(f,getPeriod().key)); recalculateJaturi(); await persistRemote(); showToast('고정지출과 자동 분류를 저장했습니다.'); });
   $('#fixedMemoSave')?.addEventListener('click', saveFixedMemoEditor);
