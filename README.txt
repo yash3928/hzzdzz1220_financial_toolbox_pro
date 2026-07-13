@@ -1,11 +1,3 @@
-# dzzhzz Couple Finance v1.6.4
-
-- iPhone Safari/PWA Firestore 연결 호환성 강화
-- 최초 연결 시 문서 읽기/쓰기 권한을 즉시 검증
-- 연결 실패 시 설정 화면에 실제 Firebase 오류 코드 표시
-- 저장 방식을 전체 교체 setDoc으로 단순화해 트랜잭션 연결 실패 가능성 축소
-- 기존 데이터와 로그인 설정 유지
-
 # Financial Toolbox Pro v5
 
 ## 구성 파일

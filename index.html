@@ -313,7 +313,7 @@
         </section>
       </section>
 
-      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>🔐 로그인 계정</span></div><div class="account-row"><div><span id="authStatusText">로그인 확인 중</span><small id="authEmailText">-</small></div><button id="logoutBtn" class="ghost" type="button">로그아웃</button></div></section><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">파일 복원</button><button id="cloudRestoreBtn" class="ghost">클라우드 이전 백업 복구</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><div id="syncDiagnostic" class="sync-diagnostic" hidden></div><p class="hint">v1.6.4 오류 수정: 예산 요약 계산 중 발생하던 spent 변수 오류를 수정했습니다.</p></section></section>
+      <section id="view-settings" class="view"><section class="panel"><div class="section-title"><span>🔐 로그인 계정</span></div><div class="account-row"><div><span id="authStatusText">로그인 확인 중</span><small id="authEmailText">-</small></div><button id="logoutBtn" class="ghost" type="button">로그아웃</button></div></section><section class="panel"><div class="section-title"><span>⚙️ 공동 동기화 설정</span></div><label>Firebase 설정값<textarea id="firebaseConfigText" rows="8" placeholder="firebaseConfig 전체 또는 JSON을 붙여넣기"></textarea></label><label>가계부 ID<input type="text" id="householdId" value="hzzdzz_가계부" /></label><label>월 기준일<input type="number" id="cycleStartDay" min="1" max="28" value="10" /></label><div class="button-row"><button id="connectBtn" class="primary">공동 동기화 연결</button><button id="backupBtn" class="ghost">백업</button><button id="restoreBtn" class="ghost">파일 복원</button><button id="cloudRestoreBtn" class="ghost">클라우드 이전 백업 복구</button></div><input id="restoreFile" type="file" accept="application/json" hidden /><p class="hint">v1.4.5 데이터 보호 모드: 일반 업데이트 저장은 기존 Firebase 데이터를 빈 값으로 덮어쓰지 않습니다. 복원 버튼은 백업 파일을 선택했을 때만 강제 복원합니다.</p></section></section>
     </main>
 
     <nav class="bottom-nav">
@@ -337,6 +337,6 @@
       <div class="memo-dialog-actions"><button type="button" id="fixedMemoCancelBottom" class="ghost" onclick="document.getElementById('fixedMemoCancel').click()">취소</button><button type="button" id="fixedMemoSave" class="primary">메모 적용</button></div>
     </div>
   </div>
-  <script type="module" src="app.js?v=1640"></script>
+  <script type="module" src="app.js?v=1610"></script>
 </body>
 </html>

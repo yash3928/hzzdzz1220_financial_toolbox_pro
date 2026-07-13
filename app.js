@@ -1,4 +1,4 @@
-import { parseFirebaseConfig, initFirebase, prepareHousehold, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup, getCurrentUser, observeAuth, waitForInitialAuth, loginWithEmail, logoutFirebase } from './firebase.js';
+import { parseFirebaseConfig, initFirebase, subscribeHousehold, saveHousehold, fetchHousehold, fetchLatestCloudBackup, getCurrentUser, observeAuth, waitForInitialAuth, loginWithEmail, logoutFirebase } from './firebase.js';
 import { DEFAULT_FIREBASE_CONFIG } from './firebase-config.js';
 import {
   APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
@@ -247,17 +247,6 @@ function normalizeRemoteDocument(remote){
     return copy;
   }
 }
-function syncErrorDetails(error){
-  return {code:String(error?.code||'unknown'), message:String(error?.message||'알 수 없는 오류'), name:String(error?.name||'Error')};
-}
-function showSyncDiagnostic(stage,error){
-  const el=$('#syncDiagnostic');
-  if(!el) return;
-  const d=syncErrorDetails(error);
-  el.hidden=false;
-  el.innerHTML=`<strong>${escapeHtml(stage)}</strong><br><span>코드: ${escapeHtml(d.code)}</span><br><span>${escapeHtml(d.message)}</span>`;
-}
-function clearSyncDiagnostic(){ const el=$('#syncDiagnostic'); if(el){ el.hidden=true; el.textContent=''; } }
 function syncErrorMessage(error){
   const code=String(error?.code||'').replace('firestore/','');
   const message=String(error?.message||'알 수 없는 오류');
@@ -644,10 +633,7 @@ function renderHome(){
   recalculateJaturi();
   standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>누적</td><td>-</td><td>-</td><td class="${state.jaturi.balance<0?'minus':'plus'}">${money(state.jaturi.balance)}</td></tr>`);
   $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
-  const budgetSpentTotal=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES]
-    .filter(c=>!c.startsWith('쇼핑비('))
-    .reduce((sum,c)=>sum+(c==='관리비'?managementFeeResult().actual:catSpent(c)),0)+shoppingSpent;
-  $('#budgetAccSummary').textContent=`사용 ${money(budgetSpentTotal)}`;
+  $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
 
   $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const r=yearExpenseSummary(m); return `<tr><td>${m}월</td><td>${money(r.total)}</td><td>${money(r.jin)}</td><td>${money(r.dah)}</td></tr>`; }).join('');
   $('#expenseAccSummary').textContent=`올해 ${money(Array.from({length:12},(_,i)=>yearExpenseSummary(i+1).total).reduce((a,b)=>a+b,0))}`;
@@ -843,7 +829,6 @@ async function refreshFromFirebase(showDone=true){
   }catch(e){
     console.error('Firebase 새로고침 실패',e);
     setBadge('새로고침 오류','off');
-    showSyncDiagnostic('새로고침 실패',e);
     showToast('새로고침 실패: '+syncErrorMessage(e));
   }finally{
     refreshing=false;
@@ -865,35 +850,12 @@ async function connectFirebase(){
     state.settings.householdId = householdInput || DEFAULT_HOUSEHOLD;
     state.settings.cycleStartDay = cycleInput;
     persistLocal();
-    clearSyncDiagnostic();
     const cfg=parseFirebaseConfig(state.settings.firebaseConfigText || DEFAULT_FIREBASE_CONFIG);
     await initFirebase(cfg);
     ensureAuthObserver();
     const restoredUser = getCurrentUser() || await waitForInitialAuth();
     if(!restoredUser){ firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); return; }
     firebaseReady=true;
-    prepareHousehold(state.settings.householdId);
-    // 연결 버튼을 눌렀을 때 문서 읽기 권한과 네트워크를 먼저 검증합니다.
-    try{
-      const firstRemote=await fetchHousehold();
-      if(firstRemote){
-        const localUi=state.ui;
-        state=mergeRemoteSafely(state,firstRemote);
-        state.ui=localUi||{openAccordions:{}};
-        remoteLoaded=true;
-        persistLocal();
-        render();
-      }else{
-        remoteLoaded=true;
-        await saveHousehold(stripRuntime(state),{skipBackup:true});
-      }
-      markSynced();
-      setBadge('공동 동기화','on');
-    }catch(firstErr){
-      console.error('Firebase 최초 연결 확인 실패',firstErr);
-      showSyncDiagnostic('연결 확인 실패',firstErr);
-      throw firstErr;
-    }
     subscribeHousehold(state.settings.householdId, async remote=>{
       syncingRemote=true;
       try{
@@ -925,10 +887,9 @@ async function connectFirebase(){
     }, err=>{
       console.error('Firebase 실시간 리스너 오류',err);
       setBadge('동기화 오류','off');
-      showSyncDiagnostic('실시간 수신 오류',err);
       showToast('동기화 오류: '+syncErrorMessage(err));
     });
-  } catch(e){ console.error('Firebase 연결 실패',e); firebaseReady=false; remoteLoaded=false; setBadge('연결 실패','off'); showSyncDiagnostic('Firebase 연결 실패',e); showToast('Firebase 연결 실패: '+syncErrorMessage(e)); }
+  } catch(e){ console.error('Firebase 연결 실패',e); firebaseReady=false; remoteLoaded=false; setBadge('연결 실패','off'); showToast('Firebase 연결 실패: '+syncErrorMessage(e)); }
   finally{ connectionInProgress=false; }
 }
 function selectedYearDate(){ const day=Math.min(new Date().getDate(),28); return new Date(selectedYear(), selectedMonth()-1, day); }
@@ -981,18 +942,7 @@ function bindEvents(){
     const memoCell=e.target.closest('[data-fixed-memo-open],[data-money-memo-type]');
     if(memoCell){ openMoneyMemoEditor(memoCell.dataset.moneyMemoType||'fixed', memoCell.dataset.moneyMemoKey ?? memoCell.dataset.fixedMemoOpen); return; }
     const t=e.target.closest('button'); if(!t) return;
-    if(t.dataset.acc){
-      const key=t.dataset.acc;
-      const content=document.getElementById(`acc-${key}`);
-      const open=!(content?.classList.contains('open'));
-      state.ui.openAccordions[key]=open;
-      t.classList.toggle('open',open);
-      t.setAttribute('aria-expanded',String(open));
-      const label=t.querySelector('b'); if(label) label.textContent=open?'닫기':'보기';
-      if(content) content.classList.toggle('open',open);
-      persistLocal();
-      return;
-    }
+    if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
     if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); setExpenseFormOpen(true); window.scrollTo({top:0,behavior:'smooth'}); }}
     if(t.dataset.delExp){ if(confirm('이 지출내역을 삭제하시겠습니까?')){ state.expenses=state.expenses.filter(x=>x.id!==t.dataset.delExp); await persistRemote(); }}
