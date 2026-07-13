@@ -377,3 +377,82 @@
 .fixed-total-row th{background:#eef4ff!important;border-top:2px solid #94a3b8!important;font-weight:900!important;white-space:nowrap}
 .fixed-total-row th:nth-child(n+3){font-size:10px;letter-spacing:-.35px}
 @media(max-width:420px){.fixed-auto-budget{font-size:10px;padding:7px 2px}.fixed-total-row th{padding:7px 2px!important;font-size:9px!important}.fixed-total-row th:nth-child(n+3){font-size:8.5px!important}}
+
+/* v1.5.7 고정지출 표 정렬 · 날짜 입력 폭 · 합계 단순화 */
+#view-fixed .fixed-table-scroll{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden!important;
+}
+#view-fixed .fixed-table{
+  width:100%!important;
+  min-width:0!important;
+  table-layout:fixed!important;
+  border-collapse:collapse;
+}
+#view-fixed .fixed-table .fixed-col-ai{display:none!important}
+#view-fixed .fixed-table .fixed-col-name{width:22%!important}
+#view-fixed .fixed-table .fixed-col-budget{width:15%!important}
+#view-fixed .fixed-table .fixed-col-owner{width:15%!important}
+#view-fixed .fixed-table .fixed-col-manage{width:18%!important}
+#view-fixed .fixed-table th,
+#view-fixed .fixed-table td{
+  height:52px;
+  padding:5px 3px!important;
+  line-height:1.2!important;
+  vertical-align:middle!important;
+  overflow:hidden;
+}
+#view-fixed .fixed-table thead th{height:40px}
+#view-fixed .fixed-table input,
+#view-fixed .fixed-table .fixed-amount-cell,
+#view-fixed .fixed-table .fixed-auto-budget{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  padding:7px 2px!important;
+  font-size:11px!important;
+  line-height:1.15!important;
+  text-align:center!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#view-fixed .fixed-delete-btn{
+  width:auto;
+  min-width:44px;
+  max-width:100%;
+  padding:6px 7px!important;
+  font-size:10px!important;
+  line-height:1!important;
+  white-space:nowrap;
+}
+#view-fixed .fixed-total-row th{
+  height:42px;
+  padding:7px 4px!important;
+  font-size:11px!important;
+  letter-spacing:0!important;
+  white-space:nowrap;
+}
+#view-fixed .fixed-total-row th:last-child{font-size:12px!important}
+
+#expenseForm .form-grid,
+#expenseForm label{min-width:0}
+#expenseDate{
+  display:block;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box;
+  -webkit-appearance:none;
+  appearance:none;
+}
+@media(max-width:420px){
+  #view-fixed .fixed-table .fixed-col-name{width:22%!important}
+  #view-fixed .fixed-table .fixed-col-budget{width:15%!important}
+  #view-fixed .fixed-table .fixed-col-owner{width:15%!important}
+  #view-fixed .fixed-table .fixed-col-manage{width:18%!important}
+  #view-fixed .fixed-table th,#view-fixed .fixed-table td{height:48px;padding:4px 2px!important;font-size:10px!important}
+  #view-fixed .fixed-table input,#view-fixed .fixed-table .fixed-amount-cell,#view-fixed .fixed-table .fixed-auto-budget{font-size:10px!important;padding:6px 1px!important}
+  #view-fixed .fixed-delete-btn{min-width:40px;padding:6px 5px!important;font-size:9.5px!important}
+}
