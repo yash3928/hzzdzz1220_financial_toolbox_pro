@@ -414,12 +414,12 @@ function recalculateJaturi(){
     running+=difference;
     const income=num(state.salary?.jinhyuk?.[key])+dahyeNetForYearMonth(y,m);
     const fixed=fixedTotal(key);
-    const loanInterest=loanInterestForKey(key);
+    const loanPayment=loanPaymentForKey(key);
     const foodSpent=foodSpentForKey(key);
-    const investmentFund=income-fixed-loanInterest-foodSpent;
+    const investmentFund=income-fixed-loanPayment-foodSpent;
     const transferred=Math.max(0,investmentFund);
     transfers[key]=transferred;
-    settlements[key]={income,fixed,loanInterest,foodSpent,investmentFund,surplus:investmentFund,transferred,managementBudget:management.budget,managementActual:management.actual,managementDifference:difference,jaturiBalance:running};
+    settlements[key]={income,fixed,loanPayment,loanInterest:loanPayment,foodSpent,investmentFund,surplus:investmentFund,transferred,managementBudget:management.budget,managementActual:management.actual,managementDifference:difference,jaturiBalance:running};
   });
   state.jaturi.settlements=settlements;
   state.jaturi.history=Object.entries(settlements).filter(([,v])=>num(v.managementDifference)!==0).map(([key,v])=>({key,amount:num(v.managementDifference),memo:num(v.managementDifference)>0?'관리비 잉여액 적립':'관리비 초과분 차감'}));
@@ -516,6 +516,10 @@ function loanInterestForKey(key=getPeriod().key){
   const row=buildLoanSchedule().find(r=>loanDateKey(r.date)===key);
   return num(row?.interest);
 }
+function loanPaymentForKey(key=getPeriod().key){
+  const row=buildLoanSchedule().find(r=>loanDateKey(r.date)===key);
+  return num(row?.payment);
+}
 function foodSpentForKey(key=getPeriod().key){
   const [year,month]=String(key).split('-').map(Number);
   if(!year||!month) return 0;
@@ -583,9 +587,11 @@ function renderHome(){
   $('#loanHomeSummary').textContent=loanRow?money(loanRow.payment):money(selectedLoanBalance);
 
   const j=currentJinhyukSalary(), d=currentDahyeSalary(), income=j+d, fixed=fixedTotal(), spent=totalBudgetSpent();
-  const loanInterest=loanInterestForKey(), foodSpent=catSpent('식비'), investmentFund=income-fixed-loanInterest-foodSpent;
+  const loanPayment=loanPaymentForKey(), foodSpent=catSpent('식비'), investmentFund=income-fixed-loanPayment-foodSpent;
   $('#homeJinhyukSalary').textContent=money(j); $('#homeDahyeSalary').textContent=money(d); $('#homeIncome').textContent=money(income); $('#homeFixed').textContent=money(fixed);
-  const loanFundEl=$('#homeLoanInterestForFund'); if(loanFundEl) loanFundEl.textContent=money(loanInterest);
+  const fixedLabel=$('#homeFixedLabel'); if(fixedLabel) fixedLabel.textContent=`${selectedMonth()}월 고정지출`;
+  const loanLabel=$('#homeLoanPaymentForFundLabel'); if(loanLabel) loanLabel.textContent=`${selectedMonth()}월 대출 납부금`;
+  const loanFundEl=$('#homeLoanInterestForFund'); if(loanFundEl) loanFundEl.textContent=money(loanPayment);
   const foodFundEl=$('#homeFoodSpentForFund'); if(foodFundEl) foodFundEl.textContent=money(foodSpent);
   $('#homeSurplus').textContent=money(investmentFund); $('#homeSurplus').className=investmentFund>=0?'plus':'minus';
   $('#incomeAccSummary').textContent=`투자자금 ${money(investmentFund)}`;

@@ -542,3 +542,65 @@
   .fixed-ai-detail-card li{grid-template-columns:auto minmax(0,1fr)}
   .fixed-ai-detail-card li strong{grid-column:2;justify-self:end}
 }
+
+
+/* v1.6.1 메모 분석 모바일 레이아웃 안정화 */
+#fixedAiSummary.fixed-ai-summary{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow:visible!important;
+  padding:0 12px 14px!important;
+}
+#fixedAiSummary > .fixed-ai-category-list,
+#fixedAiSummary > .fixed-ai-detail-list{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  align-items:stretch!important;
+  justify-content:stretch!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+#fixedAiSummary .fixed-ai-detail-card{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+  overflow:visible!important;
+}
+#fixedAiSummary .fixed-ai-detail-card header{
+  display:flex!important;
+  width:100%!important;
+  min-width:0!important;
+}
+#fixedAiSummary .fixed-ai-detail-card header > div{
+  display:grid!important;
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+#fixedAiSummary .fixed-ai-detail-card p,
+#fixedAiSummary .fixed-ai-detail-card li,
+#fixedAiSummary .fixed-ai-detail-card li span{
+  writing-mode:horizontal-tb!important;
+  word-break:keep-all!important;
+  overflow-wrap:anywhere!important;
+  white-space:normal!important;
+}
+@media(max-width:420px){
+  #fixedAiSummary{padding-left:10px!important;padding-right:10px!important}
+  #fixedAiSummary .fixed-ai-detail-card{padding:12px!important}
+  #fixedAiSummary .fixed-ai-detail-card header{align-items:flex-start!important;flex-wrap:wrap!important}
+  #fixedAiSummary .fixed-ai-detail-card header>strong{margin-left:auto!important}
+  #fixedAiSummary .fixed-ai-detail-card li{
+    display:grid!important;
+    grid-template-columns:auto minmax(0,1fr)!important;
+    width:100%!important;
+  }
+  #fixedAiSummary .fixed-ai-detail-card li strong{grid-column:2!important;justify-self:start!important}
+}
