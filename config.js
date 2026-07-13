@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.6.18';
+export const APP_VERSION = '1.6.19';
 export const SCHEMA_VERSION = 2;
 export const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 export const MONTHLY_CATEGORIES = ['식비','관리비'];
@@ -7,6 +7,7 @@ export const EXPENSE_CATEGORIES = ['식비','생필품','비상금','쇼핑비',
 export const PURPOSE_ASSETS = ['연금','청약','코인','기타'];
 export const DEFAULT_RATES = {weekday:77330, holiday:284470, sunday:163640, monThu:10000, friday:20000};
 export const DEFAULT_TAX = {
+  pensionAmount:0,
   pensionRate:4.75,
   taxHealthRate:3.595,
   taxCareRate:13.14,
