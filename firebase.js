@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import { getFirestore, doc, onSnapshot, setDoc, getDoc, serverTimestamp, collection, addDoc, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, serverTimestamp, collection, runTransaction, addDoc, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 
 let app = null;
@@ -104,24 +104,22 @@ async function saveCloudBackup(existing){
     const backupsRef = collection(activeRef, 'backups');
     const clean = JSON.parse(JSON.stringify(existing));
     delete clean.updatedAt;
-    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.4.24' });
+    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.5.0' });
   }catch(e){ console.warn('클라우드 자동 백업 실패', e); }
 }
 
 export async function saveHousehold(data, options = {}){
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
-  const existingSnap = await getDoc(activeRef);
-  const existing = existingSnap.exists() ? existingSnap.data() : {};
-  if(existingSnap.exists() && !options.skipBackup) await saveCloudBackup(existing);
-  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.4.24', schemaVersion:1};
-
-  // forceRestore일 때만 백업 파일 내용으로 덮어씁니다.
-  // 일반 저장/업데이트에서는 빈 기본값이 기존 Firebase 데이터를 덮지 못하도록 전역 보호합니다.
-  if(!options.forceRestore){
-    payload = deepPreserve(existing, payload);
-  }
-
-  await setDoc(activeRef, payload, {merge:true});
+  let backupData=null;
+  await runTransaction(db, async transaction=>{
+    const existingSnap=await transaction.get(activeRef);
+    const existing=existingSnap.exists()?existingSnap.data():{};
+    backupData=existingSnap.exists()?existing:null;
+    let payload={...data,updatedAt:serverTimestamp(),appVersion:'1.5.0',schemaVersion:2};
+    if(!options.forceRestore) payload=deepPreserve(existing,payload);
+    transaction.set(activeRef,payload,{merge:true});
+  });
+  if(backupData && !options.skipBackup) await saveCloudBackup(backupData);
 }
 
 export async function fetchHousehold(){
