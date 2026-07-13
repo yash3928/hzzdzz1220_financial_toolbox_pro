@@ -110,7 +110,9 @@
               <tr><th>다혜 월급</th><td id="homeDahyeSalary">0원</td></tr>
               <tr><th>총 수입</th><td id="homeIncome">0원</td></tr>
               <tr><th>월별 고정지출</th><td id="homeFixed">0원</td></tr>
-              <tr class="strong"><th>잉여자금</th><td id="homeSurplus">0원</td></tr>
+              <tr><th>월별 대출 이자</th><td id="homeLoanInterestForFund">0원</td></tr>
+              <tr><th>식비 지출액</th><td id="homeFoodSpentForFund">0원</td></tr>
+              <tr class="strong"><th>투자자금</th><td id="homeSurplus">0원</td></tr>
             </tbody></table>
           </div>
         </section>
@@ -145,8 +147,8 @@
         <section class="accordion-card excel-panel">
           <button class="accordion-toggle" data-acc="budgetSettings"><span>📊 월별 / 연도별 예산 설정</span><b>보기</b></button>
           <div class="accordion-content" id="acc-budgetSettings">
-            <p class="hint budget-hint">식비는 월별, 나머지는 연도별 기준으로 관리합니다.</p>
-            <div id="jaturiSummary" class="jaturi-box"><span>🐷 자투리 통장</span><strong>0원</strong></div><div class="table-scroll"><table class="excel-table input-table" id="budgetInputTable"><thead><tr><th>분류</th><th>구분</th><th>현재 예산</th><th>추가</th></tr></thead><tbody></tbody></table></div>
+            <p class="hint budget-hint">식비와 관리비는 월별, 나머지는 연도별 기준으로 관리합니다.</p>
+            <div class="table-scroll"><table class="excel-table input-table" id="budgetInputTable"><thead><tr><th>분류</th><th>구분</th><th>현재 예산</th><th>추가</th></tr></thead><tbody></tbody></table></div>
             <button id="saveBudgetBtn" class="primary wide">예산 저장</button>
           </div>
         </section>

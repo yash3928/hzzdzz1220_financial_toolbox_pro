@@ -507,3 +507,38 @@
 .fixed-ai-detail-card p{margin:7px 0 8px;line-height:1.55;font-size:13px;color:#334155}
 .fixed-ai-detail-card ul{list-style:none;padding:0;margin:0;display:grid;gap:6px}.fixed-ai-detail-card li{display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;padding:8px 9px;border-radius:9px;background:#f8fafc;font-size:12px}.fixed-ai-detail-card li b{white-space:nowrap}.fixed-ai-detail-card li span{min-width:0;overflow-wrap:anywhere}.fixed-ai-detail-card li strong{white-space:nowrap}
 .fixed-ai-empty{padding:8px 9px;border-radius:9px;background:#f8fafc;color:var(--muted);font-size:12px}
+
+/* v1.6.0 요청사항: 메모 기반 분석 내용이 길어져도 잘리지 않게 표시 */
+#acc-fixedAi,
+#fixedAiSummary,
+.fixed-ai-summary,
+.fixed-ai-detail-list,
+.fixed-ai-detail-card{
+  max-height:none!important;
+  height:auto!important;
+  overflow:visible!important;
+  min-width:0!important;
+}
+.fixed-ai-detail-card,
+.fixed-ai-detail-card header,
+.fixed-ai-detail-card header div,
+.fixed-ai-detail-card p,
+.fixed-ai-detail-card ul,
+.fixed-ai-detail-card li,
+.fixed-ai-detail-card li span{
+  min-width:0!important;
+  max-width:100%!important;
+}
+.fixed-ai-detail-card p,
+.fixed-ai-detail-card li span{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}
+@media(max-width:420px){
+  .fixed-ai-detail-card header{flex-wrap:wrap}
+  .fixed-ai-detail-card li{grid-template-columns:auto minmax(0,1fr)}
+  .fixed-ai-detail-card li strong{grid-column:2;justify-self:end}
+}

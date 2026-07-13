@@ -1,7 +1,7 @@
-export const APP_VERSION = '1.5.9';
+export const APP_VERSION = '1.6.0';
 export const SCHEMA_VERSION = 2;
 export const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
-export const MONTHLY_CATEGORIES = ['식비'];
+export const MONTHLY_CATEGORIES = ['식비','관리비'];
 export const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비(진혁)','쇼핑비(다혜)','가족','경조사비','육아'];
 export const EXPENSE_CATEGORIES = ['식비','생필품','비상금','쇼핑비','가족','경조사비','육아'];
 export const PURPOSE_ASSETS = ['연금','청약','코인','기타'];
