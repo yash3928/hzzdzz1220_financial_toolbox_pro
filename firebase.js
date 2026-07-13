@@ -83,33 +83,41 @@ function hasMeaningfulValue(v){
   if(typeof v === 'string') return v.trim() !== '';
   return v !== null && v !== undefined;
 }
-function cleanForFirestore(value){
-  // undefined, 함수, DOM 객체 등 Firestore가 저장할 수 없는 값을 제거합니다.
-  return JSON.parse(JSON.stringify(value ?? {}));
+function deepPreserve(existing, incoming){
+  if(Array.isArray(incoming)){
+    // 배열은 사용자가 항목을 삭제한 결과일 수 있으므로 빈 배열도 그대로 저장합니다.
+    // 기존 로직은 마지막 지출을 삭제했을 때 Firebase의 이전 배열을 되살리는 문제가 있었습니다.
+    return incoming;
+  }
+  if(isPlainObject(incoming)){
+    if(isPlainObject(existing) && !hasMeaningfulValue(incoming) && hasMeaningfulValue(existing)) return existing;
+    const out = {...(isPlainObject(existing) ? existing : {})};
+    for(const [k,v] of Object.entries(incoming)) out[k] = deepPreserve(existing?.[k], v);
+    return out;
+  }
+  return incoming;
 }
 
 async function saveCloudBackup(existing){
   if(!activeRef || !existing || !hasMeaningfulValue(existing)) return;
   try{
     const backupsRef = collection(activeRef, 'backups');
-    const clean = cleanForFirestore(existing);
+    const clean = JSON.parse(JSON.stringify(existing));
     delete clean.updatedAt;
-    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.6.1' });
+    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.5.9' });
   }catch(e){ console.warn('클라우드 자동 백업 실패', e); }
 }
 
 export async function saveHousehold(data, options = {}){
-  if(!db) throw new Error('Firebase가 초기화되지 않았습니다.');
   if(!activeRef) throw new Error('동기화 문서가 연결되지 않았습니다.');
-  const clean=cleanForFirestore(data);
   let backupData=null;
   await runTransaction(db, async transaction=>{
     const existingSnap=await transaction.get(activeRef);
-    backupData=existingSnap.exists()?existingSnap.data():null;
-    const payload={...clean,updatedAt:serverTimestamp(),appVersion:'1.6.1',schemaVersion:3};
-    // 앱은 하나의 가계부 문서를 전체 상태로 관리합니다. merge:true를 사용하면
-    // 삭제된 필드와 빈 배열이 서버에 남아 다시 복원될 수 있으므로 완전 교체합니다.
-    transaction.set(activeRef,payload);
+    const existing=existingSnap.exists()?existingSnap.data():{};
+    backupData=existingSnap.exists()?existing:null;
+    let payload={...data,updatedAt:serverTimestamp(),appVersion:'1.5.9',schemaVersion:2};
+    if(!options.forceRestore) payload=deepPreserve(existing,payload);
+    transaction.set(activeRef,payload,{merge:true});
   });
   if(backupData && !options.skipBackup) await saveCloudBackup(backupData);
 }

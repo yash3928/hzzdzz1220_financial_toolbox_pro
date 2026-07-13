@@ -507,19 +507,3 @@
 .fixed-ai-detail-card p{margin:7px 0 8px;line-height:1.55;font-size:13px;color:#334155}
 .fixed-ai-detail-card ul{list-style:none;padding:0;margin:0;display:grid;gap:6px}.fixed-ai-detail-card li{display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;padding:8px 9px;border-radius:9px;background:#f8fafc;font-size:12px}.fixed-ai-detail-card li b{white-space:nowrap}.fixed-ai-detail-card li span{min-width:0;overflow-wrap:anywhere}.fixed-ai-detail-card li strong{white-space:nowrap}
 .fixed-ai-empty{padding:8px 9px;border-radius:9px;background:#f8fafc;color:var(--muted);font-size:12px}
-
-
-/* v1.6.0 메모 분석 전체 내용 표시 */
-#acc-fixedAnalysis.open{overflow:visible!important;max-height:none!important;height:auto!important}
-.fixed-ai-summary,.fixed-ai-category-list,.fixed-ai-detail-list,.fixed-ai-detail-card{min-width:0;max-width:100%;overflow:visible!important}
-.fixed-ai-detail-card header{flex-wrap:wrap}
-.fixed-ai-detail-card header>strong{max-width:100%;overflow-wrap:anywhere}
-.fixed-ai-detail-card p{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;display:block!important;max-height:none!important;overflow-wrap:anywhere;word-break:keep-all}
-.fixed-ai-detail-card ul{max-height:none!important;overflow:visible!important}
-.fixed-ai-detail-card li{grid-template-columns:auto minmax(0,1fr) auto;white-space:normal!important;min-width:0}
-.fixed-ai-detail-card li span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;word-break:break-word}
-@media(max-width:420px){
-  .fixed-ai-detail-card{padding:11px}
-  .fixed-ai-detail-card li{grid-template-columns:auto minmax(0,1fr);align-items:start}
-  .fixed-ai-detail-card li strong{grid-column:1/-1;text-align:right}
-}

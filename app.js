@@ -233,30 +233,7 @@ function assetHasValue(a){
 function investHasValue(v){
   return ['domestic','overseas','cma'].some(k=>num(v?.[k]?.amount)!==0 || num(v?.[k]?.rate)!==0);
 }
-function normalizeRemoteDocument(remote){
-  if(!remote || typeof remote!=='object') return null;
-  try{
-    const copy={...remote};
-    // Firestore 서버 Timestamp와 동기화 메타데이터는 앱 상태에 포함하지 않습니다.
-    delete copy.updatedAt;
-    return JSON.parse(JSON.stringify(copy));
-  }catch(err){
-    console.warn('원격 데이터 정규화 실패',err);
-    const copy={...remote};
-    delete copy.updatedAt;
-    return copy;
-  }
-}
-function syncErrorMessage(error){
-  const code=String(error?.code||'').replace('firestore/','');
-  const message=String(error?.message||'알 수 없는 오류');
-  if(code==='permission-denied') return 'Firebase 권한이 거부되었습니다. 로그인 계정과 Firestore 규칙을 확인해 주세요.';
-  if(code==='unavailable') return '네트워크 또는 Firebase 서버 연결이 불안정합니다.';
-  if(code==='unauthenticated') return '로그인이 만료되었습니다. 다시 로그인해 주세요.';
-  return code?`${message} (${code})`:message;
-}
 function mergeRemoteSafely(local,remote){
-  remote=normalizeRemoteDocument(remote)||{};
   const deletedIds=[...new Set([...(local?.fixedDeletedIds||[]),...(remote?.fixedDeletedIds||[])].map(String))];
   const incoming={...local,...remote,fixedDeletedIds:deletedIds,settings:{...local.settings,...(remote?.settings||{})}};
   if(Array.isArray(incoming.fixedMaster)) incoming.fixedMaster=incoming.fixedMaster.filter(it=>!deletedIds.includes(String(it?.id)));
@@ -292,7 +269,7 @@ async function flushRemoteSave(){
     console.error(e);
     remoteSavePending=true;
     setBadge('저장 오류','off');
-    showToast('Firebase 저장 오류: '+syncErrorMessage(e));
+    alert('Firebase 저장 오류: '+e.message);
   } finally {
     remoteSaveRunning=false;
     // 저장 중에 추가 변경이 생겼다면 최신 상태를 한 번 더 전송합니다.
@@ -384,17 +361,15 @@ function fixedMemoInsight(item,key=getPeriod().key){
 }
 function currentFixed(){ return state.fixedMaster||[]; }
 function fixedTotal(key=getPeriod().key){ return (state.fixedMaster||[]).reduce((a,f)=>a+num(fixedMonthValue(f,key).amount),0); }
-function monthlyBudgetValue(category,key=getPeriod().key){
-  const saved=state.monthlyBudgets?.[key];
-  if(saved && Object.prototype.hasOwnProperty.call(saved,category)) return num(saved[category]);
-  return num(state.budgets?.[category]);
-}
 function managementFeeResult(key=getPeriod().key){
   const rows=(state.fixedMaster||[]).filter(f=>String(f.name||'').replace(/\s/g,'').includes('관리비'));
-  const actual=rows.reduce((sum,f)=>sum+num(fixedMonthValue(f,key).amount),0);
-  return {budget:monthlyBudgetValue('관리비',key),actual};
+  return rows.reduce((r,f)=>{ const v=fixedMonthValue(f,key); r.budget+=num(v.budget); r.actual+=num(v.amount); return r; },{budget:0,actual:0});
 }
-function foodBaseBudget(key=getPeriod().key){ return monthlyBudgetValue('식비',key); }
+function foodBaseBudget(key=getPeriod().key){
+  const saved=state.monthlyBudgets?.[key];
+  if(saved && Object.prototype.hasOwnProperty.call(saved,'식비')) return num(saved['식비']);
+  return num(state.budgets['식비']);
+}
 function previousPeriodKey(key){
   const [y,m]=String(key).split('-').map(Number); const d=new Date(y,m-2,1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -436,11 +411,10 @@ function recalculateJaturi(){
     running+=difference;
     const income=num(state.salary?.jinhyuk?.[key])+dahyeNetForYearMonth(y,m);
     const fixed=fixedTotal(key);
-    const funds=investmentFundsForKey(key,income,fixed);
-    const surplus=funds.amount;
+    const surplus=income-fixed;
     const transferred=Math.max(0,surplus);
     transfers[key]=transferred;
-    settlements[key]={income,fixed,loanInterest:funds.loanInterest,foodSpent:funds.foodSpent,surplus,transferred,managementBudget:management.budget,managementActual:management.actual,managementDifference:difference,jaturiBalance:running};
+    settlements[key]={income,fixed,surplus,transferred,managementBudget:management.budget,managementActual:management.actual,managementDifference:difference,jaturiBalance:running};
   });
   state.jaturi.settlements=settlements;
   state.jaturi.history=Object.entries(settlements).filter(([,v])=>num(v.managementDifference)!==0).map(([key,v])=>({key,amount:num(v.managementDifference),memo:num(v.managementDifference)>0?'관리비 잉여액 적립':'관리비 초과분 차감'}));
@@ -533,17 +507,6 @@ function selectedLoanRow(){
   const key=`${selectedYear()}-${String(selectedMonth()).padStart(2,'0')}`;
   return buildLoanSchedule().find(r=>loanDateKey(r.date)===key) || null;
 }
-function loanRowForKey(key){ return buildLoanSchedule().find(r=>loanDateKey(r.date)===key) || null; }
-function foodSpentForKey(key){
-  const [y,m]=String(key).split('-').map(Number);
-  if(!y||!m) return 0;
-  return catSpent('식비',expensesInPeriod(periodForMonth(y,m)));
-}
-function investmentFundsForKey(key,income,fixed){
-  const loanInterest=num(loanRowForKey(key)?.interest);
-  const foodSpent=foodSpentForKey(key);
-  return {loanInterest,foodSpent,amount:income-fixed-loanInterest-foodSpent};
-}
 function loanBalanceForSelectedMonth(){
   const row=selectedLoanRow();
   if(row) return row.balance;
@@ -605,22 +568,12 @@ function renderHome(){
   $('#homeLoanBalance').textContent=money(selectedLoanBalance);
   $('#loanHomeSummary').textContent=loanRow?money(loanRow.payment):money(selectedLoanBalance);
 
-  const j=currentJinhyukSalary(), d=currentDahyeSalary(), income=j+d, fixed=fixedTotal();
-  const funds=investmentFundsForKey(getPeriod().key,income,fixed), surplus=funds.amount;
+  const j=currentJinhyukSalary(), d=currentDahyeSalary(), income=j+d, fixed=fixedTotal(), spent=totalBudgetSpent(), surplus=income-fixed;
   $('#homeJinhyukSalary').textContent=money(j); $('#homeDahyeSalary').textContent=money(d); $('#homeIncome').textContent=money(income); $('#homeFixed').textContent=money(fixed); $('#homeSurplus').textContent=money(surplus); $('#homeSurplus').className=surplus>=0?'plus':'minus';
-  $('#incomeAccSummary').textContent=`투자 ${money(surplus)}`;
-  const incomeTable=$('#homeSurplus')?.closest('tbody');
-  if(incomeTable){
-    let loanTr=$('#homeInvestmentLoanInterestRow'), foodTr=$('#homeInvestmentFoodRow');
-    if(!loanTr){ loanTr=document.createElement('tr'); loanTr.id='homeInvestmentLoanInterestRow'; loanTr.innerHTML='<th>월별 대출 이자</th><td id="homeInvestmentLoanInterest">0원</td>'; incomeTable.insertBefore(loanTr,$('#homeSurplus').closest('tr')); }
-    if(!foodTr){ foodTr=document.createElement('tr'); foodTr.id='homeInvestmentFoodRow'; foodTr.innerHTML='<th>식비 지출액</th><td id="homeInvestmentFood">0원</td>'; incomeTable.insertBefore(foodTr,$('#homeSurplus').closest('tr')); }
-    $('#homeInvestmentLoanInterest').textContent=money(funds.loanInterest);
-    $('#homeInvestmentFood').textContent=money(funds.foodSpent);
-  }
+  $('#incomeAccSummary').textContent=`잉여 ${money(surplus)}`;
 
   const standardBudgetRows=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].filter(c=>!c.startsWith('쇼핑비(')).map(c=>{
-    const b=c==='식비'?effectiveFoodBudget():c==='관리비'?monthlyBudgetValue('관리비'):num(state.budgets[c]);
-    const s=c==='관리비'?managementFeeResult().actual:catSpent(c), bal=b-s;
+    const b=c==='식비'?effectiveFoodBudget():num(state.budgets[c]), s=catSpent(c), bal=b-s;
     return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td>${money(b)}</td><td>${money(s)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`;
   });
   const shoppingJBudget=num(state.budgets['쇼핑비(진혁)']), shoppingDBudget=num(state.budgets['쇼핑비(다혜)']);
@@ -647,7 +600,8 @@ function renderHome(){
 function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); if(EXPENSE_CATEGORIES.includes(selected)) sel.value=selected; const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr><td>${e.date||''}</td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
 function renderBudget(){
   recalculateJaturi();
-  $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=MONTHLY_CATEGORIES.includes(c)?monthlyBudgetValue(c):num(state.budgets[c]); return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${state.budgetMemos?.[c]?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가 금액"></td></tr>`; }).join('');
+  $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=c==='식비'?foodBaseBudget():num(state.budgets[c]); return `<tr><td>${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${state.budgetMemos?.[c]?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가 금액"></td></tr>`; }).join('');
+  const box=$('#jaturiSummary'); if(box) box.innerHTML=`<span>🐷 자투리 통장</span><strong class="${state.jaturi.balance<0?'minus':'plus'}">${money(state.jaturi.balance)}</strong>`;
 }
 function renderFixed(){
   const title=$('#fixedPageTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
@@ -799,42 +753,8 @@ function ensureAuthObserver(){
 function renderSettings(){ $('#firebaseConfigText').value=state.settings.firebaseConfigText||''; $('#householdId').value=state.settings.householdId||DEFAULT_HOUSEHOLD; $('#cycleStartDay').value=state.settings.cycleStartDay||10; renderAuthStatus(); }
 function applyAccordionState(){ $$('.accordion-content').forEach(el=>el.classList.remove('open')); $$('.accordion-toggle').forEach(btn=>btn.classList.remove('open')); Object.entries(state.ui.openAccordions||{}).forEach(([key,open])=>{ const el=$(`#acc-${key}`); const btn=document.querySelector(`[data-acc="${key}"]`); if(el){ el.classList.toggle('open',!!open); } if(btn){ btn.classList.toggle('open',!!open); }}); }
 
-async function refreshFromFirebase(showDone=true){
-  if(refreshing) return;
-  if(!firebaseReady){
-    const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null');
-    if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; await connectFirebase(); return; }
-    showToast('공동 동기화 설정이 필요합니다.'); return;
-  }
-  try{
-    refreshing=true;
-    setBadge('새로고침 중','loading');
-    setPullStatus('동기화 중...');
-    const remote=await fetchHousehold();
-    if(remote){
-      saveRecoverySnapshot('Firebase 새로고침 전');
-      const localUi=state.ui;
-      state=mergeRemoteSafely(state,remote);
-      state.ui=showDone?{openAccordions:{}}:(localUi||{openAccordions:{}});
-      remoteLoaded=true;
-      persistLocal();
-      render();
-    }else{
-      remoteLoaded=true;
-      await saveHousehold(stripRuntime(state),{skipBackup:true});
-    }
-    markSynced();
-    setBadge('공동 동기화','on');
-    if(showDone) showToast('최신 데이터로 업데이트되었습니다.');
-  }catch(e){
-    console.error('Firebase 새로고침 실패',e);
-    setBadge('새로고침 오류','off');
-    showToast('새로고침 실패: '+syncErrorMessage(e));
-  }finally{
-    refreshing=false;
-    resetPullIndicator();
-  }
-}
+async function refreshFromFirebase(showDone=true){ if(refreshing) return; if(!firebaseReady){ const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null'); if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; await connectFirebase(); return; } showToast('공동 동기화 설정이 필요합니다.'); return; } try{ refreshing=true; setBadge('새로고침 중','loading'); setPullStatus('동기화 중...'); const remote=await fetchHousehold(); if(remote){ saveRecoverySnapshot('Firebase 새로고침 전');
+      const localUi=state.ui; state=mergeRemoteSafely(state,remote); state.ui=showDone?{openAccordions:{}}:(localUi||{openAccordions:{}}); remoteLoaded=true; persistLocal(); render(); } markSynced(); setBadge('공동 동기화','on'); if(showDone) showToast('최신 데이터로 업데이트되었습니다.'); } catch(e){ console.error(e); setBadge('새로고침 오류','off'); showToast('새로고침 실패: '+e.message); } finally{ refreshing=false; resetPullIndicator(); } }
 function setPullStatus(text){ const el=$('#pullRefresh'); if(el) el.textContent=text; }
 function resetPullIndicator(){ const el=$('#pullRefresh'); if(!el) return; el.classList.remove('visible','ready','loading'); el.style.transform='translate(-50%, -120%)'; el.textContent='아래로 당겨 새로고침'; }
 function setupPullToRefresh(){ const el=$('#pullRefresh'); if(!el) return; let startY=0, tracking=false, distance=0; const threshold=76; document.addEventListener('touchstart',e=>{ if(window.scrollY<=0&&!refreshing){ startY=e.touches[0].clientY; tracking=true; distance=0; }},{passive:true}); document.addEventListener('touchmove',e=>{ if(!tracking||refreshing) return; distance=e.touches[0].clientY-startY; if(distance<=0) return; if(window.scrollY>0){ tracking=false; return; } const shown=Math.min(distance*0.55,92); el.classList.add('visible'); el.classList.toggle('ready',distance>threshold); el.textContent=distance>threshold?'놓으면 새로고침':'아래로 당겨 새로고침'; el.style.transform=`translate(-50%, ${shown-120}%)`; if(distance>18) e.preventDefault(); },{passive:false}); document.addEventListener('touchend',()=>{ if(!tracking) return; tracking=false; if(distance>threshold){ el.classList.add('loading'); el.textContent='동기화 중...'; el.style.transform='translate(-50%, 8px)'; refreshFromFirebase(true); } else resetPullIndicator(); },{passive:true}); }
@@ -858,38 +778,27 @@ async function connectFirebase(){
     firebaseReady=true;
     subscribeHousehold(state.settings.householdId, async remote=>{
       syncingRemote=true;
-      try{
-        if(remote){
-          saveRecoverySnapshot('Firebase 실시간 반영 전');
-          const localUi=state.ui;
-          state=mergeRemoteSafely(state,remote);
-          applyYearBucket(selectedYear());
-          // 공동동기화는 데이터만 반영하고, 이 기기의 보기 상태는 건드리지 않습니다.
-          state.ui=localUi||{openAccordions:{}};
-          remoteLoaded=true;
-        }else{
-          remoteLoaded=true;
-          await saveHousehold(stripRuntime(state),{skipBackup:true});
-        }
-        persistLocal();
-        render();
-        markSynced();
-        setBadge('공동 동기화','on');
-      }catch(e){
-        console.error('실시간 동기화 데이터 처리 실패',e);
-        setBadge('동기화 오류','off');
-        showToast('동기화 처리 실패: '+syncErrorMessage(e));
-      }finally{
-        syncingRemote=false;
-        // 원격 데이터 수신 도중 사용자가 저장한 변경이 있으면 즉시 이어서 전송합니다.
-        if(remoteSavePending) setTimeout(()=>flushRemoteSave(),0);
+      if(remote){
+        saveRecoverySnapshot('Firebase 새로고침 전');
+      const localUi=state.ui;
+      state=mergeRemoteSafely(state,remote);
+        applyYearBucket(selectedYear());
+        // 공동동기화는 데이터만 반영하고, 이 기기의 보기 상태는 건드리지 않습니다.
+        state.ui=localUi||{openAccordions:{}};
+        remoteLoaded=true;
+      } else {
+        remoteLoaded=true;
+        await saveHousehold(stripRuntime(state));
       }
-    }, err=>{
-      console.error('Firebase 실시간 리스너 오류',err);
-      setBadge('동기화 오류','off');
-      showToast('동기화 오류: '+syncErrorMessage(err));
-    });
-  } catch(e){ console.error('Firebase 연결 실패',e); firebaseReady=false; remoteLoaded=false; setBadge('연결 실패','off'); showToast('Firebase 연결 실패: '+syncErrorMessage(e)); }
+      syncingRemote=false;
+      persistLocal();
+      render();
+      markSynced();
+      setBadge('공동 동기화','on');
+      // 원격 데이터 수신 도중 사용자가 저장한 변경이 있으면 즉시 이어서 전송합니다.
+      if(remoteSavePending) setTimeout(()=>flushRemoteSave(),0);
+    }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
+  } catch(e){ console.error(e); firebaseReady=false; setBadge('연결 실패','off'); alert(e.message); }
   finally{ connectionInProgress=false; }
 }
 function selectedYearDate(){ const day=Math.min(new Date().getDate(),28); return new Date(selectedYear(), selectedMonth()-1, day); }
@@ -906,7 +815,7 @@ function setExpenseFormOpen(open){
 let activeMoneyMemo = null;
 function moneyMemoTarget(type,key){
   if(type==='fixed'){ const [idxRaw,ownerRaw='공동']=String(key).split(':'); const item=currentFixed()[num(idxRaw)]; if(!item) return null; const owner=['공동','진혁','다혜'].includes(ownerRaw)?ownerRaw:'공동'; const pk=getPeriod().key; const v=fixedMonthValue(item,pk); return {title:`${item.name||'고정지출'} · ${owner}`,amount:num(v.amounts?.[owner]),memo:v.memos?.[owner]||'',set:(amount,memo)=>{item.monthly=item.monthly||{}; item.monthly[pk]={...v,amounts:{...v.amounts,[owner]:num(amount)},memos:{...v.memos,[owner]:memo}}; item.category=fixedCategory(item,pk); renderFixed();}}; }
-  if(type==='budget'){ const isMonthly=MONTHLY_CATEGORIES.includes(key); return {title:isMonthly?`${selectedYear()}년 ${selectedMonth()}월 ${key}`:key,amount:isMonthly?monthlyBudgetValue(key):num(state.budgets[key]),memo:state.budgetMemos?.[key]||'',set:(amount,memo)=>{ if(isMonthly){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),[key]:amount}; } else state.budgets[key]=amount; state.budgetMemos[key]=memo; renderBudget();}}; }
+  if(type==='budget'){ const isFood=key==='식비'; return {title:isFood?`${selectedYear()}년 ${selectedMonth()}월 식비`:key,amount:isFood?foodBaseBudget():num(state.budgets[key]),memo:state.budgetMemos?.[key]||'',set:(amount,memo)=>{ if(isFood){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),'식비':amount}; } else state.budgets[key]=amount; state.budgetMemos[key]=memo; renderBudget();}}; }
   if(type==='cash'){ const item=state.assets.cashItems[num(key)]; return item&&{title:item.name||'현금',amount:num(item.amount),memo:item.memo||'',set:(amount,memo)=>{item.amount=amount;item.memo=memo;renderAssets();}}; }
   if(type==='purpose'){ return {title:key,amount:num(state.assets.purpose[key]),memo:state.assets.purposeMemos?.[key]||'',set:(amount,memo)=>{state.assets.purpose[key]=amount;state.assets.purposeMemos[key]=memo;renderAssets();}}; }
   if(type==='invest'){ const item=state.investmentSummary[key]; const names={domestic:'국내주식',overseas:'해외주식',cma:'CMA'}; return item&&{title:names[key]||key,amount:key==='cma'?cmaAmountForPeriod():num(item.amount),memo:item.memo||'',set:(amount,memo)=>{ if(key==='cma'){ item.manualAmount=num(amount)-cmaAutoAmountForPeriod(); item.amount=num(item.manualAmount)+Object.values(state.cmaAuto?.transfers||{}).reduce((a,v)=>a+num(v),0); } else item.amount=amount; item.memo=memo; renderInvest();}}; }
@@ -955,7 +864,7 @@ function bindEvents(){
   $('#expenseDate').value=ymd(selectedYearDate());
   $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(false); await persistRemote(); });
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
-  $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget-add]').forEach(inp=>{ const c=inp.dataset.budgetAdd, add=num(inp.value); if(!add) return; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),[c]:monthlyBudgetValue(c,pk)+add}; } else state.budgets[c]=num(state.budgets[c])+add; inp.value=''; }); recalculateJaturi(); await persistRemote(); showToast('예산을 저장하고 추가 금액을 반영했습니다.'); });
+  $('#saveBudgetBtn').addEventListener('click', async()=>{ $$('[data-budget-add]').forEach(inp=>{ const c=inp.dataset.budgetAdd, add=num(inp.value); if(!add) return; if(c==='식비'){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),'식비':foodBaseBudget(pk)+add}; } else state.budgets[c]=num(state.budgets[c])+add; inp.value=''; }); recalculateJaturi(); await persistRemote(); showToast('예산을 저장하고 추가 금액을 반영했습니다.'); });
   $('#fixedList').addEventListener('input', e=>{ const pk=getPeriod().key, i=num(e.target.dataset.fixedName); const item=state.fixedMaster[i]; if(!item) return; if(e.target.dataset.fixedName!==undefined){ item.name=e.target.value; item.category=fixedCategory(item,pk); } item.updatedAt=new Date().toISOString(); });
   $('#saveFixedBtn')?.addEventListener('click', async()=>{ state.fixedMaster.forEach(f=>f.category=fixedCategory(f,getPeriod().key)); recalculateJaturi(); await persistRemote(); showToast('고정지출과 자동 분류를 저장했습니다.'); });
   $('#fixedMemoSave')?.addEventListener('click', saveFixedMemoEditor);
