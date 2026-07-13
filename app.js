@@ -32,6 +32,7 @@ function defaultState(){
     expenses: [],
     fixedMaster: [],
     fixedDeletedIds: [],
+    otherAssetDeletedIds: [],
     fixedByMonth: {},
     salary: { jinhyuk: {}, dahye: { base:0, rates:{...DEFAULT_RATES}, tax:{...DEFAULT_TAX}, months:{} } },
     assets: { cashItems: [], purposeItems: [] },
@@ -64,6 +65,7 @@ function mergeDefaults(data){
   const hasFixedMasterField = Array.isArray(d.fixedMaster);
   merged.fixedMaster = hasFixedMasterField ? d.fixedMaster : [];
   merged.fixedDeletedIds = Array.isArray(d.fixedDeletedIds) ? [...new Set(d.fixedDeletedIds.map(String))] : [];
+  merged.otherAssetDeletedIds = Array.isArray(d.otherAssetDeletedIds) ? [...new Set(d.otherAssetDeletedIds.map(String))] : [];
   // fixedMaster 필드가 아예 없는 구버전만 월별 자료에서 이전합니다.
   // 사용자가 모든 항목을 삭제해 빈 배열이 된 경우에는 다시 복원하지 않습니다.
   if(!hasFixedMasterField){
@@ -86,6 +88,7 @@ function mergeDefaults(data){
   merged.salary.dahye.months = {...base.salary.dahye.months, ...(d.salary?.dahye?.months||{})};
   merged.investments = Array.isArray(d.investments) ? d.investments : [];
   merged.assets = migrateAssets(d.assets || {});
+  merged.assets.purposeItems = (merged.assets.purposeItems||[]).filter(it=>!merged.otherAssetDeletedIds.includes(String(it?.id)));
   merged.investmentSummary = migrateInvestSummary(d.investmentSummary, merged.investments, d.assets || {});
   merged.jaturi = {...base.jaturi, ...(d.jaturi||{})};
   // 구버전에서 계산된 balance 값을 기초잔액으로 다시 더하지 않습니다.
@@ -255,9 +258,10 @@ function investHasValue(v){
 }
 function mergeRemoteSafely(local,remote){
   const deletedIds=[...new Set([...(local?.fixedDeletedIds||[]),...(remote?.fixedDeletedIds||[])].map(String))];
+  const otherAssetDeletedIds=[...new Set([...(local?.otherAssetDeletedIds||[]),...(remote?.otherAssetDeletedIds||[])].map(String))];
   const localBudgetRevision=num(local?.budgetRevision);
   const remoteBudgetRevision=num(remote?.budgetRevision);
-  const incoming={...local,...remote,fixedDeletedIds:deletedIds,settings:{...local.settings,...(remote?.settings||{})}};
+  const incoming={...local,...remote,fixedDeletedIds:deletedIds,otherAssetDeletedIds,settings:{...local.settings,...(remote?.settings||{})}};
 
   // 예산은 0원도 유효한 삭제 결과입니다. 저장 직후 이전 Firebase 스냅샷이 도착해
   // 방금 저장한 0원을 되살리지 않도록 수정 시각(증가 번호)이 더 최신인 쪽을 통째로 사용합니다.
@@ -270,6 +274,7 @@ function mergeRemoteSafely(local,remote){
   }
 
   if(Array.isArray(incoming.fixedMaster)) incoming.fixedMaster=incoming.fixedMaster.filter(it=>!deletedIds.includes(String(it?.id)));
+  if(incoming.assets && Array.isArray(incoming.assets.purposeItems)) incoming.assets.purposeItems=incoming.assets.purposeItems.filter(it=>!otherAssetDeletedIds.includes(String(it?.id)));
   // 구버전/빈 Firebase 값이 기입된 자산을 지우는 것을 방지합니다.
   if(assetHasValue(local?.assets) && !assetHasValue(remote?.assets)) incoming.assets=local.assets;
   if(investHasValue(local?.investmentSummary) && !investHasValue(remote?.investmentSummary)) incoming.investmentSummary=local.investmentSummary;
@@ -1116,7 +1121,13 @@ function bindEvents(){
     if(del){
       const i=num(del.dataset.purposeDel), item=state.assets.purposeItems?.[i]; if(!item) return;
       if(!confirm(`“${item.name||'기타 자산'}” 항목을 삭제하시겠습니까?`)) return;
-      state.assets.purposeItems.splice(i,1); renderAssets(); await persistRemote();
+      state.otherAssetDeletedIds=state.otherAssetDeletedIds||[];
+      if(item.id && !state.otherAssetDeletedIds.includes(String(item.id))) state.otherAssetDeletedIds.push(String(item.id));
+      state.assets.purposeItems.splice(i,1);
+      persistLocal();
+      renderAssets();
+      await persistRemote();
+      showToast('기타 자산 항목을 삭제했습니다.');
     }
   });
   $('#investmentTable').addEventListener('input', e=>{ const key=e.target.dataset.investRate; if(key!==undefined){ state.investmentSummary[key].rate=num(e.target.value); const avg=$('#investmentAverageRate'); if(avg) avg.textContent=investmentAverageRate().toFixed(2)+'%'; } });
