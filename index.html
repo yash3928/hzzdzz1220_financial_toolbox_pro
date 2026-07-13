@@ -154,16 +154,20 @@
 
 
       <section id="view-fixed" class="view">
-        <section class="panel fixed-page-panel">
-          <div class="section-title"><span id="fixedPageTitle">💸 월별 고정지출</span></div>
-          <p class="hint padded">항목과 사용자는 모든 달에 고정됩니다. 달마다 예산과 실제 금액만 다르게 입력할 수 있습니다. 관리비 예산과 실제 금액의 차이는 자투리 통장에 반영됩니다.</p>
-          <div id="fixedList"></div>
-          <div class="fixed-actions"><button id="addFixedBtn" class="ghost">+ 항목 추가</button><button id="saveFixedBtn" class="primary">고정지출 저장</button></div>
+        <section class="accordion-card fixed-page-panel">
+          <button class="accordion-toggle" data-acc="fixedExpenses"><span id="fixedPageTitle">💸 월별 고정지출</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-fixedExpenses">
+            <p class="hint padded fixed-guide">항목은 모든 달에 유지됩니다. 공동·진혁·다혜 금액을 각각 입력하고, 금액을 누르면 사용자별 메모를 작성할 수 있습니다.</p>
+            <div id="fixedList"></div>
+            <div class="fixed-actions"><button id="addFixedBtn" class="ghost">+ 항목 추가</button><button id="saveFixedBtn" class="primary">고정지출 저장</button></div>
+          </div>
         </section>
-        <section class="panel">
-          <div class="section-title"><span>🤖 자동 분류 요약</span></div>
-          <p id="managementSummary" class="hint padded"></p>
-          <div id="fixedAiSummary" class="fixed-ai-summary"></div>
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="fixedAnalysis"><span>🤖 메모 기반 자동 분석</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-fixedAnalysis">
+            <p id="managementSummary" class="hint padded fixed-guide"></p>
+            <div id="fixedAiSummary" class="fixed-ai-summary"></div>
+          </div>
         </section>
       </section>
 
