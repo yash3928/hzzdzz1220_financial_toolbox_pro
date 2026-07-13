@@ -624,3 +624,27 @@
   #budgetInputTable input{font-size:10px;padding:6px 0;}
   #budgetInputTable input::placeholder{font-size:9px;}
 }
+
+
+/* v1.6.11 고정지출 세부 분류: 중복 요약 카드 제거 및 메모 항목 자동 정리 */
+#fixedAiSummary.fixed-ai-summary{padding:0 18px 16px!important}
+.fixed-detail-section{padding:15px 0;border-bottom:1px solid var(--line)}
+.fixed-detail-section:last-child{border-bottom:0}
+.fixed-detail-section>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}
+.fixed-detail-section h3{margin:0;font-size:17px;line-height:1.35}
+.fixed-detail-section>header>strong{white-space:nowrap;font-size:16px}
+.fixed-detail-owner{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:start;padding:7px 0}
+.fixed-detail-owner>b{padding-top:2px;font-size:13px;color:#334155}
+.fixed-detail-owner ol{margin:0;padding-left:22px;display:grid;gap:7px;min-width:0}
+.fixed-detail-owner li{padding-left:2px;min-width:0}
+.fixed-detail-owner li::marker{font-weight:800}
+.fixed-detail-owner li span{overflow-wrap:anywhere;word-break:break-word}
+.fixed-detail-owner li strong{float:right;margin-left:10px;white-space:nowrap}
+.fixed-detail-raw{margin:0;line-height:1.65;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:420px){
+  #fixedAiSummary.fixed-ai-summary{padding:0 14px 14px!important}
+  .fixed-detail-section>header{align-items:flex-start}
+  .fixed-detail-owner{grid-template-columns:42px minmax(0,1fr);gap:7px}
+  .fixed-detail-owner li{font-size:13px;line-height:1.55}
+  .fixed-detail-owner li strong{font-size:13px}
+}

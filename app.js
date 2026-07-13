@@ -380,6 +380,32 @@ function fixedMemoInsight(item,key=getPeriod().key){
   const memoLines=memoEntries.map(([owner,memo])=>({owner,memo:String(memo).trim(),amount:num(v.amounts?.[owner])}));
   return {category,people,providers,services,sentence,memoLines,amount:num(v.amount)};
 }
+
+function parseFixedMemoItems(memo=''){
+  const text=String(memo||'').replace(/\r/g,' ').replace(/\n+/g,' ').replace(/\((?:매월\s*)?\d{1,2}일[^)]*\)/g,' ').trim();
+  if(!text) return [];
+  const items=[];
+  const re=/([^0-9]+?)\s*([0-9][0-9,]*)\s*(?:원)?(?=\s|[,/;]|$)/g;
+  let match;
+  while((match=re.exec(text))){
+    const label=String(match[1]||'')
+      .replace(/^[\s,./;:·\-]+|[\s,./;:·\-]+$/g,'')
+      .replace(/\s+/g,' ')
+      .trim();
+    const amount=num(match[2]);
+    if(label && amount>=0) items.push({label,amount});
+  }
+  return items;
+}
+function fixedDetailRows(item,key=getPeriod().key){
+  const v=fixedMonthValue(item,key);
+  return Object.entries(v.memos||{}).flatMap(([owner,memo])=>{
+    const raw=String(memo||'').trim();
+    if(!raw) return [];
+    const parsed=parseFixedMemoItems(raw);
+    return [{owner,raw,items:parsed,amount:num(v.amounts?.[owner])}];
+  });
+}
 function currentFixed(){ return state.fixedMaster||[]; }
 function fixedTotal(key=getPeriod().key){ return (state.fixedMaster||[]).reduce((a,f)=>a+num(fixedMonthValue(f,key).amount),0); }
 function monthlyBudgetValue(category,key=getPeriod().key){
@@ -711,10 +737,17 @@ function renderFixed(){
   const rows=list.map((f,i)=>{ const v=fixedMonthValue(f,key), cat=fixedCategory(f,key); const amountCell=owner=>`<button type="button" class="fixed-amount-cell ${v.memos?.[owner]?'has-memo':''}" data-fixed-memo-open="${i}:${owner}">${comma(v.amounts?.[owner])}</button>`; return `<tr><td class="fixed-col-name"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td class="fixed-col-ai">${escapeHtml(cat)}</td><td class="fixed-col-budget"><span class="fixed-auto-budget">${comma(v.amount)}</span></td><td class="fixed-col-owner">${amountCell('공동')}</td><td class="fixed-col-owner">${amountCell('진혁')}</td><td class="fixed-col-owner">${amountCell('다혜')}</td><td class="fixed-col-manage"><button class="danger small fixed-delete-btn" data-fixed-del="${i}" title="항목 삭제" aria-label="항목 삭제">삭제</button></td></tr>`; }).join('');
   const total=fixedTotal(key);
   $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th class="fixed-col-name">항목</th><th class="fixed-col-ai">AI 분류</th><th class="fixed-col-budget">예산</th><th class="fixed-col-owner">공동</th><th class="fixed-col-owner">진혁</th><th class="fixed-col-owner">다혜</th><th class="fixed-col-manage">삭제</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="muted">고정지출 항목을 추가해주세요.</td></tr>'}</tbody><tfoot><tr class="fixed-total-row"><th colspan="7"><div class="fixed-total-inner"><span>총합계</span><strong>${money(total)}</strong></div></th></tr></tfoot></table></div>`;
-  const groups={}; list.forEach(f=>{ const v=fixedMonthValue(f,key), cat=fixedCategory(f,key); groups[cat]=(groups[cat]||0)+num(v.amount); });
-  const categoryHtml=Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([cat,amount])=>`<div class="fixed-ai-category-row"><span>${escapeHtml(cat)}</span><strong>${money(amount)}</strong></div>`).join('');
-  const detailHtml=list.filter(f=>{ const v=fixedMonthValue(f,key); return num(v.amount)>0 || fixedMemoText(f,key); }).map(f=>{ const insight=fixedMemoInsight(f,key); const tags=[...insight.people,...insight.providers,...insight.services].map(x=>`<span>${escapeHtml(x)}</span>`).join(''); const memoHtml=insight.memoLines.map(x=>`<li><b>${escapeHtml(x.owner)}</b><span>${escapeHtml(x.memo)}</span>${x.amount?`<strong>${money(x.amount)}</strong>`:''}</li>`).join(''); return `<article class="fixed-ai-detail-card"><header><div><b>${escapeHtml(f.name||'이름 없는 항목')}</b><small>${escapeHtml(insight.category)}</small></div><strong>${money(insight.amount)}</strong></header>${tags?`<div class="fixed-ai-tags">${tags}</div>`:''}<p>${escapeHtml(insight.sentence)}</p>${memoHtml?`<ul>${memoHtml}</ul>`:'<div class="fixed-ai-empty">금액을 눌러 메모를 입력하면 세부 분석이 표시됩니다.</div>'}</article>`; }).join('');
-  $('#fixedAiSummary').innerHTML=(categoryHtml||detailHtml)?`<div class="fixed-ai-category-list">${categoryHtml}</div><div class="fixed-ai-detail-list">${detailHtml}</div>`:'<p class="hint">항목명과 금액 메모를 입력하면 사용자·업체·용도를 자동 분석합니다.</p>';
+  const detailHtml=list.filter(f=>fixedMemoText(f,key)).map(f=>{
+    const v=fixedMonthValue(f,key);
+    const ownerSections=fixedDetailRows(f,key).map(row=>{
+      const lines=row.items.length
+        ? `<ol>${row.items.map(x=>`<li><span>${escapeHtml(x.label)}</span><strong>${money(x.amount)}</strong></li>`).join('')}</ol>`
+        : `<p class="fixed-detail-raw">${escapeHtml(row.raw)}</p>`;
+      return `<div class="fixed-detail-owner"><b>${escapeHtml(row.owner)}</b>${lines}</div>`;
+    }).join('');
+    return `<section class="fixed-detail-section"><header><h3>${escapeHtml(f.name||'이름 없는 항목')}</h3><strong>${money(v.amount)}</strong></header>${ownerSections}</section>`;
+  }).join('');
+  $('#fixedAiSummary').innerHTML=detailHtml||'<p class="hint">고정지출 금액을 누르고 메모에 “KT 8,000 실비 5,000”처럼 입력하면 항목별로 정리해서 표시합니다.</p>';
   const mg=managementFeeResult(key); $('#managementSummary').textContent=`관리비 예산 ${money(mg.budget)} · 실제 ${money(mg.actual)} · 자투리 반영 ${money(mg.budget-mg.actual)}`;
 }
 function renderSalary(){
