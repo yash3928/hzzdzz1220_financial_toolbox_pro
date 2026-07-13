@@ -784,7 +784,7 @@ function renderSalary(){
   if(taxTable){
     taxTable.innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
       const c=calcDahyeMonth(m);
-      return `<tr><td>${m}월</td><td><input data-tax-month="${m}" data-tax-key="pensionRate" type="number" step="0.001" value="${c.pensionRate}"></td><td><input data-tax-month="${m}" data-tax-key="taxHealthRate" type="number" step="0.001" value="${c.healthRate}"></td><td><input data-tax-month="${m}" data-tax-key="taxCareRate" type="number" step="0.001" value="${c.careRate}"></td><td><input data-tax-month="${m}" data-tax-key="taxEmploymentRate" type="number" step="0.001" value="${c.employmentRate}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxIncome" type="text" inputmode="numeric" value="${comma(Math.round(c.incomeTax))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxLocal" type="text" inputmode="numeric" value="${comma(Math.round(c.localTax))}"></td><td><input data-money data-tax-month="${m}" data-tax-key="taxOther" type="text" inputmode="numeric" value="${comma(Math.round(c.otherDeduct))}"></td><td>${money(c.deductions)}</td></tr>`;
+      return `<tr><td>${m}월</td><td>${money(c.deductions)}</td></tr>`;
     }).join('');
   }
 

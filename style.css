@@ -648,3 +648,8 @@
   .fixed-detail-owner li{font-size:13px;line-height:1.55}
   .fixed-detail-owner li strong{font-size:13px}
 }
+
+/* v1.6.12 월별 공제표 간소화: 월과 공제합계만 표시 */
+.deduction-summary-table{min-width:0!important;width:100%;table-layout:fixed;}
+.deduction-summary-table th:first-child,.deduction-summary-table td:first-child{width:38%;}
+.deduction-summary-table th:last-child,.deduction-summary-table td:last-child{width:62%;text-align:right;padding-right:18px;}
