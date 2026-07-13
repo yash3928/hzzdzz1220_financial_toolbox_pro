@@ -233,7 +233,30 @@ function assetHasValue(a){
 function investHasValue(v){
   return ['domestic','overseas','cma'].some(k=>num(v?.[k]?.amount)!==0 || num(v?.[k]?.rate)!==0);
 }
+function normalizeRemoteDocument(remote){
+  if(!remote || typeof remote!=='object') return null;
+  try{
+    const copy={...remote};
+    // Firestore 서버 Timestamp와 동기화 메타데이터는 앱 상태에 포함하지 않습니다.
+    delete copy.updatedAt;
+    return JSON.parse(JSON.stringify(copy));
+  }catch(err){
+    console.warn('원격 데이터 정규화 실패',err);
+    const copy={...remote};
+    delete copy.updatedAt;
+    return copy;
+  }
+}
+function syncErrorMessage(error){
+  const code=String(error?.code||'').replace('firestore/','');
+  const message=String(error?.message||'알 수 없는 오류');
+  if(code==='permission-denied') return 'Firebase 권한이 거부되었습니다. 로그인 계정과 Firestore 규칙을 확인해 주세요.';
+  if(code==='unavailable') return '네트워크 또는 Firebase 서버 연결이 불안정합니다.';
+  if(code==='unauthenticated') return '로그인이 만료되었습니다. 다시 로그인해 주세요.';
+  return code?`${message} (${code})`:message;
+}
 function mergeRemoteSafely(local,remote){
+  remote=normalizeRemoteDocument(remote)||{};
   const deletedIds=[...new Set([...(local?.fixedDeletedIds||[]),...(remote?.fixedDeletedIds||[])].map(String))];
   const incoming={...local,...remote,fixedDeletedIds:deletedIds,settings:{...local.settings,...(remote?.settings||{})}};
   if(Array.isArray(incoming.fixedMaster)) incoming.fixedMaster=incoming.fixedMaster.filter(it=>!deletedIds.includes(String(it?.id)));
@@ -269,7 +292,7 @@ async function flushRemoteSave(){
     console.error(e);
     remoteSavePending=true;
     setBadge('저장 오류','off');
-    alert('Firebase 저장 오류: '+e.message);
+    showToast('Firebase 저장 오류: '+syncErrorMessage(e));
   } finally {
     remoteSaveRunning=false;
     // 저장 중에 추가 변경이 생겼다면 최신 상태를 한 번 더 전송합니다.
@@ -776,8 +799,42 @@ function ensureAuthObserver(){
 function renderSettings(){ $('#firebaseConfigText').value=state.settings.firebaseConfigText||''; $('#householdId').value=state.settings.householdId||DEFAULT_HOUSEHOLD; $('#cycleStartDay').value=state.settings.cycleStartDay||10; renderAuthStatus(); }
 function applyAccordionState(){ $$('.accordion-content').forEach(el=>el.classList.remove('open')); $$('.accordion-toggle').forEach(btn=>btn.classList.remove('open')); Object.entries(state.ui.openAccordions||{}).forEach(([key,open])=>{ const el=$(`#acc-${key}`); const btn=document.querySelector(`[data-acc="${key}"]`); if(el){ el.classList.toggle('open',!!open); } if(btn){ btn.classList.toggle('open',!!open); }}); }
 
-async function refreshFromFirebase(showDone=true){ if(refreshing) return; if(!firebaseReady){ const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null'); if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; await connectFirebase(); return; } showToast('공동 동기화 설정이 필요합니다.'); return; } try{ refreshing=true; setBadge('새로고침 중','loading'); setPullStatus('동기화 중...'); const remote=await fetchHousehold(); if(remote){ saveRecoverySnapshot('Firebase 새로고침 전');
-      const localUi=state.ui; state=mergeRemoteSafely(state,remote); state.ui=showDone?{openAccordions:{}}:(localUi||{openAccordions:{}}); remoteLoaded=true; persistLocal(); render(); } markSynced(); setBadge('공동 동기화','on'); if(showDone) showToast('최신 데이터로 업데이트되었습니다.'); } catch(e){ console.error(e); setBadge('새로고침 오류','off'); showToast('새로고침 실패: '+e.message); } finally{ refreshing=false; resetPullIndicator(); } }
+async function refreshFromFirebase(showDone=true){
+  if(refreshing) return;
+  if(!firebaseReady){
+    const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null');
+    if(sync?.firebaseConfigText){ state.settings={...state.settings,...sync}; await connectFirebase(); return; }
+    showToast('공동 동기화 설정이 필요합니다.'); return;
+  }
+  try{
+    refreshing=true;
+    setBadge('새로고침 중','loading');
+    setPullStatus('동기화 중...');
+    const remote=await fetchHousehold();
+    if(remote){
+      saveRecoverySnapshot('Firebase 새로고침 전');
+      const localUi=state.ui;
+      state=mergeRemoteSafely(state,remote);
+      state.ui=showDone?{openAccordions:{}}:(localUi||{openAccordions:{}});
+      remoteLoaded=true;
+      persistLocal();
+      render();
+    }else{
+      remoteLoaded=true;
+      await saveHousehold(stripRuntime(state),{skipBackup:true});
+    }
+    markSynced();
+    setBadge('공동 동기화','on');
+    if(showDone) showToast('최신 데이터로 업데이트되었습니다.');
+  }catch(e){
+    console.error('Firebase 새로고침 실패',e);
+    setBadge('새로고침 오류','off');
+    showToast('새로고침 실패: '+syncErrorMessage(e));
+  }finally{
+    refreshing=false;
+    resetPullIndicator();
+  }
+}
 function setPullStatus(text){ const el=$('#pullRefresh'); if(el) el.textContent=text; }
 function resetPullIndicator(){ const el=$('#pullRefresh'); if(!el) return; el.classList.remove('visible','ready','loading'); el.style.transform='translate(-50%, -120%)'; el.textContent='아래로 당겨 새로고침'; }
 function setupPullToRefresh(){ const el=$('#pullRefresh'); if(!el) return; let startY=0, tracking=false, distance=0; const threshold=76; document.addEventListener('touchstart',e=>{ if(window.scrollY<=0&&!refreshing){ startY=e.touches[0].clientY; tracking=true; distance=0; }},{passive:true}); document.addEventListener('touchmove',e=>{ if(!tracking||refreshing) return; distance=e.touches[0].clientY-startY; if(distance<=0) return; if(window.scrollY>0){ tracking=false; return; } const shown=Math.min(distance*0.55,92); el.classList.add('visible'); el.classList.toggle('ready',distance>threshold); el.textContent=distance>threshold?'놓으면 새로고침':'아래로 당겨 새로고침'; el.style.transform=`translate(-50%, ${shown-120}%)`; if(distance>18) e.preventDefault(); },{passive:false}); document.addEventListener('touchend',()=>{ if(!tracking) return; tracking=false; if(distance>threshold){ el.classList.add('loading'); el.textContent='동기화 중...'; el.style.transform='translate(-50%, 8px)'; refreshFromFirebase(true); } else resetPullIndicator(); },{passive:true}); }
@@ -801,27 +858,38 @@ async function connectFirebase(){
     firebaseReady=true;
     subscribeHousehold(state.settings.householdId, async remote=>{
       syncingRemote=true;
-      if(remote){
-        saveRecoverySnapshot('Firebase 새로고침 전');
-      const localUi=state.ui;
-      state=mergeRemoteSafely(state,remote);
-        applyYearBucket(selectedYear());
-        // 공동동기화는 데이터만 반영하고, 이 기기의 보기 상태는 건드리지 않습니다.
-        state.ui=localUi||{openAccordions:{}};
-        remoteLoaded=true;
-      } else {
-        remoteLoaded=true;
-        await saveHousehold(stripRuntime(state));
+      try{
+        if(remote){
+          saveRecoverySnapshot('Firebase 실시간 반영 전');
+          const localUi=state.ui;
+          state=mergeRemoteSafely(state,remote);
+          applyYearBucket(selectedYear());
+          // 공동동기화는 데이터만 반영하고, 이 기기의 보기 상태는 건드리지 않습니다.
+          state.ui=localUi||{openAccordions:{}};
+          remoteLoaded=true;
+        }else{
+          remoteLoaded=true;
+          await saveHousehold(stripRuntime(state),{skipBackup:true});
+        }
+        persistLocal();
+        render();
+        markSynced();
+        setBadge('공동 동기화','on');
+      }catch(e){
+        console.error('실시간 동기화 데이터 처리 실패',e);
+        setBadge('동기화 오류','off');
+        showToast('동기화 처리 실패: '+syncErrorMessage(e));
+      }finally{
+        syncingRemote=false;
+        // 원격 데이터 수신 도중 사용자가 저장한 변경이 있으면 즉시 이어서 전송합니다.
+        if(remoteSavePending) setTimeout(()=>flushRemoteSave(),0);
       }
-      syncingRemote=false;
-      persistLocal();
-      render();
-      markSynced();
-      setBadge('공동 동기화','on');
-      // 원격 데이터 수신 도중 사용자가 저장한 변경이 있으면 즉시 이어서 전송합니다.
-      if(remoteSavePending) setTimeout(()=>flushRemoteSave(),0);
-    }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
-  } catch(e){ console.error(e); firebaseReady=false; setBadge('연결 실패','off'); alert(e.message); }
+    }, err=>{
+      console.error('Firebase 실시간 리스너 오류',err);
+      setBadge('동기화 오류','off');
+      showToast('동기화 오류: '+syncErrorMessage(err));
+    });
+  } catch(e){ console.error('Firebase 연결 실패',e); firebaseReady=false; remoteLoaded=false; setBadge('연결 실패','off'); showToast('Firebase 연결 실패: '+syncErrorMessage(e)); }
   finally{ connectionInProgress=false; }
 }
 function selectedYearDate(){ const day=Math.min(new Date().getDate(),28); return new Date(selectedYear(), selectedMonth()-1, day); }
