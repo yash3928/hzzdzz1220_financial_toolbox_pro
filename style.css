@@ -710,3 +710,10 @@
 .deduction-summary-table th:nth-child(2),.deduction-summary-table td:nth-child(2){width:40%!important;}
 .deduction-summary-table th:nth-child(3),.deduction-summary-table td:nth-child(3){width:40%!important;}
 .deduction-summary-table input{width:100%;min-width:0;text-align:center;}
+/* v1.6.21 기타 자산 사용자 정의 관리 */
+.purpose-manage-table th:nth-child(1),.purpose-manage-table td:nth-child(1){width:34%}
+.purpose-manage-table th:nth-child(2),.purpose-manage-table td:nth-child(2){width:36%}
+.purpose-manage-table th:nth-child(3),.purpose-manage-table td:nth-child(3){width:30%}
+.asset-manage-actions{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.asset-manage-actions button{min-width:48px;padding:6px 8px!important;font-size:11px!important}
+@media(max-width:420px){.purpose-manage-table th,.purpose-manage-table td{padding:8px 4px}.asset-manage-actions button{min-width:42px;padding:5px 5px!important;font-size:10px!important}}

@@ -3,7 +3,7 @@ import { DEFAULT_FIREBASE_CONFIG } from './firebase-config.js';
 import {
   APP_VERSION, SCHEMA_VERSION, DEFAULT_HOUSEHOLD,
   MONTHLY_CATEGORIES, YEARLY_CATEGORIES, EXPENSE_CATEGORIES,
-  PURPOSE_ASSETS, DEFAULT_RATES, DEFAULT_TAX, DEFAULT_LOAN
+  DEFAULT_RATES, DEFAULT_TAX, DEFAULT_LOAN
 } from './config.js';
 import { $, $$, money, num, comma, moneyInput, ymd, escapeHtml, escapeAttr } from './utils.js';
 import { selectedYear, selectedMonth, saveLocalViewPeriod } from './view-period.js';
@@ -34,7 +34,7 @@ function defaultState(){
     fixedDeletedIds: [],
     fixedByMonth: {},
     salary: { jinhyuk: {}, dahye: { base:0, rates:{...DEFAULT_RATES}, tax:{...DEFAULT_TAX}, months:{} } },
-    assets: { cashItems: [], purpose: Object.fromEntries(PURPOSE_ASSETS.map(c=>[c,0])), purposeMemos: Object.fromEntries(PURPOSE_ASSETS.map(c=>[c,''])) },
+    assets: { cashItems: [], purposeItems: [] },
     investmentSummary: { domestic:{amount:0, rate:0, memo:''}, overseas:{amount:0, rate:0, memo:''}, cma:{amount:0, rate:0, memo:''} },
     investments: [],
     jaturi: { openingBalance:0, balance:0, history:[], settlements:{} },
@@ -133,15 +133,27 @@ function mergeDefaults(data){
   return merged;
 }
 function migrateAssets(oldAssets){
-  const purpose = Object.fromEntries(PURPOSE_ASSETS.map(k=>[k, num(oldAssets?.purpose?.[k] ?? oldAssets?.[k]) ]));
-  const purposeMemos = Object.fromEntries(PURPOSE_ASSETS.map(k=>[k, String(oldAssets?.purposeMemos?.[k]||'')]));
   let cashItems = Array.isArray(oldAssets?.cashItems) ? oldAssets.cashItems : [];
   if(cashItems.length === 0){
     if(num(oldAssets?.['현금'])) cashItems.push({id:crypto.randomUUID(), name:'현금', amount:num(oldAssets['현금'])});
     if(num(oldAssets?.['은행'])) cashItems.push({id:crypto.randomUUID(), name:'은행', amount:num(oldAssets['은행'])});
   }
-  cashItems=cashItems.map(it=>({...it,memo:String(it?.memo||'')}));
-  return {cashItems, purpose, purposeMemos};
+  cashItems=cashItems.map(it=>({id:it?.id||crypto.randomUUID(),name:String(it?.name||''),amount:num(it?.amount),memo:String(it?.memo||'')}));
+
+  // v1.6.21부터 기타 자산은 사용자가 직접 추가하는 배열 구조로 관리합니다.
+  // 기존 연금·청약·코인·기타 값은 금액 또는 메모가 있는 항목만 안전하게 이전합니다.
+  let purposeItems = Array.isArray(oldAssets?.purposeItems) ? oldAssets.purposeItems : [];
+  if(!purposeItems.length){
+    const legacyNames=['연금','청약','코인','기타'];
+    purposeItems=legacyNames.map(name=>({
+      id:crypto.randomUUID(),
+      name,
+      amount:num(oldAssets?.purpose?.[name] ?? oldAssets?.[name]),
+      memo:String(oldAssets?.purposeMemos?.[name]||'')
+    })).filter(it=>it.amount!==0 || it.memo.trim());
+  }
+  purposeItems=purposeItems.map(it=>({id:it?.id||crypto.randomUUID(),name:String(it?.name||''),amount:num(it?.amount),memo:String(it?.memo||'')}));
+  return {cashItems, purposeItems};
 }
 function migrateInvestSummary(existing, investments, oldAssets){
   const summary = {domestic:{amount:0,rate:0}, overseas:{amount:0,rate:0}, cma:{amount:0,rate:0}, ...(existing||{})};
@@ -542,7 +554,7 @@ function totalBudgetSpent(){
     + YEARLY_CATEGORIES.reduce((a,c)=>a+annualCategorySpent(c),0);
 }
 function cashTotal(){ return (state.assets.cashItems||[]).reduce((a,it)=>a+num(it.amount),0); }
-function purposeTotal(){ return Object.values(state.assets.purpose||{}).reduce((a,v)=>a+num(v),0); }
+function purposeTotal(){ return (state.assets.purposeItems||[]).reduce((a,it)=>a+num(it.amount),0); }
 function cmaAmountForPeriod(){
   const cma=state.investmentSummary.cma||{};
   return Object.prototype.hasOwnProperty.call(cma,'manualAmount')?num(cma.manualAmount):num(cma.amount);
@@ -688,7 +700,7 @@ function showToast(message){ const el=$('#toast'); if(!el) return; el.textConten
 function render(){ recalculateJaturi(); $('#periodLabel').textContent=getPeriod().label; const yl=$('#selectedYearLabel'); if(yl) yl.textContent=`${selectedYear()}년`; const ml=$('#selectedMonthLabel'); if(ml) ml.textContent=`${selectedMonth()}월`; const lt=$('#ledgerPeriodTitle'); if(lt) lt.textContent=`📅 ${selectedYear()}년 ${selectedMonth()}월 지출 내역`; renderHome(); renderLedger(); renderBudget(); renderFixed(); renderSalary(); renderAssets(); renderInvest(); renderLoan(); renderSettings(); updateLastSyncLabel(); applyAccordionState(); }
 function renderHome(){
   const assetRows=[
-    ['현금', cashTotal(), true], ['투자금', investAssetTotal(), false], ...PURPOSE_ASSETS.map(k=>[k, state.assets.purpose[k], false])
+    ['현금', cashTotal(), true], ['투자금', investAssetTotal(), false], ...(state.assets.purposeItems||[]).map(it=>[it.name||'기타 자산', num(it.amount), false])
   ];
   $('#assetSummaryGrid').innerHTML=assetRows.map(([k,v,click])=>`<button class="asset-chip ${click?'clickable':''}" ${click?'id="cashChip"':''}><span>${k}</span><strong>${money(v)}</strong></button>`).join('');
   $('#cashDetailHome').innerHTML=(state.assets.cashItems||[]).map(it=>`<div><span>${escapeHtml(it.name||'미입력')}</span><strong>${money(it.amount)}</strong></div>`).join('') || '<p class="hint">현금 세부 분류가 없습니다.</p>';
@@ -834,8 +846,9 @@ function renderAssets(){
   const cashItems=state.assets.cashItems||[];
   const cashRows=cashItems.map((it,i)=>`<tr><td><input placeholder="항목" data-cash-name="${i}" value="${escapeAttr(it.name||'')}"></td><td><button type="button" class="fixed-amount-cell ${it.memo?'has-memo':''}" data-money-memo-type="cash" data-money-memo-key="${i}">${comma(it.amount)}</button></td><td><button class="danger small" data-cash-del="${i}">삭제</button></td></tr>`).join('');
   $('#cashItemList').innerHTML=`<div class="table-scroll asset-table-scroll"><table class="excel-table input-table asset-manage-table cash-manage-table"><thead><tr><th>항목</th><th>금액</th><th>관리</th></tr></thead><tbody>${cashRows||'<tr><td colspan="3" class="muted">현금 세부 분류를 추가해주세요.</td></tr>'}</tbody><tfoot><tr class="asset-total-row"><th>합계</th><th id="cashAssetTotal">${money(cashTotal())}</th><th></th></tr></tfoot></table></div>`;
-  $('#assetInputTable tbody').innerHTML=PURPOSE_ASSETS.map(c=>`<tr><td>${c}</td><td><button type="button" class="fixed-amount-cell ${state.assets.purposeMemos?.[c]?'has-memo':''}" data-money-memo-type="purpose" data-money-memo-key="${escapeAttr(c)}">${comma(state.assets.purpose[c])}</button></td></tr>`).join('');
-  $('#assetInputTable tfoot').innerHTML=`<tr class="asset-total-row"><th>합계</th><th id="purposeAssetTotal">${money(PURPOSE_ASSETS.reduce((sum,c)=>sum+num(state.assets.purpose[c]),0))}</th></tr>`;
+  const purposeItems=state.assets.purposeItems||[];
+  $('#assetInputTable tbody').innerHTML=purposeItems.map((it,i)=>`<tr><td>${escapeHtml(it.name||'')}</td><td><button type="button" class="fixed-amount-cell ${it.memo?'has-memo':''}" data-money-memo-type="purpose" data-money-memo-key="${i}">${comma(it.amount)}</button></td><td><div class="asset-manage-actions"><button type="button" class="ghost small" data-purpose-edit="${i}">수정</button><button type="button" class="danger small" data-purpose-del="${i}">삭제</button></div></td></tr>`).join('') || '<tr><td colspan="3" class="muted">기타 자산 항목을 추가해주세요.</td></tr>';
+  $('#assetInputTable tfoot').innerHTML=`<tr class="asset-total-row"><th>합계</th><th id="purposeAssetTotal">${money(purposeTotal())}</th><th></th></tr>`;
 }
 function investmentAverageRate(){
   const rows=['domestic','overseas'].map(k=>state.investmentSummary[k]).filter(x=>num(x.amount)>0 && num(x.rate)>-100);
@@ -987,7 +1000,7 @@ function moneyMemoTarget(type,key){
   if(type==='fixed'){ const [idxRaw,ownerRaw='공동']=String(key).split(':'); const item=currentFixed()[num(idxRaw)]; if(!item) return null; const owner=['공동','진혁','다혜'].includes(ownerRaw)?ownerRaw:'공동'; const pk=getPeriod().key; const v=fixedMonthValue(item,pk); return {title:`${item.name||'고정지출'} · ${owner}`,amount:num(v.amounts?.[owner]),memo:v.memos?.[owner]||'',set:(amount,memo)=>{item.monthly=item.monthly||{}; item.monthly[pk]={...v,amounts:{...v.amounts,[owner]:num(amount)},memos:{...v.memos,[owner]:memo}}; item.category=fixedCategory(item,pk); renderFixed();}}; }
   if(type==='budget'){ const isMonthly=MONTHLY_CATEGORIES.includes(key); return {title:isMonthly?`${selectedYear()}년 ${selectedMonth()}월 ${key}`:key,amount:isMonthly?monthlyBudgetValue(key):num(state.budgets[key]),memo:state.budgetMemos?.[key]||'',set:(amount,memo)=>{ if(isMonthly){ setMonthlyBudgetForYear(key,amount,selectedYear(),getPeriod().key); } else state.budgets[key]=amount; state.budgetMemos[key]=memo; state.budgetRevision=num(state.budgetRevision)+1; saveActiveYearSnapshot(); recalculateJaturi(); renderBudget(); renderHome();}}; }
   if(type==='cash'){ const item=state.assets.cashItems[num(key)]; return item&&{title:item.name||'현금',amount:num(item.amount),memo:item.memo||'',set:(amount,memo)=>{item.amount=amount;item.memo=memo;renderAssets();}}; }
-  if(type==='purpose'){ return {title:key,amount:num(state.assets.purpose[key]),memo:state.assets.purposeMemos?.[key]||'',set:(amount,memo)=>{state.assets.purpose[key]=amount;state.assets.purposeMemos[key]=memo;renderAssets();}}; }
+  if(type==='purpose'){ const item=state.assets.purposeItems?.[num(key)]; return item&&{title:item.name||'기타 자산',amount:num(item.amount),memo:item.memo||'',set:(amount,memo)=>{item.amount=num(amount);item.memo=String(memo||'');renderAssets();}}; }
   if(type==='invest'){ const item=state.investmentSummary[key]; const names={domestic:'국내주식',overseas:'해외주식',cma:'CMA'}; return item&&{title:names[key]||key,amount:key==='cma'?cmaAmountForPeriod():num(item.amount),memo:item.memo||'',set:(amount,memo)=>{ if(key==='cma'){ item.manualAmount=num(amount); item.amount=num(amount); } else item.amount=amount; item.memo=memo; renderInvest();}}; }
 }
 function openMoneyMemoEditor(type,key){
@@ -1079,7 +1092,31 @@ function bindEvents(){
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ $$('[data-jinhyuk-month]').forEach(inp=>{ state.salary.jinhyuk[inp.dataset.jinhyukMonth]=num(inp.value); }); await persistRemote(); });
   $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={...(d.tax||{}),pensionAmount:num($('#taxPension').value),taxHealthRate:num($('#taxHealth').value),taxCareRate:num($('#taxCare').value),taxEmploymentRate:num($('#taxEmployment').value),incomeTax:num($('#taxIncome').value),taxLocal:num($('#taxLocal').value),otherDeduct:num($('#taxOther').value),vehicleAllowance:num($('#taxVehicle').value),memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); $$('[data-bonus-month]').forEach(inp=>{ const m=inp.dataset.bonusMonth; d.months[m]=d.months[m]||{}; d.months[m].bonus=num(inp.value); }); $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
   $('#saveCashAssetsBtn')?.addEventListener('click', async()=>{ await persistRemote(); showToast('현금 세부분류를 저장했습니다.'); });
-  $('#assetInputTable').addEventListener('input', e=>{ if(e.target.dataset.purposeAsset!==undefined){ state.assets.purpose[e.target.dataset.purposeAsset]=num(e.target.value); const total=$('#purposeAssetTotal'); if(total) total.textContent=money(PURPOSE_ASSETS.reduce((sum,c)=>sum+num(state.assets.purpose[c]),0)); } });
+  $('#addPurposeItemBtn')?.addEventListener('click', ()=>{
+    const name=prompt('추가할 기타 자산 항목명을 입력하세요.','');
+    if(name===null) return;
+    const clean=name.trim();
+    if(!clean){ alert('항목명을 입력해주세요.'); return; }
+    state.assets.purposeItems=state.assets.purposeItems||[];
+    state.assets.purposeItems.push({id:crypto.randomUUID(),name:clean,amount:0,memo:''});
+    renderAssets();
+  });
+  $('#assetInputTable').addEventListener('click', async e=>{
+    const edit=e.target.closest('[data-purpose-edit]');
+    if(edit){
+      const i=num(edit.dataset.purposeEdit), item=state.assets.purposeItems?.[i]; if(!item) return;
+      const name=prompt('기타 자산 항목명을 수정하세요.',item.name||'');
+      if(name===null) return;
+      const clean=name.trim(); if(!clean){ alert('항목명을 입력해주세요.'); return; }
+      item.name=clean; renderAssets(); await persistRemote(); return;
+    }
+    const del=e.target.closest('[data-purpose-del]');
+    if(del){
+      const i=num(del.dataset.purposeDel), item=state.assets.purposeItems?.[i]; if(!item) return;
+      if(!confirm(`“${item.name||'기타 자산'}” 항목을 삭제하시겠습니까?`)) return;
+      state.assets.purposeItems.splice(i,1); renderAssets(); await persistRemote();
+    }
+  });
   $('#investmentTable').addEventListener('input', e=>{ const key=e.target.dataset.investRate; if(key!==undefined){ state.investmentSummary[key].rate=num(e.target.value); const avg=$('#investmentAverageRate'); if(avg) avg.textContent=investmentAverageRate().toFixed(2)+'%'; } });
   $('#saveAssetsBtn').addEventListener('click', async()=>{ await persistRemote(); });
   $('#saveInvestBtn').addEventListener('click', async()=>{ ['domestic','overseas'].forEach(k=>{ state.investmentSummary[k].rate=num($(`[data-invest-rate="${k}"]`)?.value); }); await persistRemote(); });
