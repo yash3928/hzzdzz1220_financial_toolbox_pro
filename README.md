@@ -1,4 +1,4 @@
-# dzzhzz Couple Finance v1.6.3
+# dzzhzz Couple Finance v1.6.4
 
 - iPhone Safari/PWA Firestore 연결 호환성 강화
 - 최초 연결 시 문서 읽기/쓰기 권한을 즉시 검증

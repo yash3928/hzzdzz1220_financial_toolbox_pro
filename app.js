@@ -644,7 +644,10 @@ function renderHome(){
   recalculateJaturi();
   standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>누적</td><td>-</td><td>-</td><td class="${state.jaturi.balance<0?'minus':'plus'}">${money(state.jaturi.balance)}</td></tr>`);
   $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
-  $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
+  const budgetSpentTotal=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES]
+    .filter(c=>!c.startsWith('쇼핑비('))
+    .reduce((sum,c)=>sum+(c==='관리비'?managementFeeResult().actual:catSpent(c)),0)+shoppingSpent;
+  $('#budgetAccSummary').textContent=`사용 ${money(budgetSpentTotal)}`;
 
   $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const r=yearExpenseSummary(m); return `<tr><td>${m}월</td><td>${money(r.total)}</td><td>${money(r.jin)}</td><td>${money(r.dah)}</td></tr>`; }).join('');
   $('#expenseAccSummary').textContent=`올해 ${money(Array.from({length:12},(_,i)=>yearExpenseSummary(i+1).total).reduce((a,b)=>a+b,0))}`;
