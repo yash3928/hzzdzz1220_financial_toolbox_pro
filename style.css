@@ -456,3 +456,54 @@
   #view-fixed .fixed-table input,#view-fixed .fixed-table .fixed-amount-cell,#view-fixed .fixed-table .fixed-auto-budget{font-size:10px!important;padding:6px 1px!important}
   #view-fixed .fixed-delete-btn{min-width:40px;padding:6px 5px!important;font-size:9.5px!important}
 }
+
+/* v1.5.8 삭제 영구 반영 · 총합계 긴 금액 표시 */
+#view-fixed .fixed-total-row th{
+  width:auto!important;
+  overflow:visible!important;
+  padding:8px 12px!important;
+}
+#view-fixed .fixed-total-inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+  min-width:0;
+  white-space:nowrap;
+}
+#view-fixed .fixed-total-inner span{
+  flex:0 0 auto;
+  font-size:12px;
+  font-weight:900;
+}
+#view-fixed .fixed-total-inner strong{
+  flex:1 1 auto;
+  min-width:0;
+  text-align:right;
+  font-size:14px;
+  font-weight:950;
+  letter-spacing:-.25px;
+  white-space:nowrap;
+  overflow:visible;
+}
+@media(max-width:420px){
+  #view-fixed .fixed-total-row th{padding:8px 9px!important}
+  #view-fixed .fixed-total-inner{gap:8px}
+  #view-fixed .fixed-total-inner span{font-size:11px}
+  #view-fixed .fixed-total-inner strong{font-size:13px!important;letter-spacing:-.45px}
+}
+
+/* v1.5.9 메모 기반 세부 자동 분석 */
+.fixed-ai-summary{display:block;padding:0 12px 14px}
+.fixed-ai-category-list{display:grid;gap:7px;margin-bottom:12px}
+.fixed-ai-category-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.fixed-ai-detail-list{display:grid;gap:10px}
+.fixed-ai-detail-card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px;box-shadow:0 4px 12px rgba(15,23,42,.04)}
+.fixed-ai-detail-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.fixed-ai-detail-card header div{display:grid;gap:2px}.fixed-ai-detail-card header b{font-size:15px}.fixed-ai-detail-card header small{color:var(--muted);font-weight:800}
+.fixed-ai-detail-card header>strong{white-space:nowrap;font-size:15px}
+.fixed-ai-tags{display:flex;flex-wrap:wrap;gap:5px;margin:9px 0 7px}.fixed-ai-tags span{padding:4px 8px;border-radius:999px;background:#eef4ff;color:#2856a8;font-size:11px;font-weight:900}
+.fixed-ai-detail-card p{margin:7px 0 8px;line-height:1.55;font-size:13px;color:#334155}
+.fixed-ai-detail-card ul{list-style:none;padding:0;margin:0;display:grid;gap:6px}.fixed-ai-detail-card li{display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;padding:8px 9px;border-radius:9px;background:#f8fafc;font-size:12px}.fixed-ai-detail-card li b{white-space:nowrap}.fixed-ai-detail-card li span{min-width:0;overflow-wrap:anywhere}.fixed-ai-detail-card li strong{white-space:nowrap}
+.fixed-ai-empty{padding:8px 9px;border-radius:9px;background:#f8fafc;color:var(--muted);font-size:12px}

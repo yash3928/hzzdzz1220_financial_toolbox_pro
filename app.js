@@ -30,6 +30,7 @@ function defaultState(){
     budgetMemos: Object.fromEntries([...MONTHLY_CATEGORIES, ...YEARLY_CATEGORIES].map(c=>[c,''])),
     expenses: [],
     fixedMaster: [],
+    fixedDeletedIds: [],
     fixedByMonth: {},
     salary: { jinhyuk: {}, dahye: { base:0, rates:{...DEFAULT_RATES}, tax:{...DEFAULT_TAX}, months:{} } },
     assets: { cashItems: [], purpose: Object.fromEntries(PURPOSE_ASSETS.map(c=>[c,0])), purposeMemos: Object.fromEntries(PURPOSE_ASSETS.map(c=>[c,''])) },
@@ -59,9 +60,12 @@ function mergeDefaults(data){
   if(num(d.budgets?.['쇼핑비']) && !num(d.budgets?.['쇼핑비(진혁)']) && !num(d.budgets?.['쇼핑비(다혜)'])) merged.budgets['쇼핑비(진혁)']=num(d.budgets['쇼핑비']);
   delete merged.budgets['쇼핑비'];
   merged.fixedByMonth = {...base.fixedByMonth, ...(d.fixedByMonth||{})};
-  merged.fixedMaster = Array.isArray(d.fixedMaster) ? d.fixedMaster : [];
-  // 구버전의 월별 고정지출 항목을 공통 항목으로 자동 이전합니다.
-  if(!merged.fixedMaster.length){
+  const hasFixedMasterField = Array.isArray(d.fixedMaster);
+  merged.fixedMaster = hasFixedMasterField ? d.fixedMaster : [];
+  merged.fixedDeletedIds = Array.isArray(d.fixedDeletedIds) ? [...new Set(d.fixedDeletedIds.map(String))] : [];
+  // fixedMaster 필드가 아예 없는 구버전만 월별 자료에서 이전합니다.
+  // 사용자가 모든 항목을 삭제해 빈 배열이 된 경우에는 다시 복원하지 않습니다.
+  if(!hasFixedMasterField){
     const map=new Map();
     Object.entries(merged.fixedByMonth||{}).forEach(([month,items])=>(items||[]).forEach((it,idx)=>{
       const signature=`${String(it.name||'').trim()}|${String(it.owner||'공동')}`;
@@ -71,7 +75,7 @@ function mergeDefaults(data){
     }));
     merged.fixedMaster=[...map.values()];
   }
-  merged.fixedMaster=merged.fixedMaster.map(it=>({id:it.id||crypto.randomUUID(),name:String(it.name||''),owner:['진혁','다혜','공동'].includes(it.owner)?it.owner:'공동',category:it.category||classifyFixedExpense(it.name),memo:String(it.memo||''),monthly:{...(it.monthly||{})}}));
+  merged.fixedMaster=merged.fixedMaster.map(it=>({id:it.id||crypto.randomUUID(),name:String(it.name||''),owner:['진혁','다혜','공동'].includes(it.owner)?it.owner:'공동',category:it.category||classifyFixedExpense(it.name),memo:String(it.memo||''),monthly:{...(it.monthly||{})}})).filter(it=>!merged.fixedDeletedIds.includes(String(it.id)));
   merged.cmaAuto={...base.cmaAuto,...(d.cmaAuto||{}),transfers:{...(d.cmaAuto?.transfers||{})}};
   merged.expenses = Array.isArray(d.expenses) ? d.expenses : [];
   merged.salary = {...base.salary, ...(d.salary||{})};
@@ -230,7 +234,9 @@ function investHasValue(v){
   return ['domestic','overseas','cma'].some(k=>num(v?.[k]?.amount)!==0 || num(v?.[k]?.rate)!==0);
 }
 function mergeRemoteSafely(local,remote){
-  const incoming={...local,...remote,settings:{...local.settings,...(remote?.settings||{})}};
+  const deletedIds=[...new Set([...(local?.fixedDeletedIds||[]),...(remote?.fixedDeletedIds||[])].map(String))];
+  const incoming={...local,...remote,fixedDeletedIds:deletedIds,settings:{...local.settings,...(remote?.settings||{})}};
+  if(Array.isArray(incoming.fixedMaster)) incoming.fixedMaster=incoming.fixedMaster.filter(it=>!deletedIds.includes(String(it?.id)));
   // 구버전/빈 Firebase 값이 기입된 자산을 지우는 것을 방지합니다.
   if(assetHasValue(local?.assets) && !assetHasValue(remote?.assets)) incoming.assets=local.assets;
   if(investHasValue(local?.investmentSummary) && !investHasValue(remote?.investmentSummary)) incoming.investmentSummary=local.investmentSummary;
@@ -316,6 +322,43 @@ function fixedMonthValue(item,key=getPeriod().key){
 }
 function fixedMemoText(item,key=getPeriod().key){ const v=fixedMonthValue(item,key); return Object.values(v.memos||{}).filter(Boolean).join(' '); }
 function fixedCategory(item,key=getPeriod().key){ return classifyFixedExpense(item?.name||'',fixedMemoText(item,key)); }
+function uniqueLabels(values){ return [...new Set(values.filter(Boolean))]; }
+function fixedMemoInsight(item,key=getPeriod().key){
+  const v=fixedMonthValue(item,key);
+  const memoEntries=Object.entries(v.memos||{}).filter(([,memo])=>String(memo||'').trim());
+  const combined=[item?.name||'',...memoEntries.map(([,memo])=>memo)].join(' ');
+  const lower=combined.toLowerCase();
+  const people=uniqueLabels([
+    /진혁/.test(combined)?'진혁':'', /다혜/.test(combined)?'다혜':'', /공동|부부/.test(combined)?'공동':''
+  ]);
+  // 메모를 입력한 사용자도 분석 대상에 포함합니다.
+  memoEntries.forEach(([owner])=>{ if(owner && !people.includes(owner)) people.push(owner); });
+  const providers=uniqueLabels([
+    /\bkt\b|케이티/.test(lower)?'KT':'',
+    /\bskt\b|에스케이티|sk텔레콤/.test(lower)?'SKT':'',
+    /lg\s*u\+|lgu\+|유플러스|엘지유플러스/.test(lower)?'LG U+':'',
+    /알뜰폰|mvno/.test(lower)?'알뜰폰':'',
+    /넷플릭스/.test(lower)?'넷플릭스':'', /유튜브/.test(lower)?'유튜브':'', /디즈니/.test(lower)?'디즈니+':''
+  ]);
+  const services=uniqueLabels([
+    /휴대폰|핸드폰|스마트폰|모바일/.test(lower)?'휴대폰':'',
+    /인터넷|와이파이|wifi/.test(lower)?'인터넷':'',
+    /iptv|티비|tv/.test(lower)?'TV':'',
+    /보험/.test(lower)?'보험료':'', /관리비/.test(lower)?'관리비':'',
+    /대출|이자/.test(lower)?'대출·이자':'', /적금|저축/.test(lower)?'저축':'', /투자/.test(lower)?'투자':''
+  ]);
+  const category=fixedCategory(item,key);
+  const parts=[];
+  if(providers.length) parts.push(providers.join('·')+' 관련');
+  if(people.length) parts.push(people.join('·')+' 사용자');
+  if(services.length) parts.push(services.join('·')+' 비용');
+  let sentence='';
+  if(parts.length) sentence=`${parts.join(', ')}이 포함된 ${category} 항목으로 보입니다.`;
+  else if(memoEntries.length) sentence=`메모 내용을 기준으로 ${category} 항목으로 분류했습니다.`;
+  else sentence='세부 메모를 입력하면 사용자·업체·용도를 더 자세히 분석합니다.';
+  const memoLines=memoEntries.map(([owner,memo])=>({owner,memo:String(memo).trim(),amount:num(v.amounts?.[owner])}));
+  return {category,people,providers,services,sentence,memoLines,amount:num(v.amount)};
+}
 function currentFixed(){ return state.fixedMaster||[]; }
 function fixedTotal(key=getPeriod().key){ return (state.fixedMaster||[]).reduce((a,f)=>a+num(fixedMonthValue(f,key).amount),0); }
 function managementFeeResult(key=getPeriod().key){
@@ -565,11 +608,11 @@ function renderFixed(){
   const key=getPeriod().key, list=currentFixed();
   const rows=list.map((f,i)=>{ const v=fixedMonthValue(f,key), cat=fixedCategory(f,key); const amountCell=owner=>`<button type="button" class="fixed-amount-cell ${v.memos?.[owner]?'has-memo':''}" data-fixed-memo-open="${i}:${owner}">${comma(v.amounts?.[owner])}</button>`; return `<tr><td class="fixed-col-name"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td class="fixed-col-ai">${escapeHtml(cat)}</td><td class="fixed-col-budget"><span class="fixed-auto-budget">${comma(v.amount)}</span></td><td class="fixed-col-owner">${amountCell('공동')}</td><td class="fixed-col-owner">${amountCell('진혁')}</td><td class="fixed-col-owner">${amountCell('다혜')}</td><td class="fixed-col-manage"><button class="danger small fixed-delete-btn" data-fixed-del="${i}" title="항목 삭제" aria-label="항목 삭제">삭제</button></td></tr>`; }).join('');
   const total=fixedTotal(key);
-  $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th class="fixed-col-name">항목</th><th class="fixed-col-ai">AI 분류</th><th class="fixed-col-budget">예산</th><th class="fixed-col-owner">공동</th><th class="fixed-col-owner">진혁</th><th class="fixed-col-owner">다혜</th><th class="fixed-col-manage">삭제</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="muted">고정지출 항목을 추가해주세요.</td></tr>'}</tbody><tfoot><tr class="fixed-total-row"><th colspan="5">총합계</th><th colspan="2">${money(total)}</th></tr></tfoot></table></div>`;
-  const groups={}; const owners={공동:0,진혁:0,다혜:0}; list.forEach(f=>{ const v=fixedMonthValue(f,key), cat=fixedCategory(f,key); groups[cat]=(groups[cat]||0)+num(v.amount); Object.keys(owners).forEach(o=>owners[o]+=num(v.amounts?.[o])); });
-  const categoryHtml=Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([cat,amount])=>`<div><span>${escapeHtml(cat)}</span><strong>${money(amount)}</strong></div>`).join('');
-  const ownerHtml=`<div class="fixed-ai-owner"><span>공동 ${money(owners.공동)}</span><span>진혁 ${money(owners.진혁)}</span><span>다혜 ${money(owners.다혜)}</span></div>`;
-  $('#fixedAiSummary').innerHTML=(categoryHtml?ownerHtml+categoryHtml:'<p class="hint">항목명과 금액 메모를 입력하면 자동 분석이 표시됩니다.</p>');
+  $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th class="fixed-col-name">항목</th><th class="fixed-col-ai">AI 분류</th><th class="fixed-col-budget">예산</th><th class="fixed-col-owner">공동</th><th class="fixed-col-owner">진혁</th><th class="fixed-col-owner">다혜</th><th class="fixed-col-manage">삭제</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="muted">고정지출 항목을 추가해주세요.</td></tr>'}</tbody><tfoot><tr class="fixed-total-row"><th colspan="7"><div class="fixed-total-inner"><span>총합계</span><strong>${money(total)}</strong></div></th></tr></tfoot></table></div>`;
+  const groups={}; list.forEach(f=>{ const v=fixedMonthValue(f,key), cat=fixedCategory(f,key); groups[cat]=(groups[cat]||0)+num(v.amount); });
+  const categoryHtml=Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([cat,amount])=>`<div class="fixed-ai-category-row"><span>${escapeHtml(cat)}</span><strong>${money(amount)}</strong></div>`).join('');
+  const detailHtml=list.filter(f=>{ const v=fixedMonthValue(f,key); return num(v.amount)>0 || fixedMemoText(f,key); }).map(f=>{ const insight=fixedMemoInsight(f,key); const tags=[...insight.people,...insight.providers,...insight.services].map(x=>`<span>${escapeHtml(x)}</span>`).join(''); const memoHtml=insight.memoLines.map(x=>`<li><b>${escapeHtml(x.owner)}</b><span>${escapeHtml(x.memo)}</span>${x.amount?`<strong>${money(x.amount)}</strong>`:''}</li>`).join(''); return `<article class="fixed-ai-detail-card"><header><div><b>${escapeHtml(f.name||'이름 없는 항목')}</b><small>${escapeHtml(insight.category)}</small></div><strong>${money(insight.amount)}</strong></header>${tags?`<div class="fixed-ai-tags">${tags}</div>`:''}<p>${escapeHtml(insight.sentence)}</p>${memoHtml?`<ul>${memoHtml}</ul>`:'<div class="fixed-ai-empty">금액을 눌러 메모를 입력하면 세부 분석이 표시됩니다.</div>'}</article>`; }).join('');
+  $('#fixedAiSummary').innerHTML=(categoryHtml||detailHtml)?`<div class="fixed-ai-category-list">${categoryHtml}</div><div class="fixed-ai-detail-list">${detailHtml}</div>`:'<p class="hint">항목명과 금액 메모를 입력하면 사용자·업체·용도를 자동 분석합니다.</p>';
   const mg=managementFeeResult(key); $('#managementSummary').textContent=`관리비 예산 ${money(mg.budget)} · 실제 ${money(mg.actual)} · 자투리 반영 ${money(mg.budget-mg.actual)}`;
 }
 function renderSalary(){
@@ -814,7 +857,7 @@ function bindEvents(){
     if(t.dataset.delExp){ if(confirm('이 지출내역을 삭제하시겠습니까?')){ state.expenses=state.expenses.filter(x=>x.id!==t.dataset.delExp); await persistRemote(); }}
     if(t.id==='addFixedBtn'){ state.fixedMaster.push({id:crypto.randomUUID(),name:'',owner:'공동',category:'기타',memo:'',monthly:{}}); renderFixed(); }
     if(t.dataset.fixedMemoToggle!==undefined){ const wrap=document.querySelector(`[data-fixed-memo-wrap="${t.dataset.fixedMemoToggle}"]`); if(wrap) wrap.classList.toggle('hidden'); }
-    if(t.dataset.fixedDel!==undefined){ if(confirm('이 고정지출 항목과 월별 금액·메모를 모두 삭제하시겠습니까?')){ state.fixedMaster.splice(num(t.dataset.fixedDel),1); await persistRemote(); } }
+    if(t.dataset.fixedDel!==undefined){ if(confirm('이 고정지출 항목과 월별 금액·메모를 모두 삭제하시겠습니까?')){ const idx=num(t.dataset.fixedDel); const item=state.fixedMaster[idx]; if(item?.id){ state.fixedDeletedIds=Array.isArray(state.fixedDeletedIds)?state.fixedDeletedIds:[]; if(!state.fixedDeletedIds.includes(String(item.id))) state.fixedDeletedIds.push(String(item.id)); } state.fixedMaster.splice(idx,1); renderFixed(); await persistRemote(); showToast('고정지출 항목을 삭제했습니다.'); } }
     if(t.id==='addCashItemBtn'){ state.assets.cashItems.push({id:crypto.randomUUID(),name:'',amount:0,memo:''}); renderAssets(); }
     if(t.dataset.cashDel!==undefined){ state.assets.cashItems.splice(num(t.dataset.cashDel),1); renderAssets(); await persistRemote(); }
   });
