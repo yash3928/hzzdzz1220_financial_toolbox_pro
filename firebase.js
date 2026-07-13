@@ -119,7 +119,10 @@ export async function saveHousehold(data, options = {}){
     backupData=existingSnap.exists()?existing:null;
     let payload={...data,updatedAt:serverTimestamp(),appVersion:'1.5.9',schemaVersion:2};
     if(!options.forceRestore) payload=deepPreserve(existing,payload);
-    transaction.set(activeRef,payload,{merge:true});
+    // 현재 앱 상태 전체를 하나의 가계부 문서로 관리하므로 정확히 교체 저장합니다.
+    // merge:true를 사용하면 중첩된 예산 맵에서 삭제/0원 처리된 값이 서버의 이전 값과
+    // 함께 남을 수 있어 새로고침 후 과거 예산이 다시 나타날 수 있습니다.
+    transaction.set(activeRef,payload);
   });
   if(backupData && !options.skipBackup) await saveCloudBackup(backupData);
 }
