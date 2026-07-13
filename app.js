@@ -113,7 +113,9 @@ function mergeDefaults(data){
     if(item?.category==='쇼핑비(진혁)'){ item.category='쇼핑비'; item.payer='진혁'; }
     if(item?.category==='쇼핑비(다혜)'){ item.category='쇼핑비'; item.payer='다혜'; }
   });
-  const activeYear = num(merged.settings.selectedYear) || legacyYear;
+  // 연도별 예산은 이 기기에서 현재 선택한 연도를 기준으로 불러옵니다.
+  // settings.selectedYear는 구버전 잔재일 수 있어 다른 연도 예산을 잘못 불러올 수 있습니다.
+  const activeYear = selectedYear() || legacyYear;
   if(!merged.yearData[activeYear]){
     const prev = merged.yearData[legacyYear];
     merged.yearData[activeYear] = {
@@ -365,6 +367,19 @@ function monthlyBudgetValue(category,key=getPeriod().key){
   const saved=state.monthlyBudgets?.[key];
   if(saved && Object.prototype.hasOwnProperty.call(saved,category)) return num(saved[category]);
   return num(state.budgets?.[category]);
+}
+function setMonthlyBudgetForYear(category, amount, year=selectedYear(), selectedKey=getPeriod().key){
+  state.monthlyBudgets=state.monthlyBudgets||{};
+  const value=Math.max(0,num(amount));
+  // 선택한 달은 항상 새 값으로 저장합니다.
+  state.monthlyBudgets[selectedKey]={...(state.monthlyBudgets[selectedKey]||{}),[category]:value};
+  // 같은 연도의 아직 입력하지 않은 달에는 최초 설정값을 기본값으로 채웁니다.
+  // 이미 월별로 따로 설정한 값은 덮어쓰지 않습니다.
+  for(let month=1;month<=12;month++){
+    const key=`${year}-${String(month).padStart(2,'0')}`;
+    const bucket=state.monthlyBudgets[key]||{};
+    if(!Object.prototype.hasOwnProperty.call(bucket,category)) state.monthlyBudgets[key]={...bucket,[category]:value};
+  }
 }
 function managementBudget(key=getPeriod().key){ return monthlyBudgetValue('관리비',key); }
 function managementFeeResult(key=getPeriod().key){
@@ -883,7 +898,7 @@ function setExpenseFormOpen(open){
 let activeMoneyMemo = null;
 function moneyMemoTarget(type,key){
   if(type==='fixed'){ const [idxRaw,ownerRaw='공동']=String(key).split(':'); const item=currentFixed()[num(idxRaw)]; if(!item) return null; const owner=['공동','진혁','다혜'].includes(ownerRaw)?ownerRaw:'공동'; const pk=getPeriod().key; const v=fixedMonthValue(item,pk); return {title:`${item.name||'고정지출'} · ${owner}`,amount:num(v.amounts?.[owner]),memo:v.memos?.[owner]||'',set:(amount,memo)=>{item.monthly=item.monthly||{}; item.monthly[pk]={...v,amounts:{...v.amounts,[owner]:num(amount)},memos:{...v.memos,[owner]:memo}}; item.category=fixedCategory(item,pk); renderFixed();}}; }
-  if(type==='budget'){ const isMonthly=MONTHLY_CATEGORIES.includes(key); return {title:isMonthly?`${selectedYear()}년 ${selectedMonth()}월 ${key}`:key,amount:isMonthly?monthlyBudgetValue(key):num(state.budgets[key]),memo:state.budgetMemos?.[key]||'',set:(amount,memo)=>{ if(isMonthly){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),[key]:amount}; } else state.budgets[key]=amount; state.budgetMemos[key]=memo; recalculateJaturi(); renderBudget(); renderHome();}}; }
+  if(type==='budget'){ const isMonthly=MONTHLY_CATEGORIES.includes(key); return {title:isMonthly?`${selectedYear()}년 ${selectedMonth()}월 ${key}`:key,amount:isMonthly?monthlyBudgetValue(key):num(state.budgets[key]),memo:state.budgetMemos?.[key]||'',set:(amount,memo)=>{ if(isMonthly){ setMonthlyBudgetForYear(key,amount,selectedYear(),getPeriod().key); } else state.budgets[key]=amount; state.budgetMemos[key]=memo; recalculateJaturi(); renderBudget(); renderHome();}}; }
   if(type==='cash'){ const item=state.assets.cashItems[num(key)]; return item&&{title:item.name||'현금',amount:num(item.amount),memo:item.memo||'',set:(amount,memo)=>{item.amount=amount;item.memo=memo;renderAssets();}}; }
   if(type==='purpose'){ return {title:key,amount:num(state.assets.purpose[key]),memo:state.assets.purposeMemos?.[key]||'',set:(amount,memo)=>{state.assets.purpose[key]=amount;state.assets.purposeMemos[key]=memo;renderAssets();}}; }
   if(type==='invest'){ const item=state.investmentSummary[key]; const names={domestic:'국내주식',overseas:'해외주식',cma:'CMA'}; return item&&{title:names[key]||key,amount:key==='cma'?cmaAmountForPeriod():num(item.amount),memo:item.memo||'',set:(amount,memo)=>{ if(key==='cma'){ item.manualAmount=num(amount)-cmaAutoAmountForPeriod(); item.amount=num(item.manualAmount)+Object.values(state.cmaAuto?.transfers||{}).reduce((a,v)=>a+num(v),0); } else item.amount=amount; item.memo=memo; renderInvest();}}; }
@@ -932,7 +947,7 @@ function bindEvents(){
   $('#expenseDate').value=ymd(selectedYearDate());
   $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(false); await persistRemote(); });
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
-  $('#saveBudgetBtn').addEventListener('click', async()=>{ const adjustments={}; $$('[data-budget-add]').forEach(inp=>{ const c=inp.dataset.budgetAdd; adjustments[c]=(adjustments[c]||0)+num(inp.value); inp.value=''; }); $$('[data-budget-cut]').forEach(inp=>{ const c=inp.dataset.budgetCut; adjustments[c]=(adjustments[c]||0)-num(inp.value); inp.value=''; }); Object.entries(adjustments).forEach(([c,change])=>{ if(!change) return; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; state.monthlyBudgets[pk]={...(state.monthlyBudgets[pk]||{}),[c]:Math.max(0,monthlyBudgetValue(c,pk)+change)}; } else state.budgets[c]=Math.max(0,num(state.budgets[c])+change); }); recalculateJaturi(); await persistRemote(); showToast('예산의 추가·삭감 금액을 반영했습니다.'); });
+  $('#saveBudgetBtn').addEventListener('click', async()=>{ const adjustments={}; $$('[data-budget-add]').forEach(inp=>{ const c=inp.dataset.budgetAdd; adjustments[c]=(adjustments[c]||0)+num(inp.value); inp.value=''; }); $$('[data-budget-cut]').forEach(inp=>{ const c=inp.dataset.budgetCut; adjustments[c]=(adjustments[c]||0)-num(inp.value); inp.value=''; }); Object.entries(adjustments).forEach(([c,change])=>{ if(!change) return; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; setMonthlyBudgetForYear(c,Math.max(0,monthlyBudgetValue(c,pk)+change),selectedYear(),pk); } else state.budgets[c]=Math.max(0,num(state.budgets[c])+change); }); recalculateJaturi(); await persistRemote(); showToast('예산의 추가·삭감 금액을 반영했습니다.'); });
   $('#fixedList').addEventListener('input', e=>{ const pk=getPeriod().key, i=num(e.target.dataset.fixedName); const item=state.fixedMaster[i]; if(!item) return; if(e.target.dataset.fixedName!==undefined){ item.name=e.target.value; item.category=fixedCategory(item,pk); } item.updatedAt=new Date().toISOString(); });
   $('#saveFixedBtn')?.addEventListener('click', async()=>{ state.fixedMaster.forEach(f=>f.category=fixedCategory(f,getPeriod().key)); recalculateJaturi(); await persistRemote(); showToast('고정지출과 자동 분류를 저장했습니다.'); });
   $('#fixedMemoSave')?.addEventListener('click', saveFixedMemoEditor);

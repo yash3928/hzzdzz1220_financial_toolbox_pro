@@ -83,16 +83,18 @@ function hasMeaningfulValue(v){
   if(typeof v === 'string') return v.trim() !== '';
   return v !== null && v !== undefined;
 }
-function deepPreserve(existing, incoming){
+function deepPreserve(existing, incoming, path=[]){
   if(Array.isArray(incoming)){
     // 배열은 사용자가 항목을 삭제한 결과일 수 있으므로 빈 배열도 그대로 저장합니다.
-    // 기존 로직은 마지막 지출을 삭제했을 때 Firebase의 이전 배열을 되살리는 문제가 있었습니다.
     return incoming;
   }
   if(isPlainObject(incoming)){
-    if(isPlainObject(existing) && !hasMeaningfulValue(incoming) && hasMeaningfulValue(existing)) return existing;
+    const key=path[path.length-1]||'';
+    const isBudgetPath=key==='budgets' || key==='monthlyBudgets' || key==='budgetMemos' || path.includes('yearData');
+    // 예산은 0원/빈 값 자체가 사용자의 삭제 결과이므로 기존 Firebase 값을 복원하지 않습니다.
+    if(!isBudgetPath && isPlainObject(existing) && !hasMeaningfulValue(incoming) && hasMeaningfulValue(existing)) return existing;
     const out = {...(isPlainObject(existing) ? existing : {})};
-    for(const [k,v] of Object.entries(incoming)) out[k] = deepPreserve(existing?.[k], v);
+    for(const [k,v] of Object.entries(incoming)) out[k] = deepPreserve(existing?.[k], v, [...path,k]);
     return out;
   }
   return incoming;
