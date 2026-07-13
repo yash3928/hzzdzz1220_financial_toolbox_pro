@@ -340,13 +340,13 @@ function recalculateJaturi(){
     const fixed=fixedTotal(key);
     const spent=periodExpenses.reduce((a,e)=>a+num(e.amount),0);
     const surplus=income-fixed-spent;
-    // 자투리 통장은 해당 월 화면의 '잉여자금'과 동일한 금액만 이월합니다.
-    // 식비 잔액을 별도로 더하지 않아 중복 누적되지 않습니다.
-    const transferred=Math.max(0,surplus);
+    // 자투리 통장은 해당 월 화면의 '잉여자금'을 그대로 누적합니다.
+    // 흑자는 적립하고 적자는 차감합니다. 식비 잔액/초과액은 실제 지출에 이미 포함되므로 별도로 더하거나 빼지 않습니다.
+    const transferred=surplus;
     settlements[key]={income,fixed,spent,surplus,transferred,foodBase,foodApplied,foodSpent,foodDifference,deduction};
   });
   state.jaturi.settlements=settlements;
-  state.jaturi.history=Object.entries(settlements).filter(([,v])=>num(v.transferred)>0).map(([key,v])=>({key,amount:num(v.transferred),memo:'월 잉여자금 자동 이월'}));
+  state.jaturi.history=Object.entries(settlements).filter(([,v])=>num(v.transferred)!==0).map(([key,v])=>({key,amount:num(v.transferred),memo:num(v.transferred)>0?'월 잉여자금 자동 적립':'월 적자 자동 차감'}));
   state.jaturi.balance=num(state.jaturi.openingBalance)+state.jaturi.history.reduce((a,h)=>a+num(h.amount),0);
   return state.jaturi.balance;
 }
@@ -500,7 +500,7 @@ function renderHome(){
   const insertAt=Math.min(3,standardBudgetRows.length);
   standardBudgetRows.splice(insertAt,0,shoppingRow+shoppingDetail);
   recalculateJaturi();
-  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>누적</td><td>-</td><td>-</td><td class="plus">${money(state.jaturi.balance)}</td></tr>`);
+  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>누적</td><td>-</td><td>-</td><td class="${state.jaturi.balance<0?'minus':'plus'}">${money(state.jaturi.balance)}</td></tr>`);
   $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
   $('#budgetAccSummary').textContent=`사용 ${money(spent)}`;
 
@@ -517,7 +517,7 @@ function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.val
 function renderBudget(){
   recalculateJaturi();
   $('#budgetInputTable tbody').innerHTML=[...MONTHLY_CATEGORIES,...YEARLY_CATEGORIES].map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=c==='식비'?foodBaseBudget():num(state.budgets[c]); const applied=c==='식비'?effectiveFoodBudget():current; const sub=c==='식비'&&applied!==current?`<small class="budget-adjust-note">다음달 초과분 반영: ${money(applied)}</small>`:''; return `<tr><td>${label}${sub}</td><td>${MONTHLY_CATEGORIES.includes(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${state.budgetMemos?.[c]?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가 금액"></td></tr>`; }).join('');
-  const box=$('#jaturiSummary'); if(box) box.innerHTML=`<span>🐷 자투리 통장</span><strong>${money(state.jaturi.balance)}</strong>`;
+  const box=$('#jaturiSummary'); if(box) box.innerHTML=`<span>🐷 자투리 통장</span><strong class="${state.jaturi.balance<0?'minus':'plus'}">${money(state.jaturi.balance)}</strong>`;
   const title=$('#fixedSectionTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
   const list=currentFixed();
   $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th>항목</th><th>금액</th><th>관리</th></tr></thead><tbody>${list.map((f,i)=>`<tr><td><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td><button type="button" class="fixed-amount-cell ${f.memo?'has-memo':''}" data-fixed-memo-open="${i}" title="금액 및 메모 보기">${comma(f.amount)}</button></td><td><button class="danger small" data-fixed-del="${i}">삭제</button></td></tr>`).join('') || '<tr><td colspan="3" class="muted">선택한 월의 고정지출이 없습니다.</td></tr>'}</tbody></table></div>`;

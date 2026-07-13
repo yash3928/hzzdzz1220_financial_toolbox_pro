@@ -104,7 +104,7 @@ async function saveCloudBackup(existing){
     const backupsRef = collection(activeRef, 'backups');
     const clean = JSON.parse(JSON.stringify(existing));
     delete clean.updatedAt;
-    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.4.23' });
+    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.4.24' });
   }catch(e){ console.warn('클라우드 자동 백업 실패', e); }
 }
 
@@ -113,7 +113,7 @@ export async function saveHousehold(data, options = {}){
   const existingSnap = await getDoc(activeRef);
   const existing = existingSnap.exists() ? existingSnap.data() : {};
   if(existingSnap.exists() && !options.skipBackup) await saveCloudBackup(existing);
-  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.4.23', schemaVersion:1};
+  let payload = {...data, updatedAt: serverTimestamp(), appVersion:'1.4.24', schemaVersion:1};
 
   // forceRestore일 때만 백업 파일 내용으로 덮어씁니다.
   // 일반 저장/업데이트에서는 빈 기본값이 기존 Firebase 데이터를 덮지 못하도록 전역 보호합니다.
