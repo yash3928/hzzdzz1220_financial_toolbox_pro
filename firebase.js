@@ -90,7 +90,7 @@ function deepPreserve(existing, incoming, path=[]){
   }
   if(isPlainObject(incoming)){
     const key=path[path.length-1]||'';
-    const isBudgetPath=key==='budgets' || key==='monthlyBudgets' || key==='budgetMemos' || path.includes('yearData');
+    const isBudgetPath=key==='budgets' || key==='monthlyBudgets' || key==='budgetMemos' || path.includes('budgets') || path.includes('monthlyBudgets') || path.includes('budgetMemos') || path.includes('yearData');
     // 예산은 0원/빈 값 자체가 사용자의 삭제 결과이므로 기존 Firebase 값을 복원하지 않습니다.
     if(!isBudgetPath && isPlainObject(existing) && !hasMeaningfulValue(incoming) && hasMeaningfulValue(existing)) return existing;
     const out = {...(isPlainObject(existing) ? existing : {})};
@@ -106,7 +106,7 @@ async function saveCloudBackup(existing){
     const backupsRef = collection(activeRef, 'backups');
     const clean = JSON.parse(JSON.stringify(existing));
     delete clean.updatedAt;
-    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.5.9' });
+    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.6.10' });
   }catch(e){ console.warn('클라우드 자동 백업 실패', e); }
 }
 
@@ -117,7 +117,7 @@ export async function saveHousehold(data, options = {}){
     const existingSnap=await transaction.get(activeRef);
     const existing=existingSnap.exists()?existingSnap.data():{};
     backupData=existingSnap.exists()?existing:null;
-    let payload={...data,updatedAt:serverTimestamp(),appVersion:'1.5.9',schemaVersion:2};
+    let payload={...data,updatedAt:serverTimestamp(),appVersion:'1.6.10',schemaVersion:2};
     if(!options.forceRestore) payload=deepPreserve(existing,payload);
     // 현재 앱 상태 전체를 하나의 가계부 문서로 관리하므로 정확히 교체 저장합니다.
     // merge:true를 사용하면 중첩된 예산 맵에서 삭제/0원 처리된 값이 서버의 이전 값과
