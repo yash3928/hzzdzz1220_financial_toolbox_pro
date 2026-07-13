@@ -104,7 +104,7 @@ async function saveCloudBackup(existing){
     const backupsRef = collection(activeRef, 'backups');
     const clean = JSON.parse(JSON.stringify(existing));
     delete clean.updatedAt;
-    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.5.0' });
+    await addDoc(backupsRef, { data: clean, savedAt: serverTimestamp(), appVersion: '1.5.6' });
   }catch(e){ console.warn('클라우드 자동 백업 실패', e); }
 }
 
@@ -115,7 +115,7 @@ export async function saveHousehold(data, options = {}){
     const existingSnap=await transaction.get(activeRef);
     const existing=existingSnap.exists()?existingSnap.data():{};
     backupData=existingSnap.exists()?existing:null;
-    let payload={...data,updatedAt:serverTimestamp(),appVersion:'1.5.0',schemaVersion:2};
+    let payload={...data,updatedAt:serverTimestamp(),appVersion:'1.5.6',schemaVersion:2};
     if(!options.forceRestore) payload=deepPreserve(existing,payload);
     transaction.set(activeRef,payload,{merge:true});
   });
