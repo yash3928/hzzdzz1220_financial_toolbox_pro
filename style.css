@@ -668,3 +668,38 @@
 #view-fixed .fixed-manage-actions{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%}
 #view-fixed .fixed-freeze-btn{width:auto;min-width:44px;max-width:100%;padding:6px 7px!important;font-size:10px!important;line-height:1!important;white-space:nowrap}
 @media(max-width:420px){#view-fixed .fixed-manage-actions{gap:3px}#view-fixed .fixed-freeze-btn{min-width:40px;padding:6px 5px!important;font-size:9.5px!important}}
+
+/* v1.6.18 연도별 예산 누적 및 월별 지출 사용자·분류 매트릭스 */
+.year-expense-scroll{
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.year-expense-matrix{
+  width:max-content;
+  min-width:760px;
+  table-layout:fixed;
+}
+.year-expense-matrix th,
+.year-expense-matrix td{
+  min-width:96px;
+  padding:9px 8px;
+  text-align:center;
+  white-space:nowrap;
+}
+.year-expense-matrix th:first-child,
+.year-expense-matrix td:first-child{
+  min-width:72px;
+  position:sticky;
+  left:0;
+  z-index:2;
+  background:var(--panel,#fff);
+}
+.year-expense-matrix thead th:first-child{z-index:4;background:#eef2ff;}
+@media(max-width:420px){
+  .year-expense-matrix{min-width:720px;font-size:12px;}
+  .year-expense-matrix th,.year-expense-matrix td{min-width:88px;padding:8px 6px;}
+  .year-expense-matrix th:first-child,.year-expense-matrix td:first-child{min-width:64px;}
+}
