@@ -17,6 +17,7 @@ let authObserverStarted = false;
 let connectionInProgress = false;
 let remoteSavePending = false;
 let remoteSaveRunning = false;
+let deferredRemoteSnapshot = null;
 
 const currentYear = () => selectedYear();
 
@@ -280,6 +281,9 @@ async function flushRemoteSave(){
   try {
     setBadge('전송 중','loading');
     await saveHousehold(payload);
+    // 저장 전에 도착해 보류했던 스냅샷은 오래된 값일 수 있으므로 폐기합니다.
+    // saveHousehold 완료 직후 onSnapshot이 최신 서버 값을 다시 전달합니다.
+    deferredRemoteSnapshot=null;
     setBadge('공동 동기화','on');
     markSynced();
   } catch(e){
@@ -875,24 +879,34 @@ async function connectFirebase(){
     if(!restoredUser){ firebaseReady=false; remoteLoaded=false; setBadge('로그인 필요','off'); setAuthGate(true); return; }
     firebaseReady=true;
     subscribeHousehold(state.settings.householdId, async remote=>{
-      syncingRemote=true;
-      if(remote){
-        saveRecoverySnapshot('Firebase 새로고침 전');
-      const localUi=state.ui;
-      state=mergeRemoteSafely(state,remote);
-        applyYearBucket(selectedYear());
-        // 공동동기화는 데이터만 반영하고, 이 기기의 보기 상태는 건드리지 않습니다.
-        state.ui=localUi||{openAccordions:{}};
-        remoteLoaded=true;
-      } else {
-        remoteLoaded=true;
-        await saveHousehold(stripRuntime(state));
+      // 로컬 변경을 Firebase에 저장하는 동안에는 저장 전의 이전 스냅샷이 먼저 도착할 수 있습니다.
+      // 이 값을 즉시 병합하면 사용자가 방금 0원으로 바꾼 예산이 이전 금액으로 되돌아갑니다.
+      // 저장 완료 후 Firebase가 보내는 최신 스냅샷만 반영하도록 이전 스냅샷은 보류합니다.
+      if(remoteSavePending || remoteSaveRunning){
+        deferredRemoteSnapshot=remote;
+        return;
       }
-      syncingRemote=false;
-      persistLocal();
-      render();
-      markSynced();
-      setBadge('공동 동기화','on');
+      syncingRemote=true;
+      try{
+        if(remote){
+          saveRecoverySnapshot('Firebase 새로고침 전');
+          const localUi=state.ui;
+          state=mergeRemoteSafely(state,remote);
+          applyYearBucket(selectedYear());
+          // 공동동기화는 데이터만 반영하고, 이 기기의 보기 상태는 건드리지 않습니다.
+          state.ui=localUi||{openAccordions:{}};
+          remoteLoaded=true;
+        } else {
+          remoteLoaded=true;
+          await saveHousehold(stripRuntime(state));
+        }
+        persistLocal();
+        render();
+        markSynced();
+        setBadge('공동 동기화','on');
+      } finally {
+        syncingRemote=false;
+      }
       // 원격 데이터 수신 도중 사용자가 저장한 변경이 있으면 즉시 이어서 전송합니다.
       if(remoteSavePending) setTimeout(()=>flushRemoteSave(),0);
     }, err=>{ console.error(err); setBadge('동기화 오류','off'); alert('동기화 오류: '+err.message); });
