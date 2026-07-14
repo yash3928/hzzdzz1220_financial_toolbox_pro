@@ -845,3 +845,11 @@
   .investment-manage-table th,.investment-manage-table td{padding:7px 2px!important;}
   .investment-manage-table input{font-size:10px!important;padding:6px 1px!important;}
 }
+
+/* v1.6.30 budget item management */
+.budget-action-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:10px;margin-top:12px}
+.budget-action-row button{width:100%;min-width:0}
+#budgetInputTable td:first-child{position:relative}
+#budgetInputTable .reorder-handle{padding-bottom:30px}
+.budget-category-delete{position:absolute;left:50%;bottom:5px;transform:translateX(-50%);border:1px solid #fecaca;background:#fff1f2;color:#dc2626;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;line-height:1.2;white-space:nowrap}
+@media(max-width:430px){.budget-category-delete{font-size:10px;padding:2px 7px}.budget-action-row{gap:8px}}
