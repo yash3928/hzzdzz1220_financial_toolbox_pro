@@ -796,16 +796,24 @@ function renderHome(){
   $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
   const budgetSummary=$('#budgetAccSummary'); if(budgetSummary) budgetSummary.textContent=state.ui.openAccordions?.budget?'닫기':'보기';
 
-  const expenseMatrixCategories=['식비','생필품','비상금','쇼핑비','경조사비','가족'];
-  $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
-    const period=periodForMonth(selectedYear(),m);
-    const monthExpenses=expensesInPeriod(period);
-    const cells=expenseMatrixCategories.map(category=>{
-      const aliases=category==='가족'?['가족','부모님']:category==='경조사비'?['경조사비','경조사']:[category];
-      const total=monthExpenses.filter(e=>aliases.includes(e.category)).reduce((sum,e)=>sum+num(e.amount),0);
+  const expenseMatrixCategories=[
+    {label:'식비',aliases:['식비']},
+    {label:'생필품',aliases:['생필품']},
+    {label:'비상금',aliases:['비상금']},
+    {label:'쇼핑비',aliases:['쇼핑비','쇼핑비(진혁)','쇼핑비(다혜)']},
+    {label:'경조사',aliases:['경조사비','경조사']},
+    {label:'부모님',aliases:['가족','부모님']}
+  ];
+  const expenseMonths=Array.from({length:12},(_,i)=>{
+    const month=i+1;
+    return expensesInPeriod(periodForMonth(selectedYear(),month));
+  });
+  $('#yearExpenseTable tbody').innerHTML=expenseMatrixCategories.map(group=>{
+    const cells=expenseMonths.map(monthExpenses=>{
+      const total=monthExpenses.filter(e=>group.aliases.includes(e.category)).reduce((sum,e)=>sum+num(e.amount),0);
       return `<td>${money(total)}</td>`;
     }).join('');
-    return `<tr><td>${m}월</td>${cells}</tr>`;
+    return `<tr><th scope="row">${group.label}</th>${cells}</tr>`;
   }).join('');
   $('#expenseAccSummary').textContent=`올해 ${money(Array.from({length:12},(_,i)=>yearExpenseSummary(i+1).total).reduce((a,b)=>a+b,0))}`;
 

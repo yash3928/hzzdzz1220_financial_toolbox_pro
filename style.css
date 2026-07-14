@@ -780,3 +780,68 @@
   .home-invest-table th,.home-invest-table td{font-size:10.5px;padding:9px 2px;letter-spacing:-.3px}
   .budget-detail-scroll{max-height:390px}
 }
+
+
+/* v1.6.29 투자 입력 압축 및 월별지출 행·열 전환 */
+.transposed-expense-matrix{
+  width:max-content;
+  min-width:1180px!important;
+  table-layout:fixed;
+}
+.transposed-expense-matrix th,
+.transposed-expense-matrix td{
+  min-width:82px!important;
+  width:82px;
+  padding:9px 6px!important;
+  text-align:center;
+  white-space:nowrap;
+}
+.transposed-expense-matrix th:first-child,
+.transposed-expense-matrix td:first-child,
+.transposed-expense-matrix tbody th{
+  min-width:82px!important;
+  width:82px;
+  position:sticky;
+  left:0;
+  z-index:3;
+  background:#fff;
+  font-weight:800;
+}
+.transposed-expense-matrix thead th:first-child{z-index:5;background:#eef2ff;}
+.transposed-expense-matrix tbody th{background:#fff;}
+
+.investment-manage-table{
+  width:100%!important;
+  min-width:0!important;
+  table-layout:fixed!important;
+  font-size:12px;
+}
+.investment-manage-table th,
+.investment-manage-table td{
+  padding:8px 3px!important;
+  text-align:center!important;
+  overflow:hidden;
+}
+.investment-manage-table th:nth-child(1),.investment-manage-table td:nth-child(1){width:16%;}
+.investment-manage-table th:nth-child(2),.investment-manage-table td:nth-child(2){width:24%;}
+.investment-manage-table th:nth-child(3),.investment-manage-table td:nth-child(3){width:24%;}
+.investment-manage-table th:nth-child(4),.investment-manage-table td:nth-child(4){width:22%;}
+.investment-manage-table th:nth-child(5),.investment-manage-table td:nth-child(5){width:14%;}
+.investment-manage-table input{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box;
+  padding:7px 2px!important;
+  text-align:center;
+  font-size:11px!important;
+  font-weight:700;
+}
+.investment-manage-table td,.investment-manage-table th{white-space:nowrap;text-overflow:ellipsis;}
+@media(max-width:420px){
+  .transposed-expense-matrix{min-width:1080px!important;font-size:11px;}
+  .transposed-expense-matrix th,.transposed-expense-matrix td{min-width:76px!important;width:76px;padding:8px 4px!important;}
+  .investment-manage-table{font-size:10.5px;}
+  .investment-manage-table th,.investment-manage-table td{padding:7px 2px!important;}
+  .investment-manage-table input{font-size:10px!important;padding:6px 1px!important;}
+}
