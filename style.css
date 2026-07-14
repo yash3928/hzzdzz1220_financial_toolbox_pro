@@ -752,3 +752,31 @@
 .investment-manage-table input{min-width:110px;text-align:center;}
 #homeInvestTable{min-width:720px;}
 @media(max-width:420px){.year-expense-matrix{min-width:720px!important}.budget-detail-table{min-width:820px}.investment-manage-table{min-width:720px}}
+
+
+/* v1.6.28 requested compact budget/investment/detail views */
+#homeBudgetTable{width:100%;table-layout:fixed;min-width:0!important}
+#homeBudgetTable th:nth-child(1),#homeBudgetTable td:nth-child(1){width:22%}
+#homeBudgetTable th:nth-child(2),#homeBudgetTable td:nth-child(2){width:17%}
+#homeBudgetTable th:nth-child(3),#homeBudgetTable td:nth-child(3){width:21%}
+#homeBudgetTable th:nth-child(4),#homeBudgetTable td:nth-child(4){width:20%}
+#homeBudgetTable th:nth-child(5),#homeBudgetTable td:nth-child(5){width:20%}
+#homeBudgetTable th,#homeBudgetTable td{padding-left:5px;padding-right:5px;white-space:nowrap}
+.home-invest-table{width:100%;table-layout:fixed;min-width:0!important}
+.home-invest-table th,.home-invest-table td{padding:10px 3px;font-size:12px;white-space:nowrap}
+.home-invest-table th:nth-child(1),.home-invest-table td:nth-child(1){width:18%}
+.home-invest-table th:nth-child(2),.home-invest-table td:nth-child(2){width:23%}
+.home-invest-table th:nth-child(3),.home-invest-table td:nth-child(3){width:23%}
+.home-invest-table th:nth-child(4),.home-invest-table td:nth-child(4){width:22%}
+.home-invest-table th:nth-child(5),.home-invest-table td:nth-child(5){width:14%}
+.home-invest-table tfoot th{font-weight:800;background:#f1f5f9}
+.budget-detail-scroll{max-height:430px;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px}
+.budget-detail-table{min-width:620px!important}
+.budget-detail-table thead th{position:sticky;top:0;z-index:2;background:#eaf0fb}
+.budget-detail-table th:nth-child(1){min-width:115px}.budget-detail-table th:nth-child(2){min-width:60px}.budget-detail-table th:nth-child(3){min-width:65px}.budget-detail-table th:nth-child(4){min-width:135px}.budget-detail-table th:nth-child(5){min-width:145px}
+.budget-adjust-amount{width:100%;min-width:0;text-align:center;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:420px){
+  #homeBudgetTable th,#homeBudgetTable td{font-size:11px;padding:8px 2px}
+  .home-invest-table th,.home-invest-table td{font-size:10.5px;padding:9px 2px;letter-spacing:-.3px}
+  .budget-detail-scroll{max-height:390px}
+}
