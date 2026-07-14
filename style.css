@@ -740,3 +740,15 @@
 #homeBudgetTable th:nth-child(2),#homeBudgetTable td:nth-child(2){width:22%}
 #homeBudgetTable th:nth-child(3),#homeBudgetTable td:nth-child(3){width:27%}
 #homeBudgetTable th:nth-child(4),#homeBudgetTable td:nth-child(4){width:26%}
+
+/* v1.6.27 requested views */
+.year-expense-matrix{min-width:760px!important;}
+.year-expense-matrix th,.year-expense-matrix td{min-width:105px;}
+.year-expense-matrix th:first-child,.year-expense-matrix td:first-child{min-width:64px;}
+.budget-detail-table{min-width:850px;}
+.budget-detail-table th:nth-child(1){min-width:120px}.budget-detail-table th:nth-child(2){min-width:65px}.budget-detail-table th:nth-child(3){min-width:70px}.budget-detail-table th:nth-child(4){min-width:110px}.budget-detail-table th:nth-child(5){min-width:220px}.budget-detail-table th:nth-child(6){min-width:135px}
+.investment-manage-table{min-width:760px;}
+.investment-manage-table th:nth-child(1){width:16%}.investment-manage-table th:nth-child(2),.investment-manage-table th:nth-child(3){width:22%}.investment-manage-table th:nth-child(4),.investment-manage-table th:nth-child(5){width:20%}
+.investment-manage-table input{min-width:110px;text-align:center;}
+#homeInvestTable{min-width:720px;}
+@media(max-width:420px){.year-expense-matrix{min-width:720px!important}.budget-detail-table{min-width:820px}.investment-manage-table{min-width:720px}}

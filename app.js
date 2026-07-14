@@ -167,8 +167,13 @@ function migrateAssets(oldAssets){
   return {cashItems, purposeItems};
 }
 function migrateInvestSummary(existing, investments, oldAssets){
-  const summary = {domestic:{amount:0,rate:0}, overseas:{amount:0,rate:0}, cma:{amount:0,rate:0}, ...(existing||{})};
-  ['domestic','overseas'].forEach(k=>summary[k]={amount:num(summary[k]?.amount), rate:num(summary[k]?.rate), memo:String(summary[k]?.memo||'')});
+  const summary = {domestic:{principal:0,current:0,amount:0,rate:0}, overseas:{principal:0,current:0,amount:0,rate:0}, cma:{amount:0,rate:0}, ...(existing||{})};
+  ['domestic','overseas'].forEach(k=>{
+    const row=summary[k]||{};
+    const current=num(row.current ?? row.amount);
+    const principal=Object.prototype.hasOwnProperty.call(row,'principal') ? num(row.principal) : (num(row.rate)>-100 ? current/(1+num(row.rate)/100) : current);
+    summary[k]={principal,current,amount:current,rate:principal?((current-principal)/principal*100):0,memo:String(row.memo||'')};
+  });
   const cmaSource=summary.cma||{};
   const cmaManual=Object.prototype.hasOwnProperty.call(cmaSource,'manualAmount')
     ? num(cmaSource.manualAmount)
@@ -178,12 +183,12 @@ function migrateInvestSummary(existing, investments, oldAssets){
   if(!hasSummary && Array.isArray(investments) && investments.length){
     const sums = {국내주식:{p:0,c:0}, 해외주식:{p:0,c:0}, CMA:{p:0,c:0}};
     investments.forEach(it=>{ if(sums[it.type]){ sums[it.type].p += num(it.principal); sums[it.type].c += num(it.current); }});
-    summary.domestic = {amount:sums['국내주식'].c, rate:sums['국내주식'].p ? ((sums['국내주식'].c - sums['국내주식'].p)/sums['국내주식'].p*100) : 0};
-    summary.overseas = {amount:sums['해외주식'].c, rate:sums['해외주식'].p ? ((sums['해외주식'].c - sums['해외주식'].p)/sums['해외주식'].p*100) : 0};
+    summary.domestic = {principal:sums['국내주식'].p,current:sums['국내주식'].c,amount:sums['국내주식'].c, rate:sums['국내주식'].p ? ((sums['국내주식'].c - sums['국내주식'].p)/sums['국내주식'].p*100) : 0};
+    summary.overseas = {principal:sums['해외주식'].p,current:sums['해외주식'].c,amount:sums['해외주식'].c, rate:sums['해외주식'].p ? ((sums['해외주식'].c - sums['해외주식'].p)/sums['해외주식'].p*100) : 0};
     summary.cma = {amount:sums['CMA'].c, rate:0};
   }
-  if(!summary.domestic.amount && num(oldAssets?.['국내주식'])) summary.domestic.amount = num(oldAssets['국내주식']);
-  if(!summary.overseas.amount && num(oldAssets?.['해외주식'])) summary.overseas.amount = num(oldAssets['해외주식']);
+  if(!summary.domestic.current && num(oldAssets?.['국내주식'])) summary.domestic.current=summary.domestic.amount=num(oldAssets['국내주식']);
+  if(!summary.overseas.current && num(oldAssets?.['해외주식'])) summary.overseas.current=summary.overseas.amount=num(oldAssets['해외주식']);
   if(!summary.cma.amount && num(oldAssets?.['CMA'])) summary.cma.amount = num(oldAssets['CMA']);
   return summary;
 }
@@ -459,6 +464,21 @@ function budgetAdjustmentRows(){
   const year=selectedYear(), key=getPeriod().key;
   return (state.budgetAdjustments||[]).filter(x=>x.scope==='monthly'?x.periodKey===key:num(x.year)===year).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
 }
+function adjustmentMonth(item){
+  if(item?.periodKey) return num(String(item.periodKey).split('-')[1])||selectedMonth();
+  if(num(item?.month)) return num(item.month);
+  const d=new Date(item?.createdAt||''); return Number.isNaN(d.getTime())?selectedMonth():d.getMonth()+1;
+}
+function changeBudgetByAdjustment(item, signedAmount){
+  const category=item.category;
+  if(MONTHLY_CATEGORIES.includes(category)){
+    const key=item.periodKey||`${num(item.year)||selectedYear()}-${String(adjustmentMonth(item)).padStart(2,'0')}`;
+    state.monthlyBudgets=state.monthlyBudgets||{};
+    state.monthlyBudgets[key]={...(state.monthlyBudgets[key]||{}),[category]:Math.max(0,monthlyBudgetValue(category,key)+signedAmount)};
+  }else{
+    state.budgets[category]=Math.max(0,num(state.budgets[category])+signedAmount);
+  }
+}
 function setMonthlyBudgetForYear(category, amount, year=selectedYear(), selectedKey=getPeriod().key){
   state.monthlyBudgets=state.monthlyBudgets||{};
   const value=Math.max(0,num(amount));
@@ -563,7 +583,7 @@ function recalculateJaturi(){
     const fixed=fixedTotal(key);
     const loanPayment=loanPaymentForKey(key);
     const foodSpent=foodSpentForKey(key);
-    const investmentFund=income-fixed-loanPayment-foodSpent;
+    const investmentFund=income-fixed-loanPayment;
     settlements[key]={income,fixed,loanPayment,loanInterest:loanPayment,foodSpent,investmentFund,surplus:investmentFund,transferred:0,managementBudget:management.budget,managementActual:management.actual,managementDifference:difference,jaturiBalance:running};
   });
   state.jaturi.settlements=settlements;
@@ -590,7 +610,8 @@ function cmaAmountForPeriod(){
   const cma=state.investmentSummary.cma||{};
   return Object.prototype.hasOwnProperty.call(cma,'manualAmount')?num(cma.manualAmount):num(cma.amount);
 }
-function investAssetTotal(key=getPeriod().key){ return num(state.investmentSummary.domestic.amount)+num(state.investmentSummary.overseas.amount)+cmaAmountForPeriod(key); }
+function investmentMetrics(key){ const row=state.investmentSummary?.[key]||{}; const principal=num(row.principal); const current=num(row.current ?? row.amount); const profit=current-principal; const rate=principal?profit/principal*100:0; return {principal,current,profit,rate}; }
+function investAssetTotal(key=getPeriod().key){ return investmentMetrics('domestic').current+investmentMetrics('overseas').current+cmaAmountForPeriod(key); }
 function totalAssets(key=getPeriod().key){ return cashTotal()+purposeTotal()+investAssetTotal(key); }
 function currentIncome(){ return currentJinhyukSalary()+currentDahyeSalary(); }
 function excelRoundDown(value, digits){ const factor=Math.pow(10,-digits); return Math.trunc((Number(value)||0)/factor)*factor; }
@@ -748,12 +769,11 @@ function renderHome(){
   const loanHomeSummary=$('#loanHomeSummary'); if(loanHomeSummary) loanHomeSummary.textContent=loanRow?money(loanRow.payment):money(selectedLoanBalance);
 
   const j=currentJinhyukSalary(), d=currentDahyeSalary(), income=j+d, fixed=fixedTotal(), spent=totalBudgetSpent();
-  const loanPayment=loanPaymentForKey(), foodSpent=catSpent('식비'), investmentFund=income-fixed-loanPayment-foodSpent;
+  const loanPayment=loanPaymentForKey(), investmentFund=income-fixed-loanPayment;
   $('#homeJinhyukSalary').textContent=money(j); $('#homeDahyeSalary').textContent=money(d); $('#homeIncome').textContent=money(income); $('#homeFixed').textContent=money(fixed);
   const fixedLabel=$('#homeFixedLabel'); if(fixedLabel) fixedLabel.textContent=`${selectedMonth()}월 고정지출`;
   const loanLabel=$('#homeLoanPaymentForFundLabel'); if(loanLabel) loanLabel.textContent=`${selectedMonth()}월 대출 납부금`;
   const loanFundEl=$('#homeLoanInterestForFund'); if(loanFundEl) loanFundEl.textContent=money(loanPayment);
-  const foodFundEl=$('#homeFoodSpentForFund'); if(foodFundEl) foodFundEl.textContent=money(foodSpent);
   $('#homeSurplus').textContent=money(investmentFund); $('#homeSurplus').className=investmentFund>=0?'plus':'minus';
   $('#incomeAccSummary').textContent=`투자자금 ${money(investmentFund)}`;
 
@@ -761,24 +781,30 @@ function renderHome(){
     const mg=c==='관리비'?managementFeeResult():null;
     const b=c==='식비'?effectiveFoodBudget():c==='관리비'?mg.budget:num(state.budgets[c]);
     const s=c==='관리비'?mg.actual:(MONTHLY_CATEGORIES.includes(c)?catSpent(c):annualCategorySpent(c)), bal=b-s;
-    return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td>${money(b)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`;
+    return `<tr><td>${c}</td><td>${MONTHLY_CATEGORIES.includes(c)?'월별':'연도별'}</td><td>${money(b)}</td><td>${money(s)}</td><td class="${bal<0?'minus':'plus'}">${money(bal)}</td></tr>`;
   });
   const shoppingJBudget=num(state.budgets['쇼핑비(진혁)']), shoppingDBudget=num(state.budgets['쇼핑비(다혜)']);
   const shoppingJSpent=annualCategorySpent('쇼핑비(진혁)'), shoppingDSpent=annualCategorySpent('쇼핑비(다혜)');
   const shoppingBudget=shoppingJBudget+shoppingDBudget, shoppingSpent=shoppingJSpent+shoppingDSpent, shoppingBalance=shoppingBudget-shoppingSpent;
-  const shoppingRow=`<tr class="shopping-summary-row"><td><button type="button" class="shopping-budget-toggle" data-shopping-toggle>쇼핑비 <span>${state.ui.shoppingDetailOpen?'▲':'▼'}</span></button></td><td>연도별</td><td>${money(shoppingBudget)}</td><td class="${shoppingBalance<0?'minus':'plus'}">${money(shoppingBalance)}</td></tr>`;
-  const shoppingDetail=state.ui.shoppingDetailOpen?`<tr class="shopping-detail-row"><td colspan="4"><div class="shopping-detail-grid"><div><b>진혁</b><span>예산 ${money(shoppingJBudget)}</span><span>지출 ${money(shoppingJSpent)}</span><strong class="${shoppingJBudget-shoppingJSpent<0?'minus':'plus'}">잔액 ${money(shoppingJBudget-shoppingJSpent)}</strong></div><div><b>다혜</b><span>예산 ${money(shoppingDBudget)}</span><span>지출 ${money(shoppingDSpent)}</span><strong class="${shoppingDBudget-shoppingDSpent<0?'minus':'plus'}">잔액 ${money(shoppingDBudget-shoppingDSpent)}</strong></div></div></td></tr>`:'';
+  const shoppingRow=`<tr class="shopping-summary-row"><td><button type="button" class="shopping-budget-toggle" data-shopping-toggle>쇼핑비 <span>${state.ui.shoppingDetailOpen?'▲':'▼'}</span></button></td><td>연도별</td><td>${money(shoppingBudget)}</td><td>${money(shoppingSpent)}</td><td class="${shoppingBalance<0?'minus':'plus'}">${money(shoppingBalance)}</td></tr>`;
+  const shoppingDetail=state.ui.shoppingDetailOpen?`<tr class="shopping-detail-row"><td colspan="5"><div class="shopping-detail-grid"><div><b>진혁</b><span>예산 ${money(shoppingJBudget)}</span><span>지출 ${money(shoppingJSpent)}</span><strong class="${shoppingJBudget-shoppingJSpent<0?'minus':'plus'}">잔액 ${money(shoppingJBudget-shoppingJSpent)}</strong></div><div><b>다혜</b><span>예산 ${money(shoppingDBudget)}</span><span>지출 ${money(shoppingDSpent)}</span><strong class="${shoppingDBudget-shoppingDSpent<0?'minus':'plus'}">잔액 ${money(shoppingDBudget-shoppingDSpent)}</strong></div></div></td></tr>`:'';
   const insertAt=Math.min(3,standardBudgetRows.length);
   standardBudgetRows.splice(insertAt,0,shoppingRow+shoppingDetail);
   recalculateJaturi();
   const selectedJaturiBalance=jaturiBalanceForPeriod(getPeriod().key);
-  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>${selectedMonth()}월 누적</td><td>-</td><td class="${selectedJaturiBalance<0?'minus':'plus'}">${money(selectedJaturiBalance)}</td></tr>`);
+  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>${selectedMonth()}월 누적</td><td>-</td><td>-</td><td class="${selectedJaturiBalance<0?'minus':'plus'}">${money(selectedJaturiBalance)}</td></tr>`);
   $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
   const budgetSummary=$('#budgetAccSummary'); if(budgetSummary) budgetSummary.textContent=state.ui.openAccordions?.budget?'닫기':'보기';
 
   const expenseMatrixCategories=['식비','생필품','비상금','쇼핑비','경조사비','가족'];
   $('#yearExpenseTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
-    const cells=expenseMatrixCategories.map(category=>{ const r=yearCategoryPayerSummary(m,category); return `<td>${money(r.dah)}</td><td>${money(r.jin)}</td>`; }).join('');
+    const period=periodForMonth(selectedYear(),m);
+    const monthExpenses=expensesInPeriod(period);
+    const cells=expenseMatrixCategories.map(category=>{
+      const aliases=category==='가족'?['가족','부모님']:category==='경조사비'?['경조사비','경조사']:[category];
+      const total=monthExpenses.filter(e=>aliases.includes(e.category)).reduce((sum,e)=>sum+num(e.amount),0);
+      return `<td>${money(total)}</td>`;
+    }).join('');
     return `<tr><td>${m}월</td>${cells}</tr>`;
   }).join('');
   $('#expenseAccSummary').textContent=`올해 ${money(Array.from({length:12},(_,i)=>yearExpenseSummary(i+1).total).reduce((a,b)=>a+b,0))}`;
@@ -786,16 +812,17 @@ function renderHome(){
   $('#yearSalaryTable tbody').innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{ const key=`${currentYear()}-${String(m).padStart(2,'0')}`, jin=num(state.salary.jinhyuk[key]), dah=calcDahyeMonth(m).net; return `<tr><td>${m}월</td><td>${money(jin)}</td><td>${money(dah)}</td><td>${money(jin+dah)}</td></tr>`; }).join('');
   const salarySummary=$('#salaryAccSummary'); if(salarySummary) salarySummary.textContent=`현재 ${money(income)}`;
 
-  $('#homeInvestTable tbody').innerHTML=`<tr><td>국내주식</td><td>${money(state.investmentSummary.domestic.amount)}</td><td>${num(state.investmentSummary.domestic.rate).toFixed(1)}%</td></tr><tr><td>해외주식</td><td>${money(state.investmentSummary.overseas.amount)}</td><td>${num(state.investmentSummary.overseas.rate).toFixed(1)}%</td></tr><tr><td>CMA</td><td>${money(cmaAmountForPeriod())}</td><td>-</td></tr>`;
-  $('#investAccSummary').textContent=`${money(investAssetTotal())} · 평균 ${investmentAverageRate().toFixed(2)}%`;
+  const dm=investmentMetrics('domestic'), om=investmentMetrics('overseas');
+  $('#homeInvestTable tbody').innerHTML=`<tr><td>국내주식</td><td>${money(dm.principal)}</td><td>${money(dm.current)}</td><td class="${dm.profit<0?'minus':'plus'}">${money(dm.profit)}</td><td class="${dm.rate<0?'minus':'plus'}">${dm.rate.toFixed(1)}%</td></tr><tr><td>해외주식</td><td>${money(om.principal)}</td><td>${money(om.current)}</td><td class="${om.profit<0?'minus':'plus'}">${money(om.profit)}</td><td class="${om.rate<0?'minus':'plus'}">${om.rate.toFixed(1)}%</td></tr><tr><td>CMA</td><td>${money(cmaAmountForPeriod())}</td><td>${money(cmaAmountForPeriod())}</td><td>0원</td><td>-</td></tr>`;
+  $('#investAccSummary').textContent=`평가 ${money(investAssetTotal())} · 수익 ${money(dm.profit+om.profit)}`;
 }
 function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; sel.innerHTML=EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join(''); if(EXPENSE_CATEGORIES.includes(selected)) sel.value=selected; const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td><div>${e.date||''}</div><label class="expense-paid-check"><input type="checkbox" data-exp-paid="${e.id}" ${e.paid?'checked':''}> 지급</label></td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
 function renderBudget(){
   recalculateJaturi();
   $('#budgetInputTable tbody').innerHTML=orderedBudgetCategories().map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=MONTHLY_CATEGORIES.includes(c)?monthlyBudgetValue(c):num(state.budgets[c]); const memo=budgetMemoValue(c); return `<tr data-reorder-row="budget" data-budget-category="${escapeAttr(c)}"><td class="reorder-handle">${label}</td><td>${MONTHLY_CATEGORIES.includes(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${memo?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가"></td><td><input data-money data-budget-cut="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="삭감"></td></tr>`; }).join('');
-  const history=budgetAdjustmentRows();
-  const historyBox=$('#budgetAdjustmentHistory');
-  if(historyBox) historyBox.innerHTML=history.length?`<div class="budget-history-title">${selectedYear()}년 ${selectedMonth()}월 / 연도 추가·삭감 상세내역</div>${history.map(x=>`<div class="budget-history-row"><strong>${escapeHtml(x.category||'')}</strong><span class="${x.type==='추가'?'plus':'minus'}">${x.type} ${money(x.amount)}</span><small>${escapeHtml(x.reason||'사유 미입력')}</small></div>`).join('')}`:'<p class="hint">추가·삭감 상세내역이 없습니다.</p>';
+  const history=(state.budgetAdjustments||[]).filter(x=>num(x.year)===selectedYear()).sort((a,b)=>{ const ca=orderedBudgetCategories().indexOf(a.category), cb=orderedBudgetCategories().indexOf(b.category); if(ca!==cb) return ca-cb; return adjustmentMonth(a)-adjustmentMonth(b) || String(a.createdAt||'').localeCompare(String(b.createdAt||'')); });
+  const historyBody=$('#budgetAdjustmentTable tbody');
+  if(historyBody) historyBody.innerHTML=history.length?history.map(x=>`<tr><td>${escapeHtml(x.category||'')}</td><td>${adjustmentMonth(x)}월</td><td class="${x.type==='추가'?'plus':'minus'}">${escapeHtml(x.type||'')}</td><td>${money(x.amount)}</td><td>${escapeHtml(x.reason||'사유 미입력')}</td><td><button type="button" class="ghost small" data-budget-adjust-edit="${escapeAttr(x.id||'')}">수정</button> <button type="button" class="danger small" data-budget-adjust-del="${escapeAttr(x.id||'')}">삭제</button></td></tr>`).join(''):`<tr><td colspan="6" class="muted">${selectedYear()}년 추가·삭감 상세내역이 없습니다.</td></tr>`;
 }
 function renderFixed(){
   const title=$('#fixedPageTitle'); if(title) title.textContent=`💸 ${selectedYear()}년 ${selectedMonth()}월 고정지출`;
@@ -888,16 +915,19 @@ function renderAssets(){
   $('#assetInputTable tfoot').innerHTML=`<tr class="asset-total-row"><th>합계</th><th id="purposeAssetTotal">${money(purposeTotal())}</th><th></th></tr>`;
 }
 function investmentAverageRate(){
-  const rows=['domestic','overseas'].map(k=>state.investmentSummary[k]).filter(x=>num(x.amount)>0 && num(x.rate)>-100);
-  if(!rows.length) return 0;
-  const totals=rows.reduce((a,x)=>{ const principal=num(x.amount)/(1+num(x.rate)/100); return {principal:a.principal+principal,current:a.current+num(x.amount)}; },{principal:0,current:0});
-  return totals.principal ? ((totals.current-totals.principal)/totals.principal*100) : 0;
+  const dm=investmentMetrics('domestic'), om=investmentMetrics('overseas');
+  const principal=dm.principal+om.principal, current=dm.current+om.current;
+  return principal ? (current-principal)/principal*100 : 0;
 }
 function renderInvest(){
-  const s=state.investmentSummary;
-  const row=(label,key,rate=true)=>{ const shown=key==='cma'?cmaAmountForPeriod():num(s[key].amount); return `<tr><td>${label}</td><td><button type="button" class="fixed-amount-cell ${s[key].memo?'has-memo':''}" data-money-memo-type="invest" data-money-memo-key="${key}">${comma(shown)}</button></td><td>${rate?`<input data-invest-rate="${key}" type="number" step="0.1" value="${num(s[key].rate)}">`:'<span class="muted">-</span>'}</td></tr>`; };
-  $('#investmentTable tbody').innerHTML=row('국내주식','domestic')+row('해외주식','overseas')+row('CMA','cma',false);
-  $('#investmentTable tfoot').innerHTML=`<tr class="asset-total-row"><th>합계 / 평균</th><th id="investmentAssetTotal">${money(investAssetTotal())}</th><th id="investmentAverageRate">${investmentAverageRate().toFixed(2)}%</th></tr>`;
+  const row=(label,key,isCma=false)=>{
+    if(isCma){ const amount=cmaAmountForPeriod(); return `<tr><td>${label}</td><td>${money(amount)}</td><td>${money(amount)}</td><td>0원</td><td>-</td></tr>`; }
+    const m=investmentMetrics(key);
+    return `<tr><td>${label}</td><td><input data-money data-invest-principal="${key}" type="text" inputmode="numeric" value="${comma(m.principal)}"></td><td><input data-money data-invest-current="${key}" type="text" inputmode="numeric" value="${comma(m.current)}"></td><td class="${m.profit<0?'minus':'plus'}">${money(m.profit)}</td><td class="${m.rate<0?'minus':'plus'}">${m.rate.toFixed(2)}%</td></tr>`;
+  };
+  $('#investmentTable tbody').innerHTML=row('국내주식','domestic')+row('해외주식','overseas')+row('CMA','cma',true);
+  const dm=investmentMetrics('domestic'), om=investmentMetrics('overseas');
+  $('#investmentTable tfoot').innerHTML=`<tr class="asset-total-row"><th>합계</th><th>${money(dm.principal+om.principal+cmaAmountForPeriod())}</th><th id="investmentAssetTotal">${money(investAssetTotal())}</th><th class="${dm.profit+om.profit<0?'minus':'plus'}">${money(dm.profit+om.profit)}</th><th id="investmentAverageRate">${investmentAverageRate().toFixed(2)}%</th></tr>`;
 }
 function renderLoan(){
   const l={...DEFAULT_LOAN,...(state.loan||{})};
@@ -1123,6 +1153,19 @@ function bindEvents(){
     const paidCheck=e.target.closest('[data-exp-paid]');
     if(paidCheck){ const item=state.expenses.find(x=>x.id===paidCheck.dataset.expPaid); if(item){ item.paid=Boolean(paidCheck.checked); item.updatedAt=new Date().toISOString(); renderLedger(); await persistRemote(); } return; }
     const t=e.target.closest('button'); if(!t) return;
+    if(t.dataset.budgetAdjustEdit!==undefined){
+      const item=(state.budgetAdjustments||[]).find(x=>String(x.id)===String(t.dataset.budgetAdjustEdit)); if(!item) return;
+      const oldSigned=item.type==='추가'?num(item.amount):-num(item.amount);
+      const amount=num(prompt(`${item.category} ${item.type} 금액을 수정하세요.`,comma(item.amount))); if(amount<=0) return;
+      const reason=prompt('상세 사유를 수정하세요.',item.reason||''); if(reason===null) return;
+      changeBudgetByAdjustment(item,-oldSigned); item.amount=amount; item.reason=String(reason).trim(); item.updatedAt=new Date().toISOString(); changeBudgetByAdjustment(item,item.type==='추가'?amount:-amount);
+      state.budgetRevision=num(state.budgetRevision)+1; saveActiveYearSnapshot(); recalculateJaturi(); await persistRemote(); renderBudget(); renderHome(); showToast('상세내역을 수정했습니다.'); return;
+    }
+    if(t.dataset.budgetAdjustDel!==undefined){
+      const idx=(state.budgetAdjustments||[]).findIndex(x=>String(x.id)===String(t.dataset.budgetAdjustDel)); if(idx<0) return;
+      const item=state.budgetAdjustments[idx]; if(!confirm(`${item.category} ${item.type} ${money(item.amount)} 내역을 삭제하고 예산을 되돌리시겠습니까?`)) return;
+      const signed=item.type==='추가'?num(item.amount):-num(item.amount); changeBudgetByAdjustment(item,-signed); state.budgetAdjustments.splice(idx,1); state.budgetRevision=num(state.budgetRevision)+1; saveActiveYearSnapshot(); recalculateJaturi(); await persistRemote(); renderBudget(); renderHome(); showToast('상세내역을 삭제했습니다.'); return;
+    }
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
     if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); setExpenseFormOpen(true); window.scrollTo({top:0,behavior:'smooth'}); }}
@@ -1169,7 +1212,7 @@ function bindEvents(){
   $('#expenseDate').value=defaultExpenseDateForSelection();
   $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const idx=state.expenses.findIndex(x=>x.id===id); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),paid:idx>=0?Boolean(state.expenses[idx]?.paid):false,updatedAt:new Date().toISOString()}; if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(true); await persistRemote(); });
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
-  $('#saveBudgetBtn').addEventListener('click', async()=>{ const entries=[]; $$('[data-budget-add]').forEach(inp=>{ const amount=num(inp.value); if(amount) entries.push({category:inp.dataset.budgetAdd,type:'추가',amount}); inp.value=''; }); $$('[data-budget-cut]').forEach(inp=>{ const amount=num(inp.value); if(amount) entries.push({category:inp.dataset.budgetCut,type:'삭감',amount}); inp.value=''; }); let changed=false; state.budgetAdjustments=Array.isArray(state.budgetAdjustments)?state.budgetAdjustments:[]; for(const entry of entries){ changed=true; const c=entry.category, delta=entry.type==='추가'?entry.amount:-entry.amount; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; setMonthlyBudgetForYear(c,Math.max(0,monthlyBudgetValue(c,pk)+delta),selectedYear(),pk); } else state.budgets[c]=Math.max(0,num(state.budgets[c])+delta); const reason=prompt(`${c} ${entry.type} ${comma(entry.amount)}원 사유를 입력하세요.`,budgetMemoValue(c)) ?? ''; state.budgetAdjustments.push({id:crypto.randomUUID(),category:c,type:entry.type,amount:entry.amount,reason:String(reason).trim(),scope:MONTHLY_CATEGORIES.includes(c)?'monthly':'yearly',periodKey:MONTHLY_CATEGORIES.includes(c)?getPeriod().key:'',year:selectedYear(),createdAt:new Date().toISOString()}); } if(changed){ state.budgetRevision=num(state.budgetRevision)+1; saveActiveYearSnapshot(); } recalculateJaturi(); await persistRemote(); renderBudget(); showToast('예산의 추가·삭감 금액을 반영했습니다.'); });
+  $('#saveBudgetBtn').addEventListener('click', async()=>{ const entries=[]; $$('[data-budget-add]').forEach(inp=>{ const amount=num(inp.value); if(amount) entries.push({category:inp.dataset.budgetAdd,type:'추가',amount}); inp.value=''; }); $$('[data-budget-cut]').forEach(inp=>{ const amount=num(inp.value); if(amount) entries.push({category:inp.dataset.budgetCut,type:'삭감',amount}); inp.value=''; }); let changed=false; state.budgetAdjustments=Array.isArray(state.budgetAdjustments)?state.budgetAdjustments:[]; for(const entry of entries){ changed=true; const c=entry.category, delta=entry.type==='추가'?entry.amount:-entry.amount; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; setMonthlyBudgetForYear(c,Math.max(0,monthlyBudgetValue(c,pk)+delta),selectedYear(),pk); } else state.budgets[c]=Math.max(0,num(state.budgets[c])+delta); const reason=prompt(`${c} ${entry.type} ${comma(entry.amount)}원 사유를 입력하세요.`,budgetMemoValue(c)) ?? ''; state.budgetAdjustments.push({id:crypto.randomUUID(),category:c,type:entry.type,amount:entry.amount,reason:String(reason).trim(),scope:MONTHLY_CATEGORIES.includes(c)?'monthly':'yearly',periodKey:MONTHLY_CATEGORIES.includes(c)?getPeriod().key:'',year:selectedYear(),month:selectedMonth(),createdAt:new Date().toISOString()}); } if(changed){ state.budgetRevision=num(state.budgetRevision)+1; saveActiveYearSnapshot(); } recalculateJaturi(); await persistRemote(); renderBudget(); showToast('예산의 추가·삭감 금액을 반영했습니다.'); });
   $('#fixedList').addEventListener('input', e=>{ const pk=getPeriod().key, i=num(e.target.dataset.fixedName); const item=state.fixedMaster[i]; if(!item) return; if(e.target.dataset.fixedName!==undefined){ item.name=e.target.value; item.category=fixedCategory(item,pk); } item.updatedAt=new Date().toISOString(); });
   $('#saveFixedBtn')?.addEventListener('click', async()=>{ state.fixedMaster.forEach(f=>f.category=fixedCategory(f,getPeriod().key)); recalculateJaturi(); await persistRemote(); showToast('고정지출과 자동 분류를 저장했습니다.'); });
   $('#fixedMemoSave')?.addEventListener('click', saveFixedMemoEditor);
@@ -1214,9 +1257,8 @@ function bindEvents(){
       showToast('기타 자산 항목을 삭제했습니다.');
     }
   });
-  $('#investmentTable').addEventListener('input', e=>{ const key=e.target.dataset.investRate; if(key!==undefined){ state.investmentSummary[key].rate=num(e.target.value); const avg=$('#investmentAverageRate'); if(avg) avg.textContent=investmentAverageRate().toFixed(2)+'%'; } });
   $('#saveAssetsBtn').addEventListener('click', async()=>{ await persistRemote(); });
-  $('#saveInvestBtn').addEventListener('click', async()=>{ ['domestic','overseas'].forEach(k=>{ state.investmentSummary[k].rate=num($(`[data-invest-rate="${k}"]`)?.value); }); await persistRemote(); });
+  $('#saveInvestBtn').addEventListener('click', async()=>{ ['domestic','overseas'].forEach(k=>{ const principal=num($(`[data-invest-principal="${k}"]`)?.value); const current=num($(`[data-invest-current="${k}"]`)?.value); state.investmentSummary[k]={...(state.investmentSummary[k]||{}),principal,current,amount:current,rate:principal?((current-principal)/principal*100):0}; }); renderInvest(); renderHome(); await persistRemote(); showToast('투자 현황을 저장했습니다.'); });
   $('#saveLoanBtn').addEventListener('click', async()=>{
     state.loan={
       ...state.loan,

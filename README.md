@@ -1,4 +1,4 @@
-# HZZDZZ Couple Finance v1.6.26
+# HZZDZZ Couple Finance v1.6.27
 
 - 홈 화면 순서 재배치
 - 월급 현황을 급여 페이지로 이동
