@@ -727,3 +727,16 @@
 .expense-paid-check input{width:16px;height:16px;margin:0;padding:0}
 #ledgerTable tr.expense-settled td:not(:last-child){text-decoration-line:line-through;text-decoration-color:#ef4444;text-decoration-thickness:2px}
 #ledgerTable tr.expense-settled .expense-paid-check{text-decoration:none}
+
+
+/* v1.6.26 requested home order, wide monthly expense matrix, and long-press ordering */
+.year-expense-matrix{min-width:1320px;}
+@media(max-width:420px){.year-expense-matrix{min-width:1240px;}}
+.fixed-detail-owner-summary{display:flex;flex-wrap:wrap;gap:7px;margin:-2px 0 8px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.fixed-detail-owner-summary span{display:inline-flex;gap:4px;align-items:center;padding:5px 8px;border-radius:999px;background:#f1f5f9;font-size:12px;white-space:nowrap}
+[data-reorder-row] .reorder-handle{touch-action:none;-webkit-user-select:none;user-select:none}
+[data-reorder-row].reorder-active{opacity:.72;outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff!important}
+#homeBudgetTable th:nth-child(1),#homeBudgetTable td:nth-child(1){width:25%}
+#homeBudgetTable th:nth-child(2),#homeBudgetTable td:nth-child(2){width:22%}
+#homeBudgetTable th:nth-child(3),#homeBudgetTable td:nth-child(3){width:27%}
+#homeBudgetTable th:nth-child(4),#homeBudgetTable td:nth-child(4){width:26%}

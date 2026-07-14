@@ -11,8 +11,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=158" />
   <link rel="apple-touch-icon-precomposed" href="./apple-touch-icon.png?v=158" />
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=158" />
-  <link rel="manifest" href="./manifest.webmanifest?v=1615" />
-  <link rel="stylesheet" href="style.css?v=1660" />
+  <link rel="manifest" href="./manifest.webmanifest?v=1626" />
+  <link rel="stylesheet" href="style.css?v=1661" />
   <meta name="apple-mobile-web-app-title" content="dzzhzz" />
 </head>
 <body>
@@ -62,47 +62,6 @@
         </section>
 
         <section class="accordion-card">
-          <button class="accordion-toggle" data-acc="budget"><span>📊 예산 현황</span><b id="budgetAccSummary">보기</b></button>
-          <div class="accordion-content" id="acc-budget">
-            <div class="table-scroll"><table class="excel-table" id="homeBudgetTable"><thead><tr><th>분류</th><th>구분</th><th>예산</th><th>지출</th><th>잔액</th></tr></thead><tbody></tbody></table></div>
-          </div>
-        </section>
-
-        <section class="accordion-card">
-          <button class="accordion-toggle" data-acc="expense"><span>🧾 월별 지출</span><b id="expenseAccSummary">보기</b></button>
-          <div class="accordion-content" id="acc-expense">
-            <div class="table-scroll year-expense-scroll"><table class="excel-table year-expense-matrix" id="yearExpenseTable"><thead><tr><th rowspan="2">월</th><th colspan="2">식비</th><th colspan="2">생필품</th><th colspan="2">비상금</th></tr><tr><th>다혜</th><th>진혁</th><th>다혜</th><th>진혁</th><th>다혜</th><th>진혁</th></tr></thead><tbody></tbody></table></div>
-          </div>
-        </section>
-
-        <section class="accordion-card">
-          <button class="accordion-toggle" data-acc="salary"><span>💵 월급 현황</span><b id="salaryAccSummary">보기</b></button>
-          <div class="accordion-content" id="acc-salary">
-            <div class="table-scroll"><table class="excel-table" id="yearSalaryTable"><thead><tr><th>월</th><th>진혁</th><th>다혜</th><th>합계</th></tr></thead><tbody></tbody></table></div>
-          </div>
-        </section>
-
-        <section class="accordion-card">
-          <button class="accordion-toggle" data-acc="invest"><span>📈 투자 현황</span><b id="investAccSummary">보기</b></button>
-          <div class="accordion-content" id="acc-invest">
-            <div class="table-scroll"><table class="excel-table" id="homeInvestTable"><thead><tr><th>구분</th><th>현재금액</th><th>수익률</th></tr></thead><tbody></tbody></table></div>
-          </div>
-        </section>
-
-
-        <section class="accordion-card">
-          <button class="accordion-toggle" data-acc="loanHome"><span>🏦 대출 현황</span><b id="loanHomeSummary">보기</b></button>
-          <div class="accordion-content" id="acc-loanHome">
-            <div class="loan-home-grid">
-              <div><span>선택 월 납부액</span><strong id="homeLoanPayment">0원</strong></div>
-              <div><span>원금</span><strong id="homeLoanPrincipal">0원</strong></div>
-              <div><span>이자</span><strong id="homeLoanInterest">0원</strong></div>
-              <div><span>납부 후 잔액</span><strong id="homeLoanBalance">0원</strong></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="accordion-card">
           <button class="accordion-toggle" data-acc="income"><span>📋 수입·고정지출</span><b id="incomeAccSummary">보기</b></button>
           <div class="accordion-content" id="acc-income">
             <table class="excel-table compact"><tbody>
@@ -114,6 +73,27 @@
               <tr><th>식비 지출액</th><td id="homeFoodSpentForFund">0원</td></tr>
               <tr class="strong"><th>투자자금</th><td id="homeSurplus">0원</td></tr>
             </tbody></table>
+          </div>
+        </section>
+
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="budget"><span>📊 예산 현황</span><b id="budgetAccSummary">보기</b></button>
+          <div class="accordion-content" id="acc-budget">
+            <div class="table-scroll"><table class="excel-table" id="homeBudgetTable"><thead><tr><th>분류</th><th>구분</th><th>예산</th><th>잔액</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="expense"><span>🧾 월별 지출</span><b id="expenseAccSummary">보기</b></button>
+          <div class="accordion-content" id="acc-expense">
+            <div class="table-scroll year-expense-scroll"><table class="excel-table year-expense-matrix" id="yearExpenseTable"><thead><tr><th rowspan="2">월</th><th colspan="2">식비</th><th colspan="2">생필품</th><th colspan="2">비상금</th><th colspan="2">쇼핑비</th><th colspan="2">경조사</th><th colspan="2">부모님</th></tr><tr><th>다혜</th><th>진혁</th><th>다혜</th><th>진혁</th><th>다혜</th><th>진혁</th><th>다혜</th><th>진혁</th><th>다혜</th><th>진혁</th><th>다혜</th><th>진혁</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="accordion-card">
+          <button class="accordion-toggle" data-acc="invest"><span>📈 투자 현황</span><b id="investAccSummary">보기</b></button>
+          <div class="accordion-content" id="acc-invest">
+            <div class="table-scroll"><table class="excel-table" id="homeInvestTable"><thead><tr><th>구분</th><th>현재금액</th><th>수익률</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
       </section>
@@ -174,6 +154,12 @@
       </section>
 
       <section id="view-salary" class="view">
+        <section class="accordion-card salary-overview-card">
+          <button class="accordion-toggle" data-acc="salaryOverview"><span>💵 월급 현황</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-salaryOverview">
+            <div class="table-scroll"><table class="excel-table" id="yearSalaryTable"><thead><tr><th>월</th><th>진혁</th><th>다혜</th><th>합계</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
         <section class="accordion-card salary-person-card">
           <button class="accordion-toggle person-toggle" data-acc="jinhyukGroup"><span>💵 진혁</span><b>보기</b></button>
           <div class="accordion-content person-content" id="acc-jinhyukGroup">
@@ -339,6 +325,6 @@
       <div class="memo-dialog-actions"><button type="button" id="fixedMemoCancelBottom" class="ghost" onclick="document.getElementById('fixedMemoCancel').click()">취소</button><button type="button" id="fixedMemoSave" class="primary">메모 적용</button></div>
     </div>
   </div>
-  <script type="module" src="app.js?v=1625"></script>
+  <script type="module" src="app.js?v=1626"></script>
 </body>
 </html>
