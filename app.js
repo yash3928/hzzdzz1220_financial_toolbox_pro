@@ -989,11 +989,30 @@ async function connectFirebase(){
   finally{ connectionInProgress=false; }
 }
 function todayLocalDate(){ return new Date(); }
-function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=ymd(todayLocalDate()); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
+function localYmd(date){
+  const d=date instanceof Date?date:new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function defaultExpenseDateForSelection(){
+  const today=todayLocalDate();
+  const period=getPeriod();
+  const day=today.getDate();
+  const startDay=Math.max(1,Math.min(28,num(state.settings?.cycleStartDay)||10));
+  let candidate;
+  if(day>=startDay){
+    candidate=new Date(selectedYear(),selectedMonth()-1,day);
+  } else {
+    candidate=new Date(selectedYear(),selectedMonth(),day);
+  }
+  if(candidate<period.start) candidate=new Date(period.start.getFullYear(),period.start.getMonth(),period.start.getDate());
+  if(candidate>period.end) candidate=new Date(period.end.getFullYear(),period.end.getMonth(),period.end.getDate());
+  return localYmd(candidate);
+}
+function clearExpenseForm(){ $('#expenseId').value=''; $('#expenseDate').value=defaultExpenseDateForSelection(); $('#expenseAmount').value=''; $('#expenseMemo').value=''; }
 function setExpenseFormOpen(open){
   const toggle=$('#expenseFormToggle'), wrap=$('#expenseFormWrap');
   if(!toggle||!wrap) return;
-  if(open && !$('#expenseId')?.value) $('#expenseDate').value=ymd(todayLocalDate());
+  if(open && !$('#expenseId')?.value) $('#expenseDate').value=defaultExpenseDateForSelection();
   toggle.classList.toggle('open', open);
   toggle.setAttribute('aria-expanded', String(open));
   const label=toggle.querySelector('b'); if(label) label.textContent=open?'닫기':'보기';
@@ -1082,7 +1101,7 @@ function bindEvents(){
     if(t.id==='addCashItemBtn'){ state.assets.cashItems.push({id:crypto.randomUUID(),name:'',amount:0,memo:''}); renderAssets(); }
     if(t.dataset.cashDel!==undefined){ state.assets.cashItems.splice(num(t.dataset.cashDel),1); renderAssets(); await persistRemote(); }
   });
-  $('#expenseDate').value=ymd(todayLocalDate());
+  $('#expenseDate').value=defaultExpenseDateForSelection();
   $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),updatedAt:new Date().toISOString()}; const idx=state.expenses.findIndex(x=>x.id===id); if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(true); await persistRemote(); });
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
   $('#saveBudgetBtn').addEventListener('click', async()=>{ const adjustments={}; $$('[data-budget-add]').forEach(inp=>{ const c=inp.dataset.budgetAdd; adjustments[c]=(adjustments[c]||0)+num(inp.value); inp.value=''; }); $$('[data-budget-cut]').forEach(inp=>{ const c=inp.dataset.budgetCut; adjustments[c]=(adjustments[c]||0)-num(inp.value); inp.value=''; }); let changed=false; Object.entries(adjustments).forEach(([c,change])=>{ if(!change) return; changed=true; if(MONTHLY_CATEGORIES.includes(c)){ const pk=getPeriod().key; setMonthlyBudgetForYear(c,Math.max(0,monthlyBudgetValue(c,pk)+change),selectedYear(),pk); } else state.budgets[c]=Math.max(0,num(state.budgets[c])+change); }); if(changed){ state.budgetRevision=num(state.budgetRevision)+1; saveActiveYearSnapshot(); } recalculateJaturi(); await persistRemote(); showToast('예산의 추가·삭감 금액을 반영했습니다.'); });
