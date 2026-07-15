@@ -915,18 +915,30 @@ function renderFixed(){
   const rows=list.map((f,i)=>{ const v=fixedMonthValue(f,key), cat=fixedCategory(f,key); const amountCell=owner=>`<button type="button" class="fixed-amount-cell ${v.memos?.[owner]?'has-memo':''}" data-fixed-memo-open="${i}:${owner}">${comma(v.amounts?.[owner])}</button>`; return `<tr data-reorder-row="fixed" data-fixed-id="${escapeAttr(f.id||'')}"><td class="fixed-col-name reorder-handle"><input placeholder="항목" data-fixed-name="${i}" value="${escapeAttr(f.name||'')}"></td><td class="fixed-col-ai">${escapeHtml(cat)}</td><td class="fixed-col-budget"><span class="fixed-auto-budget">${comma(v.amount)}</span></td><td class="fixed-col-owner">${amountCell('공동')}</td><td class="fixed-col-owner">${amountCell('진혁')}</td><td class="fixed-col-owner">${amountCell('다혜')}</td><td class="fixed-col-manage"><div class="fixed-manage-actions"><button class="danger small fixed-delete-btn" data-fixed-del="${i}" title="항목 삭제" aria-label="항목 삭제">삭제</button><button class="secondary small fixed-freeze-btn" data-fixed-freeze="${escapeAttr(f.id||'')}" title="전달 금액과 메모 복사" aria-label="전달 금액과 메모 복사">동결</button></div></td></tr>`; }).join('');
   const total=fixedTotal(key);
   $('#fixedList').innerHTML=`<div class="table-scroll fixed-table-scroll"><table class="excel-table input-table fixed-table"><thead><tr><th class="fixed-col-name">항목</th><th class="fixed-col-ai">AI 분류</th><th class="fixed-col-budget">예산</th><th class="fixed-col-owner">공동</th><th class="fixed-col-owner">진혁</th><th class="fixed-col-owner">다혜</th><th class="fixed-col-manage">관리</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="muted">고정지출 항목을 추가해주세요.</td></tr>'}</tbody><tfoot><tr class="fixed-total-row"><th colspan="7"><div class="fixed-total-inner"><span>총합계</span><strong>${money(total)}</strong></div></th></tr></tfoot></table></div>`;
-  const detailHtml=list.filter(f=>fixedMemoText(f,key)).map(f=>{
+  const detailHtml=list.map(f=>{
     const v=fixedMonthValue(f,key);
-    const ownerSections=fixedDetailRows(f,key).map(row=>{
+    const memoRows=fixedDetailRows(f,key);
+    const ownerAmounts={공동:num(v.amounts?.공동),진혁:num(v.amounts?.진혁),다혜:num(v.amounts?.다혜)};
+    const hasOwnerAmount=Object.values(ownerAmounts).some(amount=>amount>0);
+    const displayTotal=num(v.amount)||Object.values(ownerAmounts).reduce((sum,amount)=>sum+amount,0);
+    if(displayTotal<=0 && !fixedMemoText(f,key)) return '';
+
+    const detailRows=memoRows.length ? memoRows : (
+      hasOwnerAmount
+        ? ['공동','진혁','다혜'].filter(owner=>ownerAmounts[owner]>0).map(owner=>({owner,raw:'',items:[{label:f.name||'고정지출',amount:ownerAmounts[owner]}],amount:ownerAmounts[owner]}))
+        : [{owner:'공동',raw:'',items:[{label:f.name||'고정지출',amount:displayTotal}],amount:displayTotal}]
+    );
+
+    const ownerSections=detailRows.map(row=>{
       const lines=row.items.length
         ? `<ol>${row.items.map(x=>`<li><span>${escapeHtml(x.label)}</span><strong>${money(x.amount)}</strong></li>`).join('')}</ol>`
         : `<p class="fixed-detail-raw">${escapeHtml(row.raw)}</p>`;
       return `<div class="fixed-detail-owner"><b>${escapeHtml(row.owner)}</b>${lines}</div>`;
     }).join('');
     const ownerTotals={공동:0,진혁:0,다혜:0};
-    fixedDetailRows(f,key).forEach(row=>{ const parsedTotal=(row.items||[]).reduce((sum,x)=>sum+num(x.amount),0); ownerTotals[row.owner]=parsedTotal||num(row.amount); });
+    detailRows.forEach(row=>{ const parsedTotal=(row.items||[]).reduce((sum,x)=>sum+num(x.amount),0); ownerTotals[row.owner]=parsedTotal||num(row.amount); });
     const ownerSummary=['공동','진혁','다혜'].filter(owner=>ownerTotals[owner]>0).map(owner=>`<span><b>${owner}</b> ${money(ownerTotals[owner])}</span>`).join('');
-    return `<section class="fixed-detail-section"><header><h3>${escapeHtml(f.name||'이름 없는 항목')}</h3><strong>${money(v.amount)}</strong></header>${ownerSummary?`<div class="fixed-detail-owner-summary">${ownerSummary}</div>`:''}${ownerSections}</section>`;
+    return `<section class="fixed-detail-section"><header><h3>${escapeHtml(f.name||'이름 없는 항목')}</h3><strong>${money(displayTotal)}</strong></header>${ownerSummary?`<div class="fixed-detail-owner-summary">${ownerSummary}</div>`:''}${ownerSections}</section>`;
   }).join('');
   $('#fixedAiSummary').innerHTML=detailHtml||'<p class="hint">고정지출 금액을 누르고 메모에 “KT 8,000 실비 5,000”처럼 입력하면 항목별로 정리해서 표시합니다.</p>';
   const mg=managementFeeResult(key); $('#managementSummary').textContent=`관리비 예산 ${money(mg.budget)} · 실제 ${money(mg.actual)} · 자투리 반영 ${money(mg.budget-mg.actual)}`;
