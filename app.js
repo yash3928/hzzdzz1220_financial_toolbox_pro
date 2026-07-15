@@ -880,16 +880,33 @@ function renderBudget(){
   const history=(state.budgetAdjustments||[]).filter(x=>num(x.year)===selectedYear()).sort((a,b)=>{ const ca=orderedBudgetCategories().indexOf(a.category), cb=orderedBudgetCategories().indexOf(b.category); if(ca!==cb) return ca-cb; return adjustmentMonth(a)-adjustmentMonth(b) || String(a.createdAt||'').localeCompare(String(b.createdAt||'')); });
   const historyTable=$('#budgetAdjustmentTable');
   if(historyTable){
-    const categories=orderedBudgetCategories().filter(c=>history.some(x=>x.category===c));
-    historyTable.innerHTML=`<thead><tr><th>항목</th>${Array.from({length:12},(_,i)=>`<th>${i+1}월</th>`).join('')}</tr></thead><tbody>${categories.length?categories.map(category=>{
-      const monthCells=Array.from({length:12},(_,i)=>{
-        const month=i+1, items=history.filter(x=>x.category===category && adjustmentMonth(x)===month);
-        if(!items.length) return '<td class="budget-adjust-empty">-</td>';
-        let running=isMonthlyBudgetCategory(category)?monthlyBudgetValue(category,`${selectedYear()}-${String(month).padStart(2,'0')}`)-items.reduce((sum,x)=>sum+adjustmentSignedAmount(x),0):yearlyBudgetBase(category,selectedYear())+(state.budgetAdjustments||[]).filter(x=>x.scope==='yearly'&&x.category===category&&num(x.year)===selectedYear()&&adjustmentMonth(x)<month).reduce((sum,x)=>sum+adjustmentSignedAmount(x),0);
-        return `<td><div class="budget-adjust-cell">${items.map(x=>{ const before=Object.prototype.hasOwnProperty.call(x,'beforeBudget')?num(x.beforeBudget):Math.max(0,running); running=Math.max(0,before+adjustmentSignedAmount(x)); return `<div class="budget-adjust-entry"><small>기존 ${money(before)}</small><button type="button" class="fixed-amount-cell budget-adjust-amount ${x.type==='추가'?'plus':'minus'}" data-budget-adjust-reason="${escapeAttr(x.id||'')}" title="금액을 눌러 상세 사유 보기">${x.type==='추가'?'+':'-'}${money(x.amount)}</button><div><button type="button" class="ghost tiny" data-budget-adjust-edit="${escapeAttr(x.id||'')}">수정</button><button type="button" class="danger tiny" data-budget-adjust-del="${escapeAttr(x.id||'')}">삭제</button></div></div>`; }).join('')}</div></td>`;
-      }).join('');
-      return `<tr><th scope="row">${escapeHtml(category)}</th>${monthCells}</tr>`;
-    }).join(''):`<tr><td colspan="13" class="muted">${selectedYear()}년 추가·삭감 상세내역이 없습니다.</td></tr>`}</tbody>`;
+    const runningByCategory={};
+    const rows=history.map(item=>{
+      const category=item.category;
+      const month=adjustmentMonth(item);
+      if(!Object.prototype.hasOwnProperty.call(runningByCategory,category)){
+        runningByCategory[category]={};
+      }
+      const cache=runningByCategory[category];
+      let before;
+      if(Object.prototype.hasOwnProperty.call(item,'beforeBudget')){
+        before=num(item.beforeBudget);
+      }else if(Object.prototype.hasOwnProperty.call(cache,month)){
+        before=cache[month];
+      }else if(isMonthlyBudgetCategory(category)){
+        const key=`${selectedYear()}-${String(month).padStart(2,'0')}`;
+        const sameMonth=history.filter(x=>x.category===category&&adjustmentMonth(x)===month);
+        before=Math.max(0,monthlyBudgetValue(category,key)-sameMonth.reduce((sum,x)=>sum+adjustmentSignedAmount(x),0));
+      }else{
+        before=yearlyBudgetBase(category,selectedYear())+history.filter(x=>x.category===category&&adjustmentMonth(x)<month).reduce((sum,x)=>sum+adjustmentSignedAmount(x),0);
+      }
+      const after=Math.max(0,before+adjustmentSignedAmount(item));
+      cache[month]=after;
+      const add=item.type==='추가'?`<button type="button" class="fixed-amount-cell budget-adjust-amount plus" data-budget-adjust-reason="${escapeAttr(item.id||'')}" title="금액을 눌러 상세 사유 보기">+${money(item.amount)}</button>`:'-';
+      const cut=item.type==='삭감'?`<button type="button" class="fixed-amount-cell budget-adjust-amount minus" data-budget-adjust-reason="${escapeAttr(item.id||'')}" title="금액을 눌러 상세 사유 보기">-${money(item.amount)}</button>`:'-';
+      return `<tr><th scope="row">${escapeHtml(category)}</th><td>${month}월</td><td>${money(before)}</td><td>${add}</td><td>${cut}</td><td><strong>${money(after)}</strong></td><td><div class="budget-adjust-actions"><button type="button" class="ghost tiny" data-budget-adjust-edit="${escapeAttr(item.id||'')}">수정</button><button type="button" class="danger tiny" data-budget-adjust-del="${escapeAttr(item.id||'')}">삭제</button></div></td></tr>`;
+    }).join('');
+    historyTable.innerHTML=`<thead><tr><th>항목</th><th>월</th><th>원래 예산</th><th>추가</th><th>삭감</th><th>반영 후 예산</th><th>관리</th></tr></thead><tbody>${rows||`<tr><td colspan="7" class="muted">${selectedYear()}년 추가·삭감 상세내역이 없습니다.</td></tr>`}</tbody>`;
   }
 }
 function renderFixed(){
