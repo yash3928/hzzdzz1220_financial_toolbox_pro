@@ -876,3 +876,21 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
   .budget-detail-table td,.budget-detail-table th{padding:8px 4px}
   .budget-detail-table .budget-adjust-amount{font-size:11px}
 }
+
+/* v1.6.34 연간 지출내역 조회 */
+.annual-ledger-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 14px 10px}
+.annual-ledger-filters label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:800;color:var(--muted);min-width:0}
+.annual-ledger-filters select{width:100%;min-width:0;padding:10px 8px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--text);font:inherit}
+.annual-expense-total{margin:0 14px 12px;padding:12px 14px;border-radius:12px;background:#f3f6ff;display:flex;justify-content:space-between;align-items:center;font-weight:900}
+.annual-expense-total strong{font-size:18px;color:#2563eb}
+.annual-ledger-scroll{max-height:520px;overflow:auto}
+.annual-ledger-table{min-width:680px}
+.annual-ledger-table th{position:sticky;top:0;z-index:2;background:#eef2ff}
+.annual-ledger-table td:nth-child(1){white-space:nowrap}
+.annual-ledger-table td:nth-child(5){text-align:right;font-weight:800;white-space:nowrap}
+@media(max-width:420px){
+  .annual-ledger-filters{grid-template-columns:1fr 1fr;gap:8px}
+  .annual-ledger-filters label:last-child{grid-column:1/-1}
+  .annual-ledger-scroll{max-height:460px}
+  .annual-ledger-table{min-width:620px;font-size:12px}
+}

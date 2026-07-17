@@ -873,7 +873,36 @@ function renderHome(){
   $('#homeInvestTable tfoot').innerHTML=`<tr class="asset-total-row"><th>총 금액</th><th>${money(totalPrincipal)}</th><th>${money(totalCurrent)}</th><th class="${totalProfit<0?'minus':'plus'}">${money(totalProfit)}</th><th class="${totalRate<0?'minus':'plus'}">${totalRate.toFixed(1)}%</th></tr>`;
   $('#investAccSummary').textContent=`평가 ${money(totalCurrent)} · 수익 ${money(totalProfit)}`;
 }
-function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; const categories=allExpenseCategories(); sel.innerHTML=categories.map(c=>`<option>${c}</option>`).join(''); if(categories.includes(selected)) sel.value=selected; const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td><div>${e.date||''}</div><label class="expense-paid-check"><input type="checkbox" data-exp-paid="${e.id}" ${e.paid?'checked':''}> 지급</label></td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; }
+function availableExpenseYears(){
+  const years=new Set([selectedYear()]);
+  (state.expenses||[]).forEach(e=>{ const y=Number(String(e?.date||'').slice(0,4)); if(Number.isFinite(y)&&y>0) years.add(y); });
+  return [...years].sort((a,b)=>b-a);
+}
+function renderAnnualLedger(){
+  const yearSel=$('#annualExpenseYear'), categorySel=$('#annualExpenseCategory'), payerSel=$('#annualExpensePayer');
+  const table=$('#annualLedgerTable tbody'), totalEl=$('#annualExpenseTotal'), titleEl=$('#annualLedgerTitle');
+  if(!yearSel||!categorySel||!payerSel||!table) return;
+  const previousYear=Number(yearSel.value)||selectedYear();
+  const previousCategory=categorySel.value||'all';
+  const previousPayer=payerSel.value||'all';
+  const years=availableExpenseYears();
+  yearSel.innerHTML=years.map(y=>`<option value="${y}">${y}년</option>`).join('');
+  yearSel.value=years.includes(previousYear)?String(previousYear):String(selectedYear());
+  const categories=[...new Set((state.expenses||[]).map(e=>String(e?.category||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  categorySel.innerHTML=`<option value="all">전체</option>${categories.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('')}`;
+  categorySel.value=categories.includes(previousCategory)?previousCategory:'all';
+  payerSel.value=['all','다혜','진혁','공동'].includes(previousPayer)?previousPayer:'all';
+  const year=Number(yearSel.value), category=categorySel.value, payer=payerSel.value;
+  const rows=(state.expenses||[]).filter(e=>{
+    const expenseYear=Number(String(e?.date||'').slice(0,4));
+    return expenseYear===year && (category==='all'||e.category===category) && (payer==='all'||e.payer===payer);
+  }).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || String(a.updatedAt||'').localeCompare(String(b.updatedAt||'')));
+  const total=rows.reduce((sum,e)=>sum+num(e.amount),0);
+  titleEl.textContent=`📚 ${year}년 지출내역`;
+  totalEl.textContent=money(total);
+  table.innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td>${escapeHtml(e.date||'')}</td><td>${escapeHtml(e.memo||'')}</td><td>${escapeHtml(e.category||'')}</td><td>${escapeHtml(e.payer||'')}</td><td>${money(e.amount)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">조건에 맞는 지출내역이 없습니다.</td></tr>';
+}
+function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; const categories=allExpenseCategories(); sel.innerHTML=categories.map(c=>`<option>${c}</option>`).join(''); if(categories.includes(selected)) sel.value=selected; const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td><div>${e.date||''}</div><label class="expense-paid-check"><input type="checkbox" data-exp-paid="${e.id}" ${e.paid?'checked':''}> 지급</label></td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; renderAnnualLedger(); }
 function renderBudget(){
   recalculateJaturi();
   $('#budgetInputTable tbody').innerHTML=orderedBudgetCategories().map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=budgetValueForSelectedPeriod(c); const memo=budgetMemoValue(c); return `<tr data-reorder-row="budget" data-budget-category="${escapeAttr(c)}"><td class="reorder-handle"><div class="budget-category-cell"><span>${escapeHtml(label)}</span><button type="button" class="danger tiny budget-item-delete" data-budget-item-del="${escapeAttr(c)}" aria-label="${escapeAttr(label)} 삭제">삭제</button></div></td><td>${isMonthlyBudgetCategory(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${memo?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가"></td><td><input data-money data-budget-cut="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="삭감"></td></tr>`; }).join('');
@@ -1237,6 +1266,7 @@ function setupLongPressReorder(){
 function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
   $('#expenseFormToggle')?.addEventListener('click',()=>setExpenseFormOpen($('#expenseFormWrap')?.hidden));
+  ['annualExpenseYear','annualExpenseCategory','annualExpensePayer'].forEach(id=>$('#'+id)?.addEventListener('change',renderAnnualLedger));
   $('#prevYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()-1); });
   $('#nextYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()+1); });
   $('#prevMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()-1); });

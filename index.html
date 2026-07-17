@@ -121,6 +121,18 @@
             <div class="table-scroll ledger-scroll"><table class="excel-table" id="ledgerTable"><thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th><th>관리</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
+        <section class="accordion-card excel-panel annual-ledger-card">
+          <button class="accordion-toggle" data-acc="annualLedger"><span id="annualLedgerTitle">📚 선택 연도 지출내역</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-annualLedger">
+            <div class="annual-ledger-filters">
+              <label>연도<select id="annualExpenseYear"></select></label>
+              <label>분류<select id="annualExpenseCategory"></select></label>
+              <label>결제자<select id="annualExpensePayer"><option value="all">전체</option><option value="다혜">다혜</option><option value="진혁">진혁</option><option value="공동">공동</option></select></label>
+            </div>
+            <div class="annual-expense-total">총 지출금액 <strong id="annualExpenseTotal">0원</strong></div>
+            <div class="table-scroll annual-ledger-scroll"><table class="excel-table annual-ledger-table" id="annualLedgerTable"><thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
       </section>
 
       <section id="view-budget" class="view">
