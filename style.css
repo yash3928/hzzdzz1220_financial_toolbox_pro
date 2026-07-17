@@ -975,3 +975,16 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
   .ledger-scroll,.annual-ledger-scroll{max-height:52vh !important;}
   .budget-detail-scroll{max-height:48vh !important;}
 }
+
+
+/* v1.6.36 연간 지출 금액 가운데 정렬 및 축 고정 스크롤 */
+#annualLedgerTable th:nth-child(5),
+#annualLedgerTable td:nth-child(5){
+  text-align:center !important;
+}
+
+/* JS에서 한 축씩 직접 제어하므로 iOS의 대각선 동시 스크롤을 차단 */
+.axis-lock-scroll{
+  touch-action:none !important;
+  overscroll-behavior:contain;
+}

@@ -1263,6 +1263,44 @@ function setupLongPressReorder(){
   document.addEventListener('pointercancel',()=>{ clear(); active?.classList.remove('reorder-active'); active=null; });
 }
 
+
+
+function setupAxisLockedTableScroll(){
+  const selectors=['.ledger-scroll','.annual-ledger-scroll','.budget-detail-scroll','.loan-schedule-scroll'];
+  document.querySelectorAll(selectors.join(',')).forEach(el=>{
+    if(el.dataset.axisLockBound==='1') return;
+    el.dataset.axisLockBound='1';
+    el.classList.add('axis-lock-scroll');
+    let startX=0,startY=0,startLeft=0,startTop=0,axis=null;
+    el.addEventListener('touchstart',e=>{
+      if(e.touches.length!==1) return;
+      const t=e.touches[0];
+      startX=t.clientX; startY=t.clientY;
+      startLeft=el.scrollLeft; startTop=el.scrollTop;
+      axis=null;
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      if(e.touches.length!==1) return;
+      const t=e.touches[0];
+      const dx=t.clientX-startX, dy=t.clientY-startY;
+      if(!axis){
+        if(Math.abs(dx)<6 && Math.abs(dy)<6) return;
+        axis=Math.abs(dx)>Math.abs(dy)?'x':'y';
+      }
+      e.preventDefault();
+      if(axis==='x'){
+        el.scrollLeft=startLeft-dx;
+        el.scrollTop=startTop;
+      }else{
+        el.scrollTop=startTop-dy;
+        el.scrollLeft=startLeft;
+      }
+    },{passive:false});
+    const end=()=>{ axis=null; };
+    el.addEventListener('touchend',end,{passive:true});
+    el.addEventListener('touchcancel',end,{passive:true});
+  });
+}
 function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
   $('#expenseFormToggle')?.addEventListener('click',()=>setExpenseFormOpen($('#expenseFormWrap')?.hidden));
@@ -1506,7 +1544,7 @@ function bindEvents(){
 
 saveLocalViewPeriod(selectedYear(), selectedMonth());
 applyYearBucket(selectedYear());
-bindEvents(); setupLongPressReorder();
+bindEvents(); setupAxisLockedTableScroll(); setupLongPressReorder();
   setupPullToRefresh(); render();
 try{
   const sync=JSON.parse(localStorage.getItem('hzzdzz_sync_settings')||'null');
