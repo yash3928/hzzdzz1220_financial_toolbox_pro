@@ -988,3 +988,34 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
   touch-action:none !important;
   overscroll-behavior:contain;
 }
+
+/* v1.6.37 추가·삭감 상세내역: 항목 열 고정 해제 및 폭 축소 */
+.budget-detail-table th:first-child,
+.budget-detail-table td:first-child{
+  position:static !important;
+  left:auto !important;
+  z-index:auto !important;
+  width:92px !important;
+  min-width:92px !important;
+  max-width:92px !important;
+  background:inherit;
+  white-space:normal;
+  word-break:keep-all;
+  line-height:1.25;
+}
+.budget-detail-table thead th:first-child{
+  position:sticky !important;
+  top:0 !important;
+  z-index:4 !important;
+  background:#eef3ff !important;
+}
+.budget-detail-table{min-width:747px!important;}
+@media(max-width:430px){
+  .budget-detail-table th:first-child,
+  .budget-detail-table td:first-child{
+    width:86px !important;
+    min-width:86px !important;
+    max-width:86px !important;
+  }
+  .budget-detail-table{min-width:701px!important;}
+}
