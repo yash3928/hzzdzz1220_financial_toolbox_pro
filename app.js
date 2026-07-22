@@ -545,13 +545,32 @@ function managementFeeResult(key=getPeriod().key){
   const actual=rows.reduce((sum,f)=>sum+num(fixedMonthValue(f,key).amount),0);
   return {budget:managementBudget(key),actual};
 }
-function jaturiBalanceForPeriod(targetKey=getPeriod().key){
-  const period=periodForMonth(...targetKey.split('-').map(Number));
-  const manualTotal=(state.expenses||[])
-    .filter(e=>e?.category==='자투리 통장')
-    .filter(e=>{ const d=new Date((e.date||'')+'T00:00:00'); return !Number.isNaN(d.getTime()) && d<=new Date(period.end.toDateString()); })
-    .reduce((sum,e)=>sum+num(e.amount),0);
-  return num(state.jaturi?.openingBalance)+manualTotal;
+function normalizeAssetName(value){ return String(value||'').replace(/\s/g,'').toLowerCase(); }
+function findJaturiAsset(){
+  const target=normalizeAssetName('미래에셋/네이버');
+  return (state.assets?.purposeItems||[]).find(it=>normalizeAssetName(it?.name)===target) || null;
+}
+function ensureJaturiAsset(){
+  state.assets=state.assets||{cashItems:[],purposeItems:[]};
+  state.assets.purposeItems=Array.isArray(state.assets.purposeItems)?state.assets.purposeItems:[];
+  let item=findJaturiAsset();
+  if(!item){
+    item={id:crypto.randomUUID(),name:'미래에셋/네이버',amount:0,memo:'자투리 통장 연동 자산'};
+    state.assets.purposeItems.push(item);
+  }
+  return item;
+}
+function applyJaturiAssetDelta(delta){
+  if(!delta) return;
+  const item=ensureJaturiAsset();
+  item.amount=num(item.amount)+num(delta);
+  item.updatedAt=new Date().toISOString();
+}
+function jaturiBalanceForPeriod(){ return num(findJaturiAsset()?.amount); }
+function jaturiSpentForPeriod(targetKey=getPeriod().key){
+  return (state.expenses||[])
+    .filter(e=>e?.category==='자투리 통장' && expensePeriodKey(e?.date)===targetKey)
+    .reduce((sum,e)=>sum+(num(e.amount)<0?Math.abs(num(e.amount)):0),0);
 }
 function foodBaseBudget(key=getPeriod().key){ return monthlyBudgetValue('식비',key); }
 function previousPeriodKey(key){
@@ -820,8 +839,9 @@ function renderHome(){
   const insertAt=Math.min(3,standardBudgetRows.length);
   standardBudgetRows.splice(insertAt,0,shoppingRow+shoppingDetail);
   recalculateJaturi();
-  const selectedJaturiBalance=jaturiBalanceForPeriod(getPeriod().key);
-  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>${selectedMonth()}월 누적</td><td>-</td><td>-</td><td class="${selectedJaturiBalance<0?'minus':'plus'}">${money(selectedJaturiBalance)}</td></tr>`);
+  const selectedJaturiBalance=jaturiBalanceForPeriod();
+  const selectedJaturiSpent=jaturiSpentForPeriod(getPeriod().key);
+  standardBudgetRows.push(`<tr class="strong"><td>🐷 자투리 통장</td><td>월별</td><td>-</td><td>${money(selectedJaturiSpent)}</td><td class="${selectedJaturiBalance<0?'minus':'plus'}">${money(selectedJaturiBalance)}</td></tr>`);
   $('#homeBudgetTable tbody').innerHTML=standardBudgetRows.join('');
   const budgetSummary=$('#budgetAccSummary'); if(budgetSummary) budgetSummary.textContent=state.ui.openAccordions?.budget?'닫기':'보기';
 
@@ -1326,7 +1346,15 @@ function bindEvents(){
     if(t.dataset.acc){ const key=t.dataset.acc; state.ui.openAccordions[key]=!state.ui.openAccordions[key]; render(); }
     if(t.id==='cashChip'){ $('#cashDetailHome').classList.toggle('hidden'); }
     if(t.dataset.editExp){ const item=state.expenses.find(x=>x.id===t.dataset.editExp); if(item){ $('#expenseId').value=item.id; $('#expenseDate').value=item.date; $('#expensePayer').value=item.payer; $('#expenseCategory').value=item.category; $('#expenseAmount').value=comma(item.amount); $('#expenseMemo').value=item.memo||''; document.querySelector('[data-view="ledger"]').click(); setExpenseFormOpen(true); window.scrollTo({top:0,behavior:'smooth'}); }}
-    if(t.dataset.delExp){ if(confirm('이 지출내역을 삭제하시겠습니까?')){ state.expenses=state.expenses.filter(x=>x.id!==t.dataset.delExp); await persistRemote(); }}
+    if(t.dataset.delExp){
+      if(confirm('이 지출내역을 삭제하시겠습니까?')){
+        const deleted=state.expenses.find(x=>x.id===t.dataset.delExp);
+        if(deleted?.category==='자투리 통장') applyJaturiAssetDelta(-num(deleted.amount));
+        state.expenses=state.expenses.filter(x=>x.id!==t.dataset.delExp);
+        recalculateJaturi();
+        await persistRemote();
+      }
+    }
     if(t.id==='addBudgetItemBtn'){
       const raw=prompt('추가할 예산 항목명을 입력하세요.','');
       const name=String(raw||'').trim();
@@ -1407,7 +1435,19 @@ function bindEvents(){
     if(t.dataset.cashDel!==undefined){ state.assets.cashItems.splice(num(t.dataset.cashDel),1); renderAssets(); await persistRemote(); }
   });
   $('#expenseDate').value=defaultExpenseDateForSelection();
-  $('#expenseForm').addEventListener('submit', async e=>{ e.preventDefault(); const id=$('#expenseId').value||crypto.randomUUID(); const idx=state.expenses.findIndex(x=>x.id===id); const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),paid:idx>=0?Boolean(state.expenses[idx]?.paid):false,updatedAt:new Date().toISOString()}; if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item); clearExpenseForm(); setExpenseFormOpen(true); await persistRemote(); });
+  $('#expenseForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const id=$('#expenseId').value||crypto.randomUUID();
+    const idx=state.expenses.findIndex(x=>x.id===id);
+    const previous=idx>=0?state.expenses[idx]:null;
+    const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),paid:idx>=0?Boolean(state.expenses[idx]?.paid):false,updatedAt:new Date().toISOString()};
+    if(previous?.category==='자투리 통장') applyJaturiAssetDelta(-num(previous.amount));
+    if(item.category==='자투리 통장') applyJaturiAssetDelta(num(item.amount));
+    if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item);
+    recalculateJaturi();
+    clearExpenseForm(); setExpenseFormOpen(true);
+    await persistRemote();
+  });
   $('#expenseCancel').addEventListener('click', ()=>{ clearExpenseForm(); setExpenseFormOpen(false); });
   $('#saveBudgetBtn').addEventListener('click', async()=>{ const entries=[]; $$('[data-budget-add]').forEach(inp=>{ const amount=num(inp.value); if(amount) entries.push({category:inp.dataset.budgetAdd,type:'추가',amount}); inp.value=''; }); $$('[data-budget-cut]').forEach(inp=>{ const amount=num(inp.value); if(amount) entries.push({category:inp.dataset.budgetCut,type:'삭감',amount}); inp.value=''; }); let changed=false; state.budgetAdjustments=Array.isArray(state.budgetAdjustments)?state.budgetAdjustments:[]; for(const entry of entries){ changed=true; const c=entry.category, delta=entry.type==='추가'?entry.amount:-entry.amount; const beforeBudget=budgetValueForSelectedPeriod(c); if(isMonthlyBudgetCategory(c)){ const pk=getPeriod().key; setMonthlyBudgetForYear(c,Math.max(0,monthlyBudgetValue(c,pk)+delta),selectedYear(),pk); } else state.budgets[c]=Math.max(0,num(state.budgets[c])+delta); const reason=prompt(`${c} ${entry.type} ${comma(entry.amount)}원 사유를 입력하세요.`,'') ?? ''; state.budgetAdjustments.push({id:crypto.randomUUID(),category:c,type:entry.type,amount:entry.amount,beforeBudget,reason:String(reason).trim(),scope:isMonthlyBudgetCategory(c)?'monthly':'yearly',periodKey:getPeriod().key,year:selectedYear(),month:selectedMonth(),createdAt:new Date().toISOString()}); } if(changed){ state.budgetRevision=num(state.budgetRevision)+1; saveActiveYearSnapshot(); } recalculateJaturi(); await persistRemote(); renderBudget(); showToast('예산의 추가·삭감 금액을 반영했습니다.'); });
   $('#fixedList').addEventListener('input', e=>{ const pk=getPeriod().key, i=num(e.target.dataset.fixedName); const item=state.fixedMaster[i]; if(!item) return; if(e.target.dataset.fixedName!==undefined){ item.name=e.target.value; item.category=fixedCategory(item,pk); } item.updatedAt=new Date().toISOString(); });
