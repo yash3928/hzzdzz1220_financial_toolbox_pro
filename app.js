@@ -909,7 +909,22 @@ function renderAnnualLedger(){
   totalEl.textContent=money(total);
   table.innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td>${escapeHtml(e.date||'')}</td><td>${escapeHtml(e.memo||'')}</td><td>${escapeHtml(e.category||'')}</td><td>${escapeHtml(e.payer||'')}</td><td>${money(e.amount)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">조건에 맞는 지출내역이 없습니다.</td></tr>';
 }
-function updateExpenseAmountKeyboard(){ const amount=$('#expenseAmount'); const category=$('#expenseCategory')?.value; if(!amount) return; const isJaturi=category==='자투리 통장'; amount.setAttribute('inputmode',isJaturi?'text':'numeric'); amount.setAttribute('autocomplete','off'); amount.setAttribute('aria-label',isJaturi?'자투리 통장 금액, 출금은 마이너스 입력':'지출 금액'); }
+function updateExpenseAmountKeyboard(){
+  const amount=$('#expenseAmount');
+  const category=$('#expenseCategory')?.value;
+  const minusBtn=$('#jaturiMinusBtn');
+  if(!amount) return;
+  const isJaturi=category==='자투리 통장';
+  amount.setAttribute('inputmode','numeric');
+  amount.setAttribute('autocomplete','off');
+  amount.setAttribute('aria-label',isJaturi?'자투리 통장 금액':'지출 금액');
+  if(minusBtn){
+    minusBtn.hidden=!isJaturi;
+    const isNegative=String(amount.value||'').trim().startsWith('-');
+    minusBtn.classList.toggle('active',isJaturi && isNegative);
+    minusBtn.textContent=isNegative?'− 출금 적용':'− 출금';
+  }
+}
 function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; const categories=allExpenseCategories(); sel.innerHTML=categories.map(c=>`<option>${c}</option>`).join(''); if(categories.includes(selected)) sel.value=selected; updateExpenseAmountKeyboard(); const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td><div>${e.date||''}</div><label class="expense-paid-check"><input type="checkbox" data-exp-paid="${e.id}" ${e.paid?'checked':''}> 지급</label></td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; renderAnnualLedger(); }
 function renderBudget(){
   recalculateJaturi();
@@ -1313,12 +1328,13 @@ function bindEvents(){
   $$('.bottom-nav button').forEach(btn=>btn.addEventListener('click',()=>{ $$('.bottom-nav button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); $$('.view').forEach(v=>v.classList.remove('active')); $(`#view-${btn.dataset.view}`).classList.add('active'); }));
   $('#expenseFormToggle')?.addEventListener('click',()=>setExpenseFormOpen($('#expenseFormWrap')?.hidden));
   $('#expenseCategory')?.addEventListener('change',()=>{ updateExpenseAmountKeyboard(); const amount=$('#expenseAmount'); if(amount && $('#expenseCategory').value!=='자투리 통장' && num(amount.value)<0) amount.value=comma(Math.abs(num(amount.value))); });
+  $('#jaturiMinusBtn')?.addEventListener('click',()=>{ const amount=$('#expenseAmount'); if(!amount || $('#expenseCategory')?.value!=='자투리 통장') return; const negative=String(amount.value||'').trim().startsWith('-'); const value=Math.abs(num(amount.value)); amount.value=negative?(value?comma(value):''):(value?comma(-value):'-'); updateExpenseAmountKeyboard(); amount.focus(); });
   ['annualExpenseYear','annualExpenseCategory','annualExpensePayer'].forEach(id=>$('#'+id)?.addEventListener('change',renderAnnualLedger));
   $('#prevYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()-1); });
   $('#nextYear')?.addEventListener('click',async()=>{ await switchYear(selectedYear()+1); });
   $('#prevMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()-1); });
   $('#nextMonth')?.addEventListener('click',async()=>{ await switchMonth(selectedMonth()+1); });
-  document.addEventListener('input', e=>{ const inp=e.target.closest('input[data-money]'); if(!inp) return; const isJaturiAmount=inp.id==='expenseAmount' && $('#expenseCategory')?.value==='자투리 통장'; let raw=String(inp.value||'').replace(isJaturiAmount?/[^0-9-]/g:/[^0-9]/g,''); if(isJaturiAmount){ raw=raw.startsWith('-')?'-'+raw.slice(1).replace(/-/g,''):raw.replace(/-/g,''); } inp.value=comma(raw); });
+  document.addEventListener('input', e=>{ const inp=e.target.closest('input[data-money]'); if(!inp) return; const isJaturiAmount=inp.id==='expenseAmount' && $('#expenseCategory')?.value==='자투리 통장'; let raw=String(inp.value||'').replace(isJaturiAmount?/[^0-9-]/g:/[^0-9]/g,''); if(isJaturiAmount){ raw=raw.startsWith('-')?'-'+raw.slice(1).replace(/-/g,''):raw.replace(/-/g,''); } inp.value=raw==='-'?'-':comma(raw); if(inp.id==='expenseAmount') updateExpenseAmountKeyboard(); });
   document.addEventListener('click', async e=>{
     const shoppingToggle=e.target.closest('[data-shopping-toggle]');
     if(shoppingToggle){ state.ui.shoppingDetailOpen=!state.ui.shoppingDetailOpen; renderHome(); return; }

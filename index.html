@@ -109,7 +109,7 @@
             <label>날짜<input type="date" id="expenseDate" required /></label>
             <label>결제자<select id="expensePayer"><option>진혁</option><option>다혜</option></select></label>
             <label>분류<select id="expenseCategory"></select></label>
-            <label>금액<input type="text" inputmode="numeric" data-money id="expenseAmount" required /><small class="jaturi-input-hint">자투리 통장: 입금은 양수, 출금은 음수(-)로 입력하며 미래에셋/네이버 자산과 연동됩니다.</small></label>
+            <label>금액<div class="expense-amount-row"><input type="text" inputmode="numeric" data-money id="expenseAmount" required /><button type="button" id="jaturiMinusBtn" class="jaturi-minus-btn" hidden aria-label="자투리 통장 출금 음수 전환">− 출금</button></div><small class="jaturi-input-hint">자투리 통장: 입금은 양수로 입력하고, 출금은 옆의 ‘− 출금’ 버튼을 누른 뒤 금액을 입력합니다. 미래에셋/네이버 자산과 연동됩니다.</small></label>
             <label class="full">내용<input type="text" id="expenseMemo" placeholder="예: 이마트, 병원, 경조사" /></label>
             <div class="button-row full"><button type="submit" class="primary">저장</button><button type="button" id="expenseCancel" class="ghost">취소</button></div>
           </form>
