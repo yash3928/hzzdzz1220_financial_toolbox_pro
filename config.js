@@ -1,9 +1,9 @@
-export const APP_VERSION = '1.6.34';
+export const APP_VERSION = '1.6.35';
 export const SCHEMA_VERSION = 2;
 export const DEFAULT_HOUSEHOLD = 'hzzdzz_가계부';
 export const MONTHLY_CATEGORIES = ['식비','관리비'];
 export const YEARLY_CATEGORIES = ['생필품','비상금','쇼핑비(진혁)','쇼핑비(다혜)','가족','경조사비','육아'];
-export const EXPENSE_CATEGORIES = ['식비','생필품','비상금','쇼핑비','가족','경조사비','육아'];
+export const EXPENSE_CATEGORIES = ['식비','생필품','비상금','쇼핑비','가족','경조사비','육아','자투리 통장'];
 export const PURPOSE_ASSETS = ['연금','청약','코인','기타'];
 export const DEFAULT_RATES = {weekday:77330, holiday:284470, sunday:163640, monThu:10000, friday:20000};
 export const DEFAULT_TAX = {

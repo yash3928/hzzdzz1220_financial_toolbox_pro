@@ -43,7 +43,7 @@ function defaultState(){
     assets: { cashItems: [], purposeItems: [] },
     investmentSummary: { domestic:{amount:0, rate:0, memo:''}, overseas:{amount:0, rate:0, memo:''}, cma:{amount:0, rate:0, memo:''} },
     investments: [],
-    jaturi: { openingBalance:0, balance:0, history:[], settlements:{} },
+    jaturi: { openingBalance:0, balance:0, history:[], settlements:{}, manualMode:true },
     loan: {...DEFAULT_LOAN},
     yearData: {},
     budgetRevision: 0,
@@ -111,9 +111,13 @@ function mergeDefaults(data){
   merged.assets.purposeItems = (merged.assets.purposeItems||[]).filter(it=>!merged.otherAssetDeletedIds.includes(String(it?.id)));
   merged.investmentSummary = migrateInvestSummary(d.investmentSummary, merged.investments, d.assets || {});
   merged.jaturi = {...base.jaturi, ...(d.jaturi||{})};
-  // 구버전에서 계산된 balance 값을 기초잔액으로 다시 더하지 않습니다.
-  if(!Object.prototype.hasOwnProperty.call(d.jaturi||{},'openingBalance')) merged.jaturi.openingBalance=0;
-  merged.jaturi.settlements={...(d.jaturi?.settlements||{})};
+  // 자동 계산 버전에서 처음 넘어올 때 현재 자투리 통장 잔액을 수동 관리의 기초잔액으로 보존합니다.
+  if((d.jaturi||{}).manualMode!==true){
+    merged.jaturi.openingBalance=num(d.jaturi?.balance);
+    merged.jaturi.manualMode=true;
+  }
+  merged.jaturi.settlements={};
+  merged.jaturi.history=[];
   merged.loan = {...base.loan, ...(d.loan||{})};
   merged.yearData = {...(d.yearData||{})};
   merged.budgetRevision = num(d.budgetRevision)||0;
@@ -542,14 +546,12 @@ function managementFeeResult(key=getPeriod().key){
   return {budget:managementBudget(key),actual};
 }
 function jaturiBalanceForPeriod(targetKey=getPeriod().key){
-  const keys=new Set(Object.keys(state.monthlyBudgets||{}));
-  (state.fixedMaster||[]).forEach(f=>Object.keys(f.monthly||{}).forEach(k=>keys.add(k)));
-  let running=num(state.jaturi?.openingBalance);
-  [...keys].filter(k=>k<=targetKey).sort().forEach(key=>{
-    const management=managementFeeResult(key);
-    running+=management.budget-management.actual;
-  });
-  return running;
+  const period=periodForMonth(...targetKey.split('-').map(Number));
+  const manualTotal=(state.expenses||[])
+    .filter(e=>e?.category==='자투리 통장')
+    .filter(e=>{ const d=new Date((e.date||'')+'T00:00:00'); return !Number.isNaN(d.getTime()) && d<=new Date(period.end.toDateString()); })
+    .reduce((sum,e)=>sum+num(e.amount),0);
+  return num(state.jaturi?.openingBalance)+manualTotal;
 }
 function foodBaseBudget(key=getPeriod().key){ return monthlyBudgetValue('식비',key); }
 function previousPeriodKey(key){
@@ -611,27 +613,11 @@ function dahyeNetForYearMonth(year, month){
   return Math.round(taxablePay+vehicleAllowance)-deductions;
 }
 function recalculateJaturi(){
-  state.jaturi=state.jaturi||{openingBalance:0,balance:0,history:[],settlements:{}};
-  const settlements={};
-  const keys=new Set([...Object.keys(state.monthlyBudgets||{}),...Object.keys(state.salary?.jinhyuk||{})]);
-  (state.fixedMaster||[]).forEach(f=>Object.keys(f.monthly||{}).forEach(k=>keys.add(k)));
-  const now=new Date(); let running=num(state.jaturi.openingBalance);
-  [...keys].sort().forEach(key=>{
-    const [y,m]=key.split('-').map(Number); if(!y||!m) return;
-    const p=periodForMonth(y,m); if(p.end>=now) return;
-    const management=managementFeeResult(key);
-    const difference=management.budget-management.actual;
-    running+=difference;
-    const income=num(state.salary?.jinhyuk?.[key])+dahyeNetForYearMonth(y,m);
-    const fixed=fixedTotal(key);
-    const loanPayment=loanPaymentForKey(key);
-    const foodSpent=foodSpentForKey(key);
-    const investmentFund=fixedInvestmentFund(key);
-    settlements[key]={income,fixed,loanPayment,loanInterest:loanPayment,foodSpent,investmentFund,surplus:investmentFund,transferred:0,managementBudget:management.budget,managementActual:management.actual,managementDifference:difference,jaturiBalance:running};
-  });
-  state.jaturi.settlements=settlements;
-  state.jaturi.history=Object.entries(settlements).filter(([,v])=>num(v.managementDifference)!==0).map(([key,v])=>({key,amount:num(v.managementDifference),memo:num(v.managementDifference)>0?'관리비 잉여액 적립':'관리비 초과분 차감'}));
-  state.jaturi.balance=running;
+  state.jaturi=state.jaturi||{openingBalance:0,balance:0,history:[],settlements:{},manualMode:true};
+  state.jaturi.manualMode=true;
+  state.jaturi.settlements={};
+  state.jaturi.history=[];
+  state.jaturi.balance=jaturiBalanceForPeriod(getPeriod().key);
   // 투자자금은 참고용 계산값으로만 사용합니다. CMA는 사용자가 직접 입력한 금액만 유지합니다.
   const cma=state.investmentSummary.cma;
   if(cma){
@@ -970,7 +956,7 @@ function renderFixed(){
     return `<section class="fixed-detail-section"><header><h3>${escapeHtml(f.name||'이름 없는 항목')}</h3><strong>${money(displayTotal)}</strong></header>${ownerSummary?`<div class="fixed-detail-owner-summary">${ownerSummary}</div>`:''}${ownerSections}</section>`;
   }).join('');
   $('#fixedAiSummary').innerHTML=detailHtml||'<p class="hint">고정지출 금액을 누르고 메모에 “KT 8,000 실비 5,000”처럼 입력하면 항목별로 정리해서 표시합니다.</p>';
-  const mg=managementFeeResult(key); $('#managementSummary').textContent=`관리비 예산 ${money(mg.budget)} · 실제 ${money(mg.actual)} · 자투리 반영 ${money(mg.budget-mg.actual)}`;
+  const mg=managementFeeResult(key); $('#managementSummary').textContent=`관리비 예산 ${money(mg.budget)} · 실제 ${money(mg.actual)} · 차이 ${money(mg.budget-mg.actual)}`;
 }
 function renderSalary(){
   const jinTable=$('#jinhyukSalaryTable tbody');

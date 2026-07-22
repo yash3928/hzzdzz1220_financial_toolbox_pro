@@ -1019,3 +1019,6 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
   }
   .budget-detail-table{min-width:701px!important;}
 }
+
+/* v1.6.35 자투리 통장 수동 입출금 안내 */
+.jaturi-input-hint{font-size:11px;line-height:1.4;color:var(--muted);font-weight:700}
