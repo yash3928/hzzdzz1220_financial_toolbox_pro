@@ -548,15 +548,16 @@ function managementFeeResult(key=getPeriod().key){
 function normalizeAssetName(value){ return String(value||'').replace(/\s/g,'').toLowerCase(); }
 function findJaturiAsset(){
   const target=normalizeAssetName('미래에셋/네이버');
-  return (state.assets?.purposeItems||[]).find(it=>normalizeAssetName(it?.name)===target) || null;
+  // '미래에셋/네이버'는 현금 세부 분류(cashItems)에 저장됩니다.
+  return (state.assets?.cashItems||[]).find(it=>normalizeAssetName(it?.name)===target) || null;
 }
 function ensureJaturiAsset(){
   state.assets=state.assets||{cashItems:[],purposeItems:[]};
-  state.assets.purposeItems=Array.isArray(state.assets.purposeItems)?state.assets.purposeItems:[];
+  state.assets.cashItems=Array.isArray(state.assets.cashItems)?state.assets.cashItems:[];
   let item=findJaturiAsset();
   if(!item){
     item={id:crypto.randomUUID(),name:'미래에셋/네이버',amount:0,memo:'자투리 통장 연동 자산'};
-    state.assets.purposeItems.push(item);
+    state.assets.cashItems.push(item);
   }
   return item;
 }
