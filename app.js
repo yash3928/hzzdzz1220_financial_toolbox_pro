@@ -111,11 +111,11 @@ function mergeDefaults(data){
   merged.assets.purposeItems = (merged.assets.purposeItems||[]).filter(it=>!merged.otherAssetDeletedIds.includes(String(it?.id)));
   merged.investmentSummary = migrateInvestSummary(d.investmentSummary, merged.investments, d.assets || {});
   merged.jaturi = {...base.jaturi, ...(d.jaturi||{})};
-  // 자동 계산 버전에서 처음 넘어올 때 현재 자투리 통장 잔액을 수동 관리의 기초잔액으로 보존합니다.
-  if((d.jaturi||{}).manualMode!==true){
-    merged.jaturi.openingBalance=num(d.jaturi?.balance);
-    merged.jaturi.manualMode=true;
-  }
+  // 자투리 통장은 내역에서 직접 입력한 금액만 합산합니다.
+  // 이전 자동 계산 잔액이나 전환용 기초잔액은 더 이상 이월하지 않습니다.
+  merged.jaturi.openingBalance=0;
+  merged.jaturi.balance=0;
+  merged.jaturi.manualMode=true;
   merged.jaturi.settlements={};
   merged.jaturi.history=[];
   merged.loan = {...base.loan, ...(d.loan||{})};
