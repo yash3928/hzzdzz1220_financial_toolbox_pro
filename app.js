@@ -1168,7 +1168,68 @@ async function refreshFromFirebase(showDone=true){ if(refreshing) return; if(!fi
       const localUi=state.ui; state=mergeRemoteSafely(state,remote); state.ui=showDone?{openAccordions:{}}:(localUi||{openAccordions:{}}); remoteLoaded=true; persistLocal(); render(); } markSynced(); setBadge('공동 동기화','on'); if(showDone) showToast('최신 데이터로 업데이트되었습니다.'); } catch(e){ console.error(e); setBadge('새로고침 오류','off'); showToast('새로고침 실패: '+e.message); } finally{ refreshing=false; resetPullIndicator(); } }
 function setPullStatus(text){ const el=$('#pullRefresh'); if(el) el.textContent=text; }
 function resetPullIndicator(){ const el=$('#pullRefresh'); if(!el) return; el.classList.remove('visible','ready','loading'); el.style.transform='translate(-50%, -120%)'; el.textContent='아래로 당겨 새로고침'; }
-function setupPullToRefresh(){ const el=$('#pullRefresh'); if(!el) return; let startY=0, tracking=false, distance=0; const threshold=76; document.addEventListener('touchstart',e=>{ if(window.scrollY<=0&&!refreshing){ startY=e.touches[0].clientY; tracking=true; distance=0; }},{passive:true}); document.addEventListener('touchmove',e=>{ if(!tracking||refreshing) return; distance=e.touches[0].clientY-startY; if(distance<=0) return; if(window.scrollY>0){ tracking=false; return; } const shown=Math.min(distance*0.55,92); el.classList.add('visible'); el.classList.toggle('ready',distance>threshold); el.textContent=distance>threshold?'놓으면 새로고침':'아래로 당겨 새로고침'; el.style.transform=`translate(-50%, ${shown-120}%)`; if(distance>18) e.preventDefault(); },{passive:false}); document.addEventListener('touchend',()=>{ if(!tracking) return; tracking=false; if(distance>threshold){ el.classList.add('loading'); el.textContent='동기화 중...'; el.style.transform='translate(-50%, 8px)'; refreshFromFirebase(true); } else resetPullIndicator(); },{passive:true}); }
+function setupPullToRefresh(){
+  const el=$('#pullRefresh');
+  if(!el) return;
+  let startY=0, tracking=false, distance=0;
+  const threshold=76;
+  const blockedSelector='.table-scroll,.ledger-scroll,.annual-ledger-scroll,.budget-detail-scroll,.loan-schedule-scroll,.axis-lock-scroll,table,input,select,textarea,button';
+  const isBlockedTarget=target=>target instanceof Element && !!target.closest(blockedSelector);
+
+  document.addEventListener('touchstart',e=>{
+    // v1.6.42: 표·입력 영역에서 시작한 터치는 Pull to Refresh로 전달하지 않습니다.
+    if(isBlockedTarget(e.target)){
+      tracking=false;
+      distance=0;
+      resetPullIndicator();
+      return;
+    }
+    if(window.scrollY<=0&&!refreshing){
+      startY=e.touches[0].clientY;
+      tracking=true;
+      distance=0;
+    }
+  },{passive:true});
+
+  document.addEventListener('touchmove',e=>{
+    if(!tracking||refreshing) return;
+    if(isBlockedTarget(e.target)){
+      tracking=false;
+      distance=0;
+      resetPullIndicator();
+      return;
+    }
+    distance=e.touches[0].clientY-startY;
+    if(distance<=0) return;
+    if(window.scrollY>0){
+      tracking=false;
+      resetPullIndicator();
+      return;
+    }
+    const shown=Math.min(distance*0.55,92);
+    el.classList.add('visible');
+    el.classList.toggle('ready',distance>threshold);
+    el.textContent=distance>threshold?'놓으면 새로고침':'아래로 당겨 새로고침';
+    el.style.transform=`translate(-50%, ${shown-120}%)`;
+    if(distance>18) e.preventDefault();
+  },{passive:false});
+
+  document.addEventListener('touchend',()=>{
+    if(!tracking) return;
+    tracking=false;
+    if(distance>threshold){
+      el.classList.add('loading');
+      el.textContent='동기화 중...';
+      el.style.transform='translate(-50%, 8px)';
+      refreshFromFirebase(true);
+    }else resetPullIndicator();
+  },{passive:true});
+  document.addEventListener('touchcancel',()=>{
+    tracking=false;
+    distance=0;
+    resetPullIndicator();
+  },{passive:true});
+}
 async function connectFirebase(){
   if(connectionInProgress) return;
   connectionInProgress=true;
