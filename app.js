@@ -845,7 +845,7 @@ function renderHome(){
   const loanLabel=$('#homeLoanPaymentForFundLabel'); if(loanLabel) loanLabel.textContent=`${selectedMonth()}월 대출 납부금`;
   const loanFundEl=$('#homeLoanInterestForFund'); if(loanFundEl) loanFundEl.textContent=money(loanPayment);
   $('#homeSurplus').textContent=money(investmentFund); $('#homeSurplus').className=investmentFund>=0?'plus':'minus';
-  const surplus=income-(fixed+loanPayment+investmentFund);
+  const surplus=income-(fixed+loanPayment);
   const homeRemainder=$('#homeRemainder'); if(homeRemainder){ homeRemainder.textContent=money(surplus); homeRemainder.className=surplus>=0?'plus':'minus'; }
   $('#incomeAccSummary').textContent=`잉여액 ${money(surplus)}`;
 
