@@ -1093,7 +1093,7 @@ function investmentAverageRate(){
 }
 function renderInvest(){
   const row=(label,key,isCma=false)=>{
-    if(isCma){ const amount=cmaAmountForPeriod(); return `<tr><td>${label}</td><td>${money(amount)}</td><td>${money(amount)}</td><td>0원</td><td>-</td></tr>`; }
+    if(isCma){ const amount=cmaAmountForPeriod(); return `<tr><td>${label}</td><td><input data-money data-invest-cma="principal" type="text" inputmode="numeric" value="${comma(amount)}"></td><td><input data-money data-invest-cma="current" type="text" inputmode="numeric" value="${comma(amount)}"></td><td>0원</td><td>-</td></tr>`; }
     const m=investmentMetrics(key);
     return `<tr><td>${label}</td><td><input data-money data-invest-principal="${key}" type="text" inputmode="numeric" value="${comma(m.principal)}"></td><td><input data-money data-invest-current="${key}" type="text" inputmode="numeric" value="${comma(m.current)}"></td><td class="${m.profit<0?'minus':'plus'}">${money(m.profit)}</td><td class="${m.rate<0?'minus':'plus'}">${m.rate.toFixed(2)}%</td></tr>`;
   };
@@ -1605,7 +1605,18 @@ function bindEvents(){
     }
   });
   $('#saveAssetsBtn').addEventListener('click', async()=>{ await persistRemote(); });
-  $('#saveInvestBtn').addEventListener('click', async()=>{ ['domestic','overseas'].forEach(k=>{ const principal=num($(`[data-invest-principal="${k}"]`)?.value); const current=num($(`[data-invest-current="${k}"]`)?.value); state.investmentSummary[k]={...(state.investmentSummary[k]||{}),principal,current,amount:current,rate:principal?((current-principal)/principal*100):0}; }); renderInvest(); renderHome(); await persistRemote(); showToast('투자 현황을 저장했습니다.'); });
+  $('#investmentTable').addEventListener('input', e=>{
+    const cmaInput=e.target.closest('[data-invest-cma]');
+    if(!cmaInput) return;
+    const other=$(`[data-invest-cma="${cmaInput.dataset.investCma==='principal'?'current':'principal'}"]`);
+    if(other) other.value=cmaInput.value;
+  });
+  $('#saveInvestBtn').addEventListener('click', async()=>{
+    ['domestic','overseas'].forEach(k=>{ const principal=num($(`[data-invest-principal="${k}"]`)?.value); const current=num($(`[data-invest-current="${k}"]`)?.value); state.investmentSummary[k]={...(state.investmentSummary[k]||{}),principal,current,amount:current,rate:principal?((current-principal)/principal*100):0}; });
+    const cmaAmount=num($('[data-invest-cma="current"]')?.value);
+    state.investmentSummary.cma={...(state.investmentSummary.cma||{}),manualAmount:cmaAmount,amount:cmaAmount,rate:0};
+    renderInvest(); renderHome(); await persistRemote(); showToast('투자 현황을 저장했습니다.');
+  });
   $('#saveLoanBtn').addEventListener('click', async()=>{
     state.loan={
       ...state.loan,
