@@ -1027,3 +1027,13 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
 .expense-amount-row #expenseAmount{flex:1;min-width:0}
 .jaturi-minus-btn{flex:0 0 auto;min-width:84px;border:1px solid #f3a4a4;border-radius:14px;background:#fff1f1;color:#c62828;font-weight:800;padding:0 12px}
 .jaturi-minus-btn.active{background:#d32f2f;color:#fff;border-color:#d32f2f}
+
+/* v1.6.41 고정지출 일반 메모 / 세부 분류용 메모 분리 */
+.memo-text-label{display:block;margin:0 0 10px;color:var(--muted);font-size:12px;font-weight:800}
+.memo-text-label>span{display:block;margin-bottom:6px}
+.memo-dialog .memo-text-label textarea{width:100%;min-height:96px;font-weight:500;color:var(--text)}
+.memo-dialog #fixedDetailMemoEditor{min-height:118px}
+@media(max-width:420px){
+  .memo-dialog .memo-text-label textarea{min-height:90px}
+  .memo-dialog #fixedDetailMemoEditor{min-height:110px}
+}

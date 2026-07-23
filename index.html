@@ -71,7 +71,8 @@
               <tr><th id="homeFixedLabel">월별 고정지출</th><td id="homeFixed">0원</td></tr>
               <tr><th id="homeLoanPaymentForFundLabel">월별 대출 납부금</th><td id="homeLoanInterestForFund">0원</td></tr>
               
-              <tr class="strong"><th>투자자금</th><td id="homeSurplus">0원</td></tr>
+              <tr><th>투자자금</th><td id="homeSurplus">0원</td></tr>
+              <tr class="strong"><th>잉여액</th><td id="homeRemainder">0원</td></tr>
             </tbody></table>
           </div>
         </section>
@@ -339,11 +340,12 @@
     <div class="memo-dialog" role="dialog" aria-modal="true" aria-labelledby="fixedMemoTitle">
       <div class="memo-dialog-head"><strong id="fixedMemoTitle">금액 메모</strong><button type="button" id="fixedMemoCancel" class="memo-close" aria-label="닫기">×</button></div>
       <label class="memo-amount-label">금액<input id="fixedMemoAmount" type="text" inputmode="numeric" data-money placeholder="금액"></label>
-      <textarea id="fixedMemoEditor" rows="8" placeholder="예: KT 8,000 실비 5,000"></textarea>
-      <p class="hint">내용과 금액을 함께 입력하면 고정지출 세부 분류에서 번호 목록으로 정리됩니다.</p>
+      <label class="memo-text-label"><span id="fixedGeneralMemoLabel">메모</span><textarea id="fixedMemoEditor" rows="4" placeholder="일반적인 설명이나 비고를 입력하세요."></textarea></label>
+      <label id="fixedDetailMemoWrap" class="memo-text-label" hidden><span>세부 분류용 메모</span><textarea id="fixedDetailMemoEditor" rows="5" placeholder="예: KT 8,000 실비 5,000"></textarea></label>
+      <p class="hint">세부 분류용 메모에 입력한 항목과 금액만 고정지출 세부 분류에 반영됩니다. 일반 메모의 숫자는 계산하지 않습니다.</p>
       <div class="memo-dialog-actions"><button type="button" id="fixedMemoCancelBottom" class="ghost" onclick="document.getElementById('fixedMemoCancel').click()">취소</button><button type="button" id="fixedMemoSave" class="primary">메모 적용</button></div>
     </div>
   </div>
-  <script type="module" src="app.js?v=1631"></script>
+  <script type="module" src="app.js?v=1641"></script>
 </body>
 </html>
