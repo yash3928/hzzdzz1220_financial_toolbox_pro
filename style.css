@@ -1080,3 +1080,10 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
   align-items:center;
 }
 #approvalSummaryTitle{margin:0;}
+
+
+/* v1.6.48 결재 보기 전체 취소 체크박스 */
+.approval-bulk-actions{display:flex;justify-content:flex-end;align-items:center;padding:10px 12px 8px;border-bottom:1px solid #d8e0eb;background:#fff}
+.approval-bulk-cancel{display:inline-flex;align-items:center;gap:7px;margin:0;font-weight:800;color:#475569;cursor:pointer}
+.approval-bulk-cancel input{width:20px;height:20px;margin:0;accent-color:#ef4444}
+.approval-bulk-cancel:has(input:disabled){opacity:.45;cursor:default}

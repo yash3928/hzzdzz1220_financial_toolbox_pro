@@ -964,6 +964,11 @@ function renderApprovalSummary(){
   foot.innerHTML=`<tr class="strong"><th>총합계</th><th>${money(jinTotal)}</th><th>${money(dahTotal)}</th><th>${money(jinTotal+dahTotal)}</th></tr>`;
   const title=$('#approvalSummaryTitle');
   if(title) title.textContent=`📋 ${selectedYear()}년 ${selectedMonth()}월 결재 보기`;
+  const bulkCancel=$('#approvalBulkCancel');
+  if(bulkCancel){
+    bulkCancel.checked=false;
+    bulkCancel.disabled=rows.length===0;
+  }
 }
 function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; const categories=allExpenseCategories(); sel.innerHTML=categories.map(c=>`<option>${c}</option>`).join(''); if(categories.includes(selected)) sel.value=selected; updateExpenseAmountKeyboard(); const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td><div>${e.date||''}</div><div class="expense-status-checks"><label class="expense-paid-check"><input type="checkbox" data-exp-paid="${e.id}" ${e.paid?'checked':''}> 지급</label><label class="expense-paid-check"><input type="checkbox" data-exp-approved="${e.id}" ${e.approved?'checked':''}> 결재</label></div></td><td>${escapeHtml(e.category||'')}</td><td>${escapeHtml(e.memo||'')}</td><td>${escapeHtml(e.payer||'')}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; renderApprovalSummary(); renderAnnualLedger(); }
 function renderBudget(){
@@ -1456,6 +1461,16 @@ function bindEvents(){
     if(paidCheck){ const item=state.expenses.find(x=>x.id===paidCheck.dataset.expPaid); if(item){ item.paid=Boolean(paidCheck.checked); item.updatedAt=new Date().toISOString(); renderLedger(); await persistRemote(); } return; }
     const approvedCheck=e.target.closest('[data-exp-approved]');
     if(approvedCheck){ const item=state.expenses.find(x=>x.id===approvedCheck.dataset.expApproved); if(item){ item.approved=Boolean(approvedCheck.checked); item.updatedAt=new Date().toISOString(); renderLedger(); await persistRemote(); } return; }
+    const bulkCancel=e.target.closest('#approvalBulkCancel');
+    if(bulkCancel){
+      if(!bulkCancel.checked) return;
+      const now=new Date().toISOString();
+      const approvedRows=currentExpenses().filter(item=>item.approved);
+      approvedRows.forEach(item=>{ item.approved=false; item.updatedAt=now; });
+      renderLedger();
+      if(approvedRows.length){ await persistRemote(); showToast('선택 월의 결재를 전체 취소했습니다.'); }
+      return;
+    }
     const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.budgetAdjustEdit!==undefined){
       const item=(state.budgetAdjustments||[]).find(x=>String(x.id)===String(t.dataset.budgetAdjustEdit)); if(!item) return;
