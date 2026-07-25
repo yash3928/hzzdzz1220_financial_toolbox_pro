@@ -1061,11 +1061,22 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
 .approval-summary-table thead th{position:sticky;top:0;z-index:6;background:#e8eef8;box-shadow:0 2px 0 #94a3b8}
 .approval-summary-table tfoot th{background:#fff7ed;font-weight:900}
 
-/* v1.6.46 결재 보기 제목 좌측 간격을 월 지출내역과 동일하게 정렬 */
+/* v1.6.47 결재 보기 카드를 월/연도 지출내역 카드와 완전히 동일하게 정렬 */
+#view-ledger > .approval-summary-card{
+  display:block;
+  width:100%;
+  max-width:none;
+  margin-left:0;
+  margin-right:0;
+  margin-bottom:12px;
+}
 #view-ledger > .approval-summary-card > .accordion-toggle{
-  padding-left:14px;
-  padding-right:14px;
+  width:100%;
+  min-height:52px;
+  margin:0;
+  padding:14px !important;
+  grid-template-columns:minmax(0,1fr) auto 20px;
+  column-gap:8px;
+  align-items:center;
 }
-#approvalSummaryTitle{
-  margin-left:-24px;
-}
+#approvalSummaryTitle{margin:0;}
