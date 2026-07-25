@@ -114,7 +114,7 @@ function mergeDefaults(data){
     });
     return {id:it.id||crypto.randomUUID(),name:String(it.name||''),owner:['진혁','다혜','공동'].includes(it.owner)?it.owner:'공동',category:it.category||classifyFixedExpense(it.name),memo:String(it.memo||''),monthly};
   }).filter(it=>!merged.fixedDeletedIds.includes(String(it.id)));
-  merged.expenses = Array.isArray(d.expenses) ? d.expenses.map(e=>({...e,paid:Boolean(e?.paid)})) : [];
+  merged.expenses = Array.isArray(d.expenses) ? d.expenses.map(e=>({...e,paid:Boolean(e?.paid),approved:Boolean(e?.approved)})) : [];
   merged.salary = {...base.salary, ...(d.salary||{})};
   merged.salary.jinhyuk = {...base.salary.jinhyuk, ...(d.salary?.jinhyuk||{})};
   merged.salary.dahye = {...base.salary.dahye, ...(d.salary?.dahye||{})};
@@ -930,7 +930,7 @@ function renderAnnualLedger(){
   const total=rows.reduce((sum,e)=>sum+num(e.amount),0);
   titleEl.textContent=`📚 ${year}년 지출내역`;
   totalEl.textContent=money(total);
-  table.innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td>${escapeHtml(e.date||'')}</td><td>${escapeHtml(e.memo||'')}</td><td>${escapeHtml(e.category||'')}</td><td>${escapeHtml(e.payer||'')}</td><td>${money(e.amount)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">조건에 맞는 지출내역이 없습니다.</td></tr>';
+  table.innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td>${escapeHtml(e.date||'')}</td><td>${escapeHtml(e.category||'')}</td><td>${escapeHtml(e.memo||'')}</td><td>${escapeHtml(e.payer||'')}</td><td>${money(e.amount)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">조건에 맞는 지출내역이 없습니다.</td></tr>';
 }
 function updateExpenseAmountKeyboard(){
   const amount=$('#expenseAmount');
@@ -948,7 +948,24 @@ function updateExpenseAmountKeyboard(){
     minusBtn.textContent=isNegative?'− 출금 적용':'− 출금';
   }
 }
-function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; const categories=allExpenseCategories(); sel.innerHTML=categories.map(c=>`<option>${c}</option>`).join(''); if(categories.includes(selected)) sel.value=selected; updateExpenseAmountKeyboard(); const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td><div>${e.date||''}</div><label class="expense-paid-check"><input type="checkbox" data-exp-paid="${e.id}" ${e.paid?'checked':''}> 지급</label></td><td>${escapeHtml(e.memo||'')}</td><td>${e.category}</td><td>${e.payer}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; renderAnnualLedger(); }
+function renderApprovalSummary(){
+  const rows=currentExpenses().filter(e=>e.approved && (e.payer==='진혁'||e.payer==='다혜'));
+  const categories=[...new Set(rows.map(e=>e.category).filter(Boolean))];
+  const body=$('#approvalSummaryTable tbody');
+  const foot=$('#approvalSummaryTable tfoot');
+  if(!body||!foot) return;
+  body.innerHTML=categories.map(category=>{
+    const jin=rows.filter(e=>e.category===category&&e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0);
+    const dah=rows.filter(e=>e.category===category&&e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0);
+    return `<tr><td>${escapeHtml(category)}</td><td>${money(jin)}</td><td>${money(dah)}</td><td>${money(jin+dah)}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="muted">결재 체크된 지출내역이 없습니다.</td></tr>';
+  const jinTotal=rows.filter(e=>e.payer==='진혁').reduce((a,e)=>a+num(e.amount),0);
+  const dahTotal=rows.filter(e=>e.payer==='다혜').reduce((a,e)=>a+num(e.amount),0);
+  foot.innerHTML=`<tr class="strong"><th>총합계</th><th>${money(jinTotal)}</th><th>${money(dahTotal)}</th><th>${money(jinTotal+dahTotal)}</th></tr>`;
+  const title=$('#approvalSummaryTitle');
+  if(title) title.textContent=`📋 ${selectedYear()}년 ${selectedMonth()}월 결재 보기`;
+}
+function renderLedger(){ const sel=$('#expenseCategory'); const selected=sel.value; const categories=allExpenseCategories(); sel.innerHTML=categories.map(c=>`<option>${c}</option>`).join(''); if(categories.includes(selected)) sel.value=selected; updateExpenseAmountKeyboard(); const rows=currentExpenses().sort((a,b)=>(a.date||'').localeCompare(b.date||'')); $('#ledgerTable tbody').innerHTML=rows.map(e=>`<tr class="${e.paid?'expense-settled':''}"><td><div>${e.date||''}</div><div class="expense-status-checks"><label class="expense-paid-check"><input type="checkbox" data-exp-paid="${e.id}" ${e.paid?'checked':''}> 지급</label><label class="expense-paid-check"><input type="checkbox" data-exp-approved="${e.id}" ${e.approved?'checked':''}> 결재</label></div></td><td>${escapeHtml(e.category||'')}</td><td>${escapeHtml(e.memo||'')}</td><td>${escapeHtml(e.payer||'')}</td><td>${money(e.amount)}</td><td><button class="ghost small" data-edit-exp="${e.id}">수정</button> <button class="danger small" data-del-exp="${e.id}">삭제</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">이번 월 지출내역이 없습니다.</td></tr>'; renderApprovalSummary(); renderAnnualLedger(); }
 function renderBudget(){
   recalculateJaturi();
   $('#budgetInputTable tbody').innerHTML=orderedBudgetCategories().map(c=>{ const label=c==='쇼핑비(진혁)'?'쇼핑비 · 진혁':c==='쇼핑비(다혜)'?'쇼핑비 · 다혜':c; const current=budgetValueForSelectedPeriod(c); const memo=budgetMemoValue(c); return `<tr data-reorder-row="budget" data-budget-category="${escapeAttr(c)}"><td class="reorder-handle"><div class="budget-category-cell"><span>${escapeHtml(label)}</span><button type="button" class="danger tiny budget-item-delete" data-budget-item-del="${escapeAttr(c)}" aria-label="${escapeAttr(label)} 삭제">삭제</button></div></td><td>${isMonthlyBudgetCategory(c)?`${selectedMonth()}월`:'연도별'}</td><td><button type="button" class="fixed-amount-cell ${memo?'has-memo':''}" data-money-memo-type="budget" data-money-memo-key="${escapeAttr(c)}">${comma(current)}</button></td><td><input data-money data-budget-add="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="추가"></td><td><input data-money data-budget-cut="${escapeAttr(c)}" type="text" inputmode="numeric" placeholder="삭감"></td></tr>`; }).join('');
@@ -1437,6 +1454,8 @@ function bindEvents(){
     }
     const paidCheck=e.target.closest('[data-exp-paid]');
     if(paidCheck){ const item=state.expenses.find(x=>x.id===paidCheck.dataset.expPaid); if(item){ item.paid=Boolean(paidCheck.checked); item.updatedAt=new Date().toISOString(); renderLedger(); await persistRemote(); } return; }
+    const approvedCheck=e.target.closest('[data-exp-approved]');
+    if(approvedCheck){ const item=state.expenses.find(x=>x.id===approvedCheck.dataset.expApproved); if(item){ item.approved=Boolean(approvedCheck.checked); item.updatedAt=new Date().toISOString(); renderLedger(); await persistRemote(); } return; }
     const t=e.target.closest('button'); if(!t) return;
     if(t.dataset.budgetAdjustEdit!==undefined){
       const item=(state.budgetAdjustments||[]).find(x=>String(x.id)===String(t.dataset.budgetAdjustEdit)); if(!item) return;
@@ -1550,7 +1569,7 @@ function bindEvents(){
     const id=$('#expenseId').value||crypto.randomUUID();
     const idx=state.expenses.findIndex(x=>x.id===id);
     const previous=idx>=0?state.expenses[idx]:null;
-    const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),paid:idx>=0?Boolean(state.expenses[idx]?.paid):false,updatedAt:new Date().toISOString()};
+    const item={id,date:$('#expenseDate').value,payer:$('#expensePayer').value,category:$('#expenseCategory').value,amount:num($('#expenseAmount').value),memo:$('#expenseMemo').value.trim(),paid:idx>=0?Boolean(state.expenses[idx]?.paid):false,approved:idx>=0?Boolean(state.expenses[idx]?.approved):false,updatedAt:new Date().toISOString()};
     if(previous?.category==='자투리 통장') applyJaturiAssetDelta(-num(previous.amount));
     if(item.category==='자투리 통장') applyJaturiAssetDelta(num(item.amount));
     if(idx>=0) state.expenses[idx]=item; else state.expenses.push(item);

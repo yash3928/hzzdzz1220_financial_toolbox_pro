@@ -119,7 +119,13 @@
         <section class="accordion-card excel-panel ledger-history-card">
           <button class="accordion-toggle" data-acc="ledgerHistory"><span id="ledgerPeriodTitle">📅 선택 월 지출 내역</span><b>보기</b></button>
           <div class="accordion-content" id="acc-ledgerHistory">
-            <div class="table-scroll ledger-scroll"><table class="excel-table" id="ledgerTable"><thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th><th>관리</th></tr></thead><tbody></tbody></table></div>
+            <div class="table-scroll ledger-scroll"><table class="excel-table" id="ledgerTable"><thead><tr><th>날짜</th><th>분류</th><th>내용</th><th>결제자</th><th>금액</th><th>관리</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </section>
+        <section class="accordion-card excel-panel approval-summary-card">
+          <button class="accordion-toggle" data-acc="approvalSummary"><span id="approvalSummaryTitle">📋 선택 월 결재 보기</span><b>보기</b></button>
+          <div class="accordion-content" id="acc-approvalSummary">
+            <div class="table-scroll approval-summary-scroll"><table class="excel-table approval-summary-table" id="approvalSummaryTable"><thead><tr><th>분류</th><th>진혁</th><th>다혜</th><th>합계</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
           </div>
         </section>
         <section class="accordion-card excel-panel annual-ledger-card">
@@ -128,10 +134,10 @@
             <div class="annual-ledger-filters">
               <label>연도<select id="annualExpenseYear"></select></label>
               <label>분류<select id="annualExpenseCategory"></select></label>
-              <label>결제자<select id="annualExpensePayer"><option value="all">전체</option><option value="다혜">다혜</option><option value="진혁">진혁</option><option value="공동">공동</option></select></label>
+              <label>결제자<select id="annualExpensePayer"><option value="all">전체</option><option value="다혜">다혜</option><option value="진혁">진혁</option></select></label>
             </div>
             <div class="annual-expense-total">총 지출금액 <strong id="annualExpenseTotal">0원</strong></div>
-            <div class="table-scroll annual-ledger-scroll"><table class="excel-table annual-ledger-table" id="annualLedgerTable"><thead><tr><th>날짜</th><th>내용</th><th>분류</th><th>결제자</th><th>금액</th></tr></thead><tbody></tbody></table></div>
+            <div class="table-scroll annual-ledger-scroll"><table class="excel-table annual-ledger-table" id="annualLedgerTable"><thead><tr><th>날짜</th><th>분류</th><th>내용</th><th>결제자</th><th>금액</th></tr></thead><tbody></tbody></table></div>
           </div>
         </section>
       </section>
@@ -346,6 +352,6 @@
       <div class="memo-dialog-actions"><button type="button" id="fixedMemoCancelBottom" class="ghost" onclick="document.getElementById('fixedMemoCancel').click()">취소</button><button type="button" id="fixedMemoSave" class="primary">메모 적용</button></div>
     </div>
   </div>
-  <script type="module" src="app.js?v=1643"></script>
+  <script type="module" src="app.js?v=1645"></script>
 </body>
 </html>

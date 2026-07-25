@@ -1049,3 +1049,14 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
   overscroll-behavior:contain;
   overscroll-behavior-y:contain;
 }
+
+/* v1.6.45 결재 체크 및 결재 보기 */
+.expense-status-checks{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:5px}
+.expense-status-checks .expense-paid-check{margin:0}
+#ledgerTable tr.expense-settled .expense-status-checks,#ledgerTable tr.expense-settled .expense-status-checks *{text-decoration:none}
+#view-ledger > .approval-summary-card{width:100%;margin-left:0;margin-right:0;margin-bottom:12px}
+.approval-summary-scroll{max-height:52vh;overflow:auto;-webkit-overflow-scrolling:touch}
+.approval-summary-table{min-width:430px;table-layout:fixed}
+.approval-summary-table th,.approval-summary-table td{text-align:center !important}
+.approval-summary-table thead th{position:sticky;top:0;z-index:6;background:#e8eef8;box-shadow:0 2px 0 #94a3b8}
+.approval-summary-table tfoot th{background:#fff7ed;font-weight:900}
