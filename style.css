@@ -1060,3 +1060,12 @@ button.tiny{font-size:10px;line-height:1;padding:5px 6px;min-height:26px;border-
 .approval-summary-table th,.approval-summary-table td{text-align:center !important}
 .approval-summary-table thead th{position:sticky;top:0;z-index:6;background:#e8eef8;box-shadow:0 2px 0 #94a3b8}
 .approval-summary-table tfoot th{background:#fff7ed;font-weight:900}
+
+/* v1.6.46 결재 보기 제목 좌측 간격을 월 지출내역과 동일하게 정렬 */
+#view-ledger > .approval-summary-card > .accordion-toggle{
+  padding-left:14px;
+  padding-right:14px;
+}
+#approvalSummaryTitle{
+  margin-left:-24px;
+}
