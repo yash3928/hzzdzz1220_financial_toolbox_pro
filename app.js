@@ -642,7 +642,7 @@ function dahyeNetForYearMonth(year, month){
   const d=source, r={...DEFAULT_RATES,...(d.rates||{})}, t={...DEFAULT_TAX,...(d.tax||{})}, m=d.months?.[month]||{};
   const duty=num(m.weekday)*num(r.weekday)+num(m.holiday)*num(r.holiday)+num(m.sunday)*num(r.sunday)+num(m.monThu)*num(r.monThu)+num(m.friday)*num(r.friday);
   const bonus=Object.prototype.hasOwnProperty.call(m,'bonus')?num(m.bonus):num(m.extraAllowance);
-  const taxablePay=num(d.base)+duty+bonus;
+  const taxablePay=base+duty+bonus;
   const vehicleAllowance=Object.prototype.hasOwnProperty.call(m,'vehicleAllowance')?num(m.vehicleAllowance):num(t.vehicleAllowance);
   const rate=(key,legacy,fallback)=>Object.prototype.hasOwnProperty.call(m,key)?num(m[key]):rateDefault(t,key,legacy,fallback);
   const pension=Object.prototype.hasOwnProperty.call(m,'pensionAmount')?num(m.pensionAmount):taxDefault(t,'pensionAmount',0);
@@ -773,8 +773,23 @@ function loanBalanceForSelectedMonth(){
   return num(state.loan?.currentBalance);
 }
 
+function getDahyeConfigForMonth(month){
+  const d=state.salary.dahye;
+  const versions=Array.isArray(d.monthConfigs)?d.monthConfigs:[];
+  let selected=null;
+  versions.forEach(v=>{
+    if(num(v.month)<=num(month)) selected=v;
+  });
+  return selected||{base:d.base,rates:d.rates||DEFAULT_RATES,tax:{...DEFAULT_TAX,...(d.tax||{})}};
+}
+
 function calcDahyeMonth(month){
-  const d=state.salary.dahye, r=d.rates||DEFAULT_RATES, t={...DEFAULT_TAX,...(d.tax||{})}, m=d.months?.[month]||{};
+  const d=state.salary.dahye;
+  const cfg=getDahyeConfigForMonth(month);
+  const r=cfg.rates||DEFAULT_RATES;
+  const t={...DEFAULT_TAX,...(cfg.tax||{})};
+  const base=num(cfg.base);
+  const m=d.months?.[month]||{};
   const duty=num(m.weekday)*num(r.weekday)+num(m.holiday)*num(r.holiday)+num(m.sunday)*num(r.sunday)+num(m.monThu)*num(r.monThu)+num(m.friday)*num(r.friday);
   const bonus=monthlyOverride(m,'bonus',num(m.extraAllowance));
   const taxablePay=num(d.base)+duty+bonus;
@@ -1048,13 +1063,13 @@ function renderSalary(){
       return `<tr><td>${m}월</td><td><input data-jinhyuk-month="${key}" data-money="1" inputmode="numeric" type="text" value="${moneyInput(state.salary.jinhyuk[key])}"></td></tr>`;
     }).join('');
   }
-  const d=state.salary.dahye, tax={...DEFAULT_TAX,...(d.tax||{})};
-  $('#dahyeBase').value=comma(d.base);
-  $('#rateWeekday').value=comma(d.rates.weekday);
-  $('#rateHoliday').value=comma(d.rates.holiday);
-  $('#rateSunday').value=comma(d.rates.sunday);
-  $('#rateMonThu').value=comma(d.rates.monThu);
-  $('#rateFriday').value=comma(d.rates.friday);
+  const d=state.salary.dahye, currentCfg=getDahyeConfigForMonth(selectedMonth()), tax={...DEFAULT_TAX,...(currentCfg.tax||{})};
+  $('#dahyeBase').value=comma(currentCfg.base||0);
+  $('#rateWeekday').value=comma(currentCfg.rates?.weekday||0);
+  $('#rateHoliday').value=comma(currentCfg.rates?.holiday||0);
+  $('#rateSunday').value=comma(currentCfg.rates?.sunday||0);
+  $('#rateMonThu').value=comma(currentCfg.rates?.monThu||0);
+  $('#rateFriday').value=comma(currentCfg.rates?.friday||0);
   $('#taxVehicle').value=comma(tax.vehicleAllowance);
   $('#taxPension').value=comma(taxDefault(tax,'pensionAmount',0));
   $('#taxHealth').value=rateDefault(tax,'taxHealthRate','taxHealth',DEFAULT_TAX.taxHealthRate);
@@ -1603,7 +1618,52 @@ function bindEvents(){
   $('#cashItemList').addEventListener('input', e=>{ const i=num(e.target.dataset.cashName); const arr=state.assets.cashItems; if(e.target.dataset.cashName!==undefined) arr[i].name=e.target.value; });
   $('#cashItemList').addEventListener('change', persistRemote);
   $('#saveJinhyukSalary').addEventListener('click', async()=>{ $$('[data-jinhyuk-month]').forEach(inp=>{ state.salary.jinhyuk[inp.dataset.jinhyukMonth]=num(inp.value); }); await persistRemote(); });
-  $('#saveDahyeSalary').addEventListener('click', async()=>{ const d=state.salary.dahye; d.base=num($('#dahyeBase').value); d.rates={weekday:num($('#rateWeekday').value),holiday:num($('#rateHoliday').value),sunday:num($('#rateSunday').value),monThu:num($('#rateMonThu').value),friday:num($('#rateFriday').value)}; d.tax={...(d.tax||{}),pensionAmount:num($('#taxPension').value),taxHealthRate:num($('#taxHealth').value),taxCareRate:num($('#taxCare').value),taxEmploymentRate:num($('#taxEmployment').value),incomeTax:num($('#taxIncome').value),taxLocal:num($('#taxLocal').value),otherDeduct:num($('#taxOther').value),vehicleAllowance:num($('#taxVehicle').value),memoDeduct:num($('#taxMemoDeduct').value)}; $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); $$('[data-bonus-month]').forEach(inp=>{ const m=inp.dataset.bonusMonth; d.months[m]=d.months[m]||{}; d.months[m].bonus=num(inp.value); }); $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); }); await persistRemote(); });
+  $('#saveDahyeSalary').addEventListener('click', async()=>{
+    const d=state.salary.dahye;
+    const effectiveMonth=parseInt(prompt('새 급여 계산식을 적용할 시작 월을 입력하세요.\n예: 8 → 8월부터 새 계산식 적용\n취소하면 현재 선택 월부터 적용됩니다.', String(selectedMonth())),10);
+    const startMonth=(Number.isFinite(effectiveMonth)&&effectiveMonth>=1&&effectiveMonth<=12)?effectiveMonth:selectedMonth();
+
+    const newConfig={
+      month:startMonth,
+      base:num($('#dahyeBase').value),
+      rates:{
+        weekday:num($('#rateWeekday').value),
+        holiday:num($('#rateHoliday').value),
+        sunday:num($('#rateSunday').value),
+        monThu:num($('#rateMonThu').value),
+        friday:num($('#rateFriday').value)
+      },
+      tax:{
+        pensionAmount:num($('#taxPension').value),
+        taxHealthRate:num($('#taxHealth').value),
+        taxCareRate:num($('#taxCare').value),
+        taxEmploymentRate:num($('#taxEmployment').value),
+        incomeTax:num($('#taxIncome').value),
+        taxLocal:num($('#taxLocal').value),
+        otherDeduct:num($('#taxOther').value),
+        vehicleAllowance:num($('#taxVehicle').value),
+        memoDeduct:num($('#taxMemoDeduct').value)
+      }
+    };
+
+    d.monthConfigs=Array.isArray(d.monthConfigs)?d.monthConfigs:[];
+    d.monthConfigs=d.monthConfigs.filter(v=>num(v.month)!==startMonth);
+    d.monthConfigs.push(newConfig);
+    d.monthConfigs.sort((a,b)=>num(a.month)-num(b.month));
+
+    // 기존 필드는 최신 설정으로 유지(호환성)
+    d.base=newConfig.base;
+    d.rates=newConfig.rates;
+    d.tax={...(d.tax||{}),...newConfig.tax};
+
+    $$('[data-duty-month]').forEach(inp=>{ const m=inp.dataset.dutyMonth,k=inp.dataset.dutyKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); });
+    $$('[data-bonus-month]').forEach(inp=>{ const m=inp.dataset.bonusMonth; d.months[m]=d.months[m]||{}; d.months[m].bonus=num(inp.value); });
+    $$('[data-tax-month]').forEach(inp=>{ const m=inp.dataset.taxMonth,k=inp.dataset.taxKey; d.months[m]=d.months[m]||{}; d.months[m][k]=num(inp.value); });
+
+    await persistRemote();
+    render();
+    alert(startMonth+'월부터 새 급여 계산식이 적용되었습니다. 이전 월은 기존 계산식이 유지됩니다.');
+  });
   $('#saveCashAssetsBtn')?.addEventListener('click', async()=>{ await persistRemote(); showToast('현금 세부분류를 저장했습니다.'); });
   $('#addPurposeItemBtn')?.addEventListener('click', async()=>{
     const name=prompt('추가할 기타 자산 항목명을 입력하세요.','');
